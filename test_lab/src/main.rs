@@ -1,12 +1,16 @@
 //use std::any::type_name;
 
 fn main() {
-    let x = Variable::init(2.0);
-    println!("{}", x.data);
-    let f = Square {};
-    let y = f.call(&x);
+    let x = Variable::init(0.5);
+
+    let a_f = Square {};
+    let b_f = Exp {};
+    let c_f = Square {};
+
+    let a = a_f.call(&x);
+    let b = b_f.call(&a);
+    let y = c_f.call(&b);
     println!("{}", y.data);
-    println!("{}", x.data);
 }
 
 struct Variable {
@@ -35,5 +39,13 @@ struct Square {}
 impl Function for Square {
     fn forward(&self, x: f32) -> f32 {
         x.powf(2.0)
+    }
+}
+
+struct Exp {}
+
+impl Function for Exp {
+    fn forward(&self, x: f32) -> f32 {
+        x.exp()
     }
 }
