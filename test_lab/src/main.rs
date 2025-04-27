@@ -1,24 +1,23 @@
 //use std::any::type_name;
 
 fn main() {
-    let x = Variable::init(0.5);
+    let x = Variable::init(2.0);
+    let eps = 0.0001;
+    let f = Square {};
 
-    let a_f = Square {};
-    let b_f = Exp {};
-    let c_f = Square {};
+    let y = f.call(&x);
 
-    let a = a_f.call(&x);
-    let b = b_f.call(&a);
-    let y = c_f.call(&b);
-    println!("{}", y.data);
+    let dy = numerical_diff(&f, &x, eps);
+
+    println!("{}", dy);
 }
 
 struct Variable {
-    data: f32,
+    data: f64,
 }
 
 impl Variable {
-    fn init(data: f32) -> Self {
+    fn init(data: f64) -> Self {
         Variable { data }
     }
 }
@@ -31,13 +30,13 @@ trait Function {
         output
     }
 
-    fn forward(&self, x: f32) -> f32;
+    fn forward(&self, x: f64) -> f64;
 }
 
 struct Square {}
 
 impl Function for Square {
-    fn forward(&self, x: f32) -> f32 {
+    fn forward(&self, x: f64) -> f64 {
         x.powf(2.0)
     }
 }
@@ -45,7 +44,17 @@ impl Function for Square {
 struct Exp {}
 
 impl Function for Exp {
-    fn forward(&self, x: f32) -> f32 {
+    fn forward(&self, x: f64) -> f64 {
         x.exp()
     }
+}
+
+fn numerical_diff<T: Function>(f: &T, x: &Variable, eps: f64) -> f64 {
+    let x0 = Variable::init(x.data - eps);
+    let x1 = Variable::init(x.data + eps);
+
+    let y0 = f.call(&x0);
+    let y1 = f.call(&x1);
+
+    (y1.data - y0.data) / (2.0 * eps)
 }
