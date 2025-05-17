@@ -9,17 +9,10 @@ fn main() {
     x.borrow_mut().name = Some("x".to_string());
     println!("x = {:?}", x);
 
-    let A = Square::new();
-    let B = Exp::new();
-    let C = Square::new();
-
-    let a = A.borrow_mut().call(&x);
-    let b = B.borrow_mut().call(&a);
-    let y = C.borrow_mut().call(&b);
+    let y = square(&exp(&square(&x)));
 
     println!("y.data = {:?}", y.borrow().data);
 
-    y.borrow_mut().grad = Some(1.0);
     y.borrow_mut().backward();
 
     println!("x = {:?}", x);
@@ -56,7 +49,7 @@ impl Variable {
             let x = f.borrow().get_input();
 
             if last_variable {
-                let y_grad = *self.grad.as_ref().unwrap();
+                let y_grad: f32 = 1.0;
                 x.borrow_mut().grad = Some(f.borrow().backward(y_grad));
                 last_variable = false;
             } else {
@@ -142,6 +135,10 @@ impl Drop for Square {
     }
 }
 
+fn square(x: &Rc<RefCell<Variable>>) -> Rc<RefCell<Variable>> {
+    Square::new().borrow_mut().call(x)
+}
+
 #[derive(Debug, Clone)]
 struct Exp {
     input: Rc<RefCell<Variable>>,
@@ -196,69 +193,7 @@ impl Drop for Exp {
         println!("Dropping : {:?}", self);
     }
 }
-/*
-#[derive(Debug)]
-enum Functions {
-    Square(Square),
-    Exp(Exp),
+
+fn exp(x: &Rc<RefCell<Variable>>) -> Rc<RefCell<Variable>> {
+    Exp::new().borrow_mut().call(x)
 }
-
-impl Function for Functions {
-    fn new() -> Rc<RefCell<Self>> {
-        unimplemented!("new() is not directly applicable to Functions enum");
-    }
-
-    fn call(&mut self, input: &Rc<RefCell<Variable>>) -> Rc<RefCell<Variable>> {
-        match self {
-            Functions::Square(square) => square.call(input),
-            Functions::Exp(exp) => exp.call(input),
-        }
-    }
-
-    fn forward(&self, x: f32) -> f32 {
-        match self {
-            Functions::Square(square) => square.forward(x),
-            Functions::Exp(exp) => exp.forward(x),
-        }
-    }
-
-    fn backward(&self, gy: f32) -> f32 {
-        match self {
-            Functions::Square(square) => square.forward(gy),
-            Functions::Exp(exp) => exp.forward(gy),
-        }
-    }
-}
-*/
-/*fn _numerical_diff<'a, T: Function<'a>>(f: &'a mut T, x: &'a Variable, eps: f32) -> f32 {
-    let x0 = Variable::init(x.data - eps);
-    let x1 = Variable::init(x.data + eps);
-
-    let y0 = f.call(&x0);
-    let y1 = f.call(&x1);
-
-    (y1.data - y0.data) / (2.0 * eps)
-}
-
-
-
-if let Some(creator) = &y.borrow().creator {
-        match &*creator.borrow() {
-            Functions::Square(sq) => {
-                println!("y.creator.input={:?}", sq.input);
-            }
-            Functions::Exp(ex) => {
-                println!("y.creator.input={:?}", ex.input);
-            }
-        }
-    };
-
-
-fn cap_input(creator: &Rc<RefCell<Functions>>) -> Option<Rc<RefCell<Variable>>> {
-    let captured_input = match &*creator.borrow() {
-        Functions::Square(sqare) => sqare.input,
-        Functions::Exp(exp) => exp.input,
-    };
-    captured_input
-}
- */
