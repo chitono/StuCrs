@@ -16,40 +16,20 @@ fn main() {
     let a = A.borrow_mut().call(&x);
     let b = B.borrow_mut().call(&a);
     let y = C.borrow_mut().call(&b);
+
     println!("y.data = {:?}", y.borrow().data);
 
     y.borrow_mut().grad = Some(1.0);
     y.borrow_mut().backward();
-    println!("y.grad = {:?}", y.borrow().grad);
-}
 
-fn get_input(creator: &Rc<RefCell<Functions>>) -> Rc<RefCell<Variable>> {
-    match &*creator.borrow() {
-        Functions::Square(square) => Rc::clone(&square.input),
-        Functions::Exp(exp) => Rc::clone(&exp.input),
-    }
-}
-
-fn get_output(creator: &Rc<RefCell<Functions>>) -> Weak<RefCell<Variable>> {
-    let creator_rc = creator.borrow();
-    match &*creator_rc {
-        Functions::Square(square) => square.output.clone(),
-        Functions::Exp(exp) => exp.output.clone(),
-    }
-}
-
-fn backward(creator: &Rc<RefCell<Functions>>, grad: f32) -> f32 {
-    match &*creator.borrow() {
-        Functions::Square(square) => square.backward(grad),
-        Functions::Exp(exp) => exp.backward(grad),
-    }
+    println!("x = {:?}", x);
 }
 
 #[derive(Debug, Clone)]
 struct Variable {
     data: f32,
     grad: Option<f32>,
-    creator: Option<Rc<RefCell<Functions>>>,
+    creator: Option<Rc<RefCell<dyn Function>>>,
     name: Option<String>,
 }
 
@@ -63,20 +43,27 @@ impl Variable {
         }))
     }
 
-    fn set_creator(&mut self, func: &Rc<RefCell<Functions>>) {
+    fn set_creator(&mut self, func: &Rc<RefCell<dyn Function>>) {
         self.creator = Some(Rc::clone(func));
     }
 
     fn backward(&self) {
-        let mut funcs: Vec<Rc<RefCell<Functions>>> =
+        let mut funcs: Vec<Rc<RefCell<dyn Function>>> =
             vec![Rc::clone(self.creator.as_ref().unwrap())];
-        while let Some(f) = funcs.pop() {
-            let x = get_input(&f);
-            let y = get_output(&f);
-            println!("1");
-            let y_grad = y.upgrade().as_ref().unwrap().borrow().grad;
 
-            x.borrow_mut().grad = Some(backward(&f, *y_grad.as_ref().unwrap()));
+        let mut last_variable = true;
+        while let Some(f) = funcs.pop() {
+            let x = f.borrow().get_input();
+
+            if last_variable {
+                let y_grad = *self.grad.as_ref().unwrap();
+                x.borrow_mut().grad = Some(f.borrow().backward(y_grad));
+                last_variable = false;
+            } else {
+                let y = f.borrow().get_output();
+                let y_grad = *y.borrow().grad.as_ref().unwrap();
+                x.borrow_mut().grad = Some(f.borrow().backward(y_grad));
+            }
 
             if x.borrow().creator.is_none() {
                 break;
@@ -94,10 +81,11 @@ impl Drop for Variable {
 }
 
 trait Function: Debug {
-    fn new() -> Rc<RefCell<Self>>;
     fn call(&mut self, input: &Rc<RefCell<Variable>>) -> Rc<RefCell<Variable>>;
     fn forward(&self, x: f32) -> f32; // 引数f32
     fn backward(&self, gy: f32) -> f32; // 引数f32
+    fn get_input(&self) -> Rc<RefCell<Variable>>;
+    fn get_output(&self) -> Rc<RefCell<Variable>>;
 }
 #[derive(Debug, Clone)]
 struct Square {
@@ -106,21 +94,18 @@ struct Square {
 }
 
 impl Function for Square {
-    fn new() -> Rc<RefCell<Self>> {
-        Rc::new(RefCell::new(Self {
-            input: Variable::new(0.0),
-            output: Rc::downgrade(&Variable::new(0.0)),
-        }))
-    }
     fn call(&mut self, input: &Rc<RefCell<Variable>>) -> Rc<RefCell<Variable>> {
         let x = input.borrow().data;
         let y = self.forward(x);
+
         let output = Variable::new(y);
+
         self.input = Rc::clone(input);
         self.output = Rc::downgrade(&output);
-        output
-            .borrow_mut()
-            .set_creator(&Rc::new(RefCell::new(Functions::Square(self.clone()))));
+
+        let self_square: Rc<RefCell<dyn Function>> = Rc::new(RefCell::new(self.clone()));
+        output.borrow_mut().set_creator(&self_square);
+
         output
     }
 
@@ -132,7 +117,24 @@ impl Function for Square {
         let x = self.input.borrow().data;
         2.0 * x * gy // = gx
     }
+
+    fn get_input(&self) -> Rc<RefCell<Variable>> {
+        Rc::clone(&self.input)
+    }
+
+    fn get_output(&self) -> Rc<RefCell<Variable>> {
+        Rc::clone(self.output.upgrade().as_ref().unwrap())
+    }
 }
+impl Square {
+    fn new() -> Rc<RefCell<Self>> {
+        Rc::new(RefCell::new(Self {
+            input: Variable::new(0.0),
+            output: Rc::downgrade(&Variable::new(0.0)),
+        }))
+    }
+}
+
 #[cfg(test)]
 impl Drop for Square {
     fn drop(&mut self) {
@@ -147,22 +149,18 @@ struct Exp {
 }
 
 impl Function for Exp {
-    fn new() -> Rc<RefCell<Self>> {
-        Rc::new(RefCell::new(Self {
-            input: Variable::new(0.0),
-            output: Rc::downgrade(&Variable::new(0.0)),
-        }))
-    }
-
     fn call(&mut self, input: &Rc<RefCell<Variable>>) -> Rc<RefCell<Variable>> {
         let x = input.borrow().data;
         let y = self.forward(x);
+
         let output = Variable::new(y);
+
         self.input = Rc::clone(input);
         self.output = Rc::downgrade(&output);
-        output
-            .borrow_mut()
-            .set_creator(&Rc::new(RefCell::new(Functions::Exp(self.clone()))));
+
+        let self_exp: Rc<RefCell<dyn Function>> = Rc::new(RefCell::new(self.clone()));
+        output.borrow_mut().set_creator(&self_exp);
+
         output
     }
 
@@ -174,21 +172,37 @@ impl Function for Exp {
         let x = self.input.borrow().data;
         x.exp() * gy // = gx
     }
+
+    fn get_input(&self) -> Rc<RefCell<Variable>> {
+        self.input.clone()
+    }
+
+    fn get_output(&self) -> Rc<RefCell<Variable>> {
+        self.output.upgrade().as_ref().unwrap().clone()
+    }
 }
 
+impl Exp {
+    fn new() -> Rc<RefCell<Self>> {
+        Rc::new(RefCell::new(Self {
+            input: Variable::new(0.0),
+            output: Rc::downgrade(&Variable::new(0.0)),
+        }))
+    }
+}
 #[cfg(test)]
 impl Drop for Exp {
     fn drop(&mut self) {
         println!("Dropping : {:?}", self);
     }
 }
-
+/*
 #[derive(Debug)]
 enum Functions {
     Square(Square),
     Exp(Exp),
 }
-/*
+
 impl Function for Functions {
     fn new() -> Rc<RefCell<Self>> {
         unimplemented!("new() is not directly applicable to Functions enum");
