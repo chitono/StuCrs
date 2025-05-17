@@ -74,21 +74,32 @@ impl Drop for Variable {
 }
 
 trait Function: Debug {
-    fn call(&mut self, input: &Rc<RefCell<Variable>>) -> Rc<RefCell<Variable>>;
-    fn forward(&self, x: f32) -> f32; // 引数f32
-    fn backward(&self, gy: f32) -> f32; // 引数f32
+    fn call(
+        &mut self,
+        input: &[Option<Rc<RefCell<Variable>>>; 2],
+    ) -> [Option<Weak<RefCell<Variable>>>; 2];
+    fn forward(&self, x: [Option<f32>; 2]) -> [Option<f32>; 2]; // 引数f32
+    fn backward(&self, gy: [Option<f32>; 2]) -> [Option<f32>; 2]; // 引数f32
     fn get_input(&self) -> Rc<RefCell<Variable>>;
     fn get_output(&self) -> Rc<RefCell<Variable>>;
 }
+
 #[derive(Debug, Clone)]
 struct Square {
-    input: Rc<RefCell<Variable>>,
-    output: Weak<RefCell<Variable>>,
+    input: (Rc<RefCell<Variable>>, Option<Rc<RefCell<Variable>>>),
+    output: (Weak<RefCell<Variable>>, Option<Weak<RefCell<Variable>>>),
 }
 
 impl Function for Square {
-    fn call(&mut self, input: &Rc<RefCell<Variable>>) -> Rc<RefCell<Variable>> {
-        let x = input.borrow().data;
+    fn call(
+        &mut self,
+        input: &[Option<Rc<RefCell<Variable>>>; 2],
+    ) -> [Option<Weak<RefCell<Variable>>>; 2] {
+        let mut xs = [None, None];
+        xs[0] = input[0].map(|x_data| );
+
+        xs[1] = input[1];
+
         let y = self.forward(x);
 
         let output = Variable::new(y);
