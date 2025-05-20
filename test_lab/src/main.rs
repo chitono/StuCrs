@@ -2,6 +2,7 @@ use std::cell::RefCell;
 
 use std::fmt::{Debug, LowerExp};
 use std::future;
+use std::process::Output;
 use std::rc::{Rc, Weak};
 
 fn main() {
@@ -77,56 +78,89 @@ trait Function: Debug {
     fn call(
         &mut self,
         input: &[Option<Rc<RefCell<Variable>>>; 2],
-    ) -> [Option<Weak<RefCell<Variable>>>; 2];
+    ) -> [Option<Rc<RefCell<Variable>>>; 2];
     fn forward(&self, x: [Option<f32>; 2]) -> [Option<f32>; 2]; // 引数f32
     fn backward(&self, gy: [Option<f32>; 2]) -> [Option<f32>; 2]; // 引数f32
-    fn get_input(&self) -> Rc<RefCell<Variable>>;
-    fn get_output(&self) -> Rc<RefCell<Variable>>;
+    fn get_inputs(&self) -> [Option<Rc<RefCell<Variable>>>; 2];
+    fn get_outputs(&self) -> [Option<Weak<RefCell<Variable>>>; 2];
 }
 
 #[derive(Debug, Clone)]
 struct Square {
-    input: (Rc<RefCell<Variable>>, Option<Rc<RefCell<Variable>>>),
-    output: (Weak<RefCell<Variable>>, Option<Weak<RefCell<Variable>>>),
+    inputs: [Option<Rc<RefCell<Variable>>>; 2],
+    outputs: [Option<Weak<RefCell<Variable>>>; 2],
 }
 
 impl Function for Square {
     fn call(
         &mut self,
-        input: &[Option<Rc<RefCell<Variable>>>; 2],
-    ) -> [Option<Weak<RefCell<Variable>>>; 2] {
+        inputs: &[Option<Rc<RefCell<Variable>>>; 2],
+    ) -> [Option<Rc<RefCell<Variable>>>; 2] {
         let mut xs = [None, None];
-        xs[0] = input[0].map(|x_data| );
 
-        xs[1] = input[1];
+        for (i, input) in inputs.iter().enumerate() {
+            if let Some(var) = input {
+                xs[i] = Some(var.borrow().data);
+            }
+        }
 
-        let y = self.forward(x);
+        let ys = self.forward(xs);
 
-        let output = Variable::new(y);
+        let mut outputs = [None, None];
 
-        self.input = Rc::clone(input);
-        self.output = Rc::downgrade(&output);
+        for (i, y) in ys.iter().enumerate() {
+            if let Some(data) = y {
+                outputs[i] = Some(Variable::new(*data));
+            }
+        }
+
+        /*
+        if let Some(var) = ys[0] {
+            outputs[0] = Some(Variable::new(*ys[0].as_ref().unwrap()))
+        }
+        if let Some(var) = ys[1] {
+            outputs[1] = Some(Variable::new(*ys[1].as_ref().unwrap()))
+        }
+        */
+        self.inputs = inputs.clone();
+        self.outputs = [
+            outputs[0].as_ref().map(|rc_0| Rc::downgrade(rc_0)),
+            outputs[1].as_ref().map(|rc_1| Rc::downgrade(rc_1)),
+        ];
 
         let self_square: Rc<RefCell<dyn Function>> = Rc::new(RefCell::new(self.clone()));
-        output.borrow_mut().set_creator(&self_square);
 
-        output
+        for output_opt in &outputs {
+            if let Some(output_rc) = output_opt {
+                output_rc.borrow_mut().set_creator(&self_square);
+            }
+        }
+
+        outputs
     }
 
-    fn forward(&self, x: f32) -> f32 {
-        x.powf(2.0)
+    fn forward(&self, xs: [Option<f32>; 2]) -> [Option<f32>; 2] {
+        let mut ys = [None, None];
+        for (i, x) in xs.iter().enumerate() {
+            if let Some(x_data) = x {
+                ys[i] = Some(x_data.powf(2.0));
+            }
+        }
+        ys
     }
 
-    fn backward(&self, gy: f32) -> f32 {
-        let x = self.input.borrow().data;
+    fn backward(&self, gys: [Option<f32>; 2]) -> [Option<f32>; 2] {
+        let mut gxs = [None, None];
+
+        let xs = [self.inputs[0].borrow().data, self.inputs];
         2.0 * x * gy // = gx
     }
 
-    fn get_input(&self) -> Rc<RefCell<Variable>> {
+    fn get_inputs(&self) -> [Option<Rc<RefCell<Variable>>>; 2] {
         Rc::clone(&self.input)
     }
 
-    fn get_output(&self) -> Rc<RefCell<Variable>> {
+    fn get_outputs(&self) -> [Option<Weak<RefCell<Variable>>>; 2] {
         Rc::clone(self.output.upgrade().as_ref().unwrap())
     }
 }
