@@ -1,10 +1,14 @@
 //use std::rc::Rc;
 
 fn main() {
-    let a = [Some(5.0), Some(1.0)];
-    if let Some(_variable) = &a[1] {
-        panic!("Squareは一変数関数です。input[1]がNoneではありません")
+    let mut soto = 1.0;
+    let flag = false;
+
+    if flag == true {
+        soto = 10.0;
     } else {
-        println!("ok");
+        soto = 20.0;
     }
+
+    println!("{}", soto);
 }

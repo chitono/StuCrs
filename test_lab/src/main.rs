@@ -12,21 +12,28 @@ use std::time::Instant;
 
 fn main() {
     let start = Instant::now();
-
+    /*
     let x1 = Variable::new(2.0);
     let x2 = Variable::new(3.0);
 
-    let xs = [Some(x1), Some(x2)];
-    /*
+    let xs = [Some(x1.clone()), Some(x2.clone())];
+
     x.borrow_mut().name = Some("x".to_string());
     println!("x = {:?}", x);
 
     let xs = to_var(x.clone());
 
     */
-    let y = add(&xs);
+    let xs = [Some(Variable::new(2.0)), None];
+
+    let y = exp(&xs);
 
     println!("y.data = {:?}", y[0].as_ref().unwrap().borrow().data);
+    y[0].as_ref().unwrap().borrow_mut().backward();
+    println!("xs={:?}", xs[0]);
+    /*
+    println!("x1={:?}", x1.borrow());
+    println!("x2={:?}", x2.borrow()); */
 
     //y.borrow_mut().backward();
 
@@ -64,7 +71,7 @@ impl Variable {
     fn set_creator(&mut self, func: Rc<RefCell<dyn Function>>) {
         self.creator = Some(Rc::clone(&func));
     }
-    /*
+
     fn backward(&self) {
         let mut funcs: Vec<Rc<RefCell<dyn Function>>> =
             vec![Rc::clone(self.creator.as_ref().unwrap())];
@@ -73,26 +80,36 @@ impl Variable {
         let mut last_variable = true;
 
         while let Some(f) = funcs.pop() {
-            let x = f.borrow().get_inputs();
+            let xs = f.borrow().get_inputs();
+            let mut y_grad: [Option<f32>; 2] = [None, None];
 
             if last_variable {
-                let y_grad: f32 = 1.0;
-                x.borrow_mut().grad = Some(f.borrow().backward(y_grad));
+                y_grad = [Some(1.0), None];
 
                 last_variable = false;
             } else {
-                let y = f.borrow().get_outputs();
-                let y_grad = *y.borrow().grad.as_ref().unwrap();
-                x.borrow_mut().grad = Some(f.borrow().backward(y_grad));
+                //関数の出力は一つだけなので、[1]は必要なし
+                y_grad[0] = f.borrow().get_outputs()[0].as_ref().unwrap().borrow().grad;
             }
 
-            if x.borrow().creator.is_none() {
-                break;
-            };
+            let xs_grad = f.borrow().backward(y_grad);
+            xs[0].as_ref().unwrap().borrow_mut().grad = xs_grad[0];
 
-            funcs.push(Rc::clone(x.borrow().creator.as_ref().unwrap()));
+            //xs[0]にcreatorがあるか確認
+            if let Some(func_creator) = &xs[0].as_ref().unwrap().borrow().creator {
+                funcs.push(Rc::clone(&func_creator));
+            }
+
+            //xs[1]はfが一変数関数の時、Noneなので確認が必要
+            if let Some(xs_1) = &xs[1] {
+                xs_1.borrow_mut().grad = xs_grad[1];
+                //xs[0]にcreatorがあるか確認
+                if let Some(func_creator) = &xs_1.borrow().creator {
+                    funcs.push(Rc::clone(&func_creator));
+                }
+            }
         }
-    } */
+    }
 }
 #[cfg(test)]
 impl Drop for Variable {
@@ -113,7 +130,7 @@ trait Function: Debug {
 
     //　関数クラス.inputs, .outputsではvariableのbackwardの中でアクセスできないので、関数にして取得
     fn get_inputs(&self) -> [Option<Rc<RefCell<Variable>>>; 2];
-    fn get_outputs(&self) -> [Option<Weak<RefCell<Variable>>>; 2];
+    fn get_outputs(&self) -> [Option<Rc<RefCell<Variable>>>; 2];
 }
 
 #[derive(Debug, Clone)]
@@ -146,36 +163,12 @@ impl Function for Square {
                 .data,
         );
 
-        /*      input[1]はNoneなので必要なし
-        if let Some(var) = &inputs[1] {
-            xs_data[1] = Some(var.borrow().data)
-        } */
-
-        /* 　可変長版
-        for (i, input) in inputs.iter().enumerate() {
-            if let Some(var) = input {
-                xs[i] = Some(var.borrow().data);
-            }
-        }*/
-
         let ys_data = self.forward(xs_data);
 
         let mut outputs = [None, None];
 
-        /*
-        for (i, y) in ys.iter().enumerate() {
-            if let Some(data) = y {
-                outputs[i] = Some(Variable::new(*data));
-            }
-        } */
-
         //ys_dataは一変数なので、outputs[1]は必要なし
         outputs[0] = Some(Variable::new(ys_data[0].expect("数値が存在するはず")));
-
-        /*
-        if let Some(var) = ys_data[1] {
-            outputs[1] = Some(Variable::new(var))
-        } */
 
         //　inputsを覚える
         self.inputs = inputs.clone();
@@ -195,13 +188,6 @@ impl Function for Square {
             .borrow_mut()
             .set_creator(self_square.clone());
 
-        /* 　上のコードの可変長版
-        for output_opt in &outputs {
-            if let Some(output_rc) = output_opt {
-                output_rc.borrow_mut().set_creator(&self_square);
-            }
-        } */
-
         outputs
     }
 
@@ -211,17 +197,6 @@ impl Function for Square {
 
         ys[0] = Some(y);
 
-        /*
-        if let Some(x1_data) = xs[1] {
-            ys[1] = Some(x1_data.powf(2.0))
-        } */
-
-        /*
-        for (i, x) in xs.iter().enumerate() {
-            if let Some(x_data) = x {
-                ys[i] = Some(x_data.powf(2.0));
-            }
-        */
         ys
     }
 
@@ -234,17 +209,6 @@ impl Function for Square {
             gxs[0] = Some(2.0 * x0_data * gy0_data)
         }
 
-        /*
-        if let Some(x1_data) = xs[1] {
-            ys[1] = Some(x1_data.powf(2.0))
-        } */
-
-        /*
-        for (i, x) in xs.iter().enumerate() {
-            if let Some(x_data) = x {
-                ys[i] = Some(x_data.powf(2.0));
-            }
-        */
         gxs
     }
 
@@ -252,8 +216,11 @@ impl Function for Square {
         self.inputs.clone()
     }
 
-    fn get_outputs(&self) -> [Option<Weak<RefCell<Variable>>>; 2] {
-        self.outputs.clone()
+    fn get_outputs(&self) -> [Option<Rc<RefCell<Variable>>>; 2] {
+        let mut outputs = [None, None];
+        outputs[0] = self.outputs[0].as_ref().unwrap().upgrade().clone();
+
+        outputs
     }
 }
 impl Square {
@@ -309,36 +276,12 @@ impl Function for Exp {
                 .data,
         );
 
-        /*      input[1]はNoneなので必要なし
-        if let Some(var) = &inputs[1] {
-            xs_data[1] = Some(var.borrow().data)
-        } */
-
-        /* 　可変長版
-        for (i, input) in inputs.iter().enumerate() {
-            if let Some(var) = input {
-                xs[i] = Some(var.borrow().data);
-            }
-        }*/
-
         let ys_data = self.forward(xs_data);
 
         let mut outputs = [None, None];
 
-        /*
-        for (i, y) in ys.iter().enumerate() {
-            if let Some(data) = y {
-                outputs[i] = Some(Variable::new(*data));
-            }
-        } */
-
         //ys_dataは一変数なので、outputs[1]は必要なし
         outputs[0] = Some(Variable::new(ys_data[0].expect("数値が存在するはず")));
-
-        /*
-        if let Some(var) = ys_data[1] {
-            outputs[1] = Some(Variable::new(var))
-        } */
 
         //　inputsを覚える
         self.inputs = inputs.clone();
@@ -357,13 +300,6 @@ impl Function for Exp {
             .expect("outputs[0]がNoneになってる")
             .borrow_mut()
             .set_creator(self_exp.clone());
-
-        /* 　上のコードの可変長版
-        for output_opt in &outputs {
-            if let Some(output_rc) = output_opt {
-                output_rc.borrow_mut().set_creator(&self_square);
-            }
-        } */
 
         outputs
     }
@@ -415,8 +351,11 @@ impl Function for Exp {
         self.inputs.clone()
     }
 
-    fn get_outputs(&self) -> [Option<Weak<RefCell<Variable>>>; 2] {
-        self.outputs.clone()
+    fn get_outputs(&self) -> [Option<Rc<RefCell<Variable>>>; 2] {
+        let mut outputs = [None, None];
+        outputs[0] = self.outputs[0].as_ref().unwrap().upgrade().clone();
+
+        outputs
     }
 }
 impl Exp {
@@ -558,13 +497,8 @@ impl Function for Add {
     }
 
     fn backward(&self, gys: [Option<f32>; 2]) -> [Option<f32>; 2] {
-        let mut gxs = [None, None];
-
-        let x0_data = self.inputs[0].as_ref().unwrap().borrow().data;
-
-        if let Some(gy0_data) = gys[0] {
-            gxs[0] = Some(x0_data.exp() * gy0_data)
-        }
+        let gy = gys[0].clone();
+        let gxs = [gy, gy];
 
         /*
         if let Some(x1_data) = xs[1] {
@@ -584,8 +518,12 @@ impl Function for Add {
         self.inputs.clone()
     }
 
-    fn get_outputs(&self) -> [Option<Weak<RefCell<Variable>>>; 2] {
-        self.outputs.clone()
+    fn get_outputs(&self) -> [Option<Rc<RefCell<Variable>>>; 2] {
+        let mut outputs = [None, None];
+        outputs[0] = self.outputs[0].as_ref().unwrap().upgrade().clone();
+        outputs[1] = self.outputs[1].as_ref().unwrap().upgrade().clone();
+
+        outputs
     }
 }
 impl Add {
@@ -681,4 +619,28 @@ impl Drop for Exp {
 
 fn exp(x: &Rc<RefCell<Variable>>) -> Rc<RefCell<Variable>> {
     Exp::new().borrow_mut().call(x)
+} */
+
+/*      input[1]はNoneなので必要なし
+if let Some(var) = &inputs[1] {
+    xs_data[1] = Some(var.borrow().data)
+} */
+
+/* 　可変長版
+for (i, input) in inputs.iter().enumerate() {
+    if let Some(var) = input {
+        xs[i] = Some(var.borrow().data);
+    }
+}*/
+
+/*
+for (i, y) in ys.iter().enumerate() {
+    if let Some(data) = y {
+        outputs[i] = Some(Variable::new(*data));
+    }
+} */
+
+/*
+if let Some(var) = ys_data[1] {
+    outputs[1] = Some(Variable::new(var))
 } */
