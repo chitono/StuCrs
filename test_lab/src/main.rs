@@ -24,12 +24,13 @@ fn main() {
     let xs = to_var(x.clone());
 
     */
-    let xs = [Some(Variable::new(2.0)), None];
+    let xs = [Some(Variable::new(2.0)), Some(Variable::new(3.0))];
 
-    let y = exp(&xs);
+    let y = add(&xs);
 
     println!("y.data = {:?}", y[0].as_ref().unwrap().borrow().data);
     y[0].as_ref().unwrap().borrow_mut().backward();
+    println!("y={:?}", y[0]);
     println!("xs={:?}", xs[0]);
     /*
     println!("x1={:?}", x1.borrow());
