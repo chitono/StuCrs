@@ -24,14 +24,15 @@ fn main() {
     let xs = to_var(x.clone());
 
     */
-    let xs = [Some(Variable::new(2.0)), Some(Variable::new(3.0))];
+    let x = [Some(Variable::new(3.0)), None];
 
-    let y = add(&xs);
+    let y = add(&[x[0].clone(), x[0].clone()]);
 
     println!("y.data = {:?}", y[0].as_ref().unwrap().borrow().data);
     y[0].as_ref().unwrap().borrow_mut().backward();
     println!("y={:?}", y[0]);
-    println!("xs={:?}", xs[0]);
+    println!("x0={:?}", x[0]);
+
     /*
     println!("x1={:?}", x1.borrow());
     println!("x2={:?}", x2.borrow()); */
@@ -94,7 +95,18 @@ impl Variable {
             }
 
             let xs_grad = f.borrow().backward(y_grad);
-            xs[0].as_ref().unwrap().borrow_mut().grad = xs_grad[0];
+
+            // gradを置き換えまたは足していくので、Noneか判別
+
+            match xs[0].as_ref().unwrap().borrow().grad {
+                Some(xs0_grad) => 
+            }
+            if let None = &xs[0].as_ref().unwrap().borrow().grad {
+                xs[0].as_ref().unwrap().borrow_mut().grad = xs_grad[0];
+            } else {
+
+                //xs[0].as_ref().unwrap().borrow_mut().grad = xs_grad[0];
+            }
 
             //xs[0]にcreatorがあるか確認
             if let Some(func_creator) = &xs[0].as_ref().unwrap().borrow().creator {
@@ -102,8 +114,13 @@ impl Variable {
             }
 
             //xs[1]はfが一変数関数の時、Noneなので確認が必要
-            if let Some(xs_1) = &xs[1] {
-                xs_1.borrow_mut().grad = xs_grad[1];
+            if let Some(xs_1) = xs[1].clone() {
+                if let Some(mut xs1_grad) = xs_1.borrow().grad {
+                    xs1_grad = xs1_grad.clone() + xs_grad[1].unwrap();
+                } else {
+                    xs_1.borrow_mut().grad = xs_grad[1];
+                }
+
                 //xs[0]にcreatorがあるか確認
                 if let Some(func_creator) = &xs_1.borrow().creator {
                     funcs.push(Rc::clone(&func_creator));
