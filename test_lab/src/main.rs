@@ -2,7 +2,7 @@ use core::panic;
 use std::cell::RefCell;
 
 use std::fmt::Debug;
-//use std::future;
+use std::future;
 //use std::process::Output;
 use std::rc::{Rc, Weak};
 
@@ -33,6 +33,11 @@ fn main() {
     println!("y={:?}", y[0]);
     println!("x0={:?}", x[0]);
 
+    x[0].as_ref().unwrap().borrow_mut().cleargrad();
+    let y2 = add(&[add(&[x[0].clone(), x[0].clone()])[0].clone(), x[0].clone()]);
+    y2[0].as_ref().unwrap().borrow_mut().backward();
+    println!("y2={:?}", y2[0]);
+    println!("x20={:?}", x[0]);
     /*
     println!("x1={:?}", x1.borrow());
     println!("x2={:?}", x2.borrow()); */
@@ -98,35 +103,37 @@ impl Variable {
 
             // gradを置き換えまたは足していくので、Noneか判別
 
-            match xs[0].as_ref().unwrap().borrow().grad {
-                Some(xs0_grad) => 
-            }
-            if let None = &xs[0].as_ref().unwrap().borrow().grad {
-                xs[0].as_ref().unwrap().borrow_mut().grad = xs_grad[0];
-            } else {
+            let current_grad_0 = xs[0]
+                .clone()
+                .as_ref()
+                .unwrap()
+                .borrow_mut()
+                .grad
+                .unwrap_or_else(|| 0.0);
 
-                //xs[0].as_ref().unwrap().borrow_mut().grad = xs_grad[0];
-            }
+            xs[0].as_ref().unwrap().borrow_mut().grad = Some(current_grad_0 + xs_grad[0].unwrap());
 
-            //xs[0]にcreatorがあるか確認
+            //xs[0]にcreatorがあるか確認、あったらfuncに追加
             if let Some(func_creator) = &xs[0].as_ref().unwrap().borrow().creator {
                 funcs.push(Rc::clone(&func_creator));
             }
 
-            //xs[1]はfが一変数関数の時、Noneなので確認が必要
+            //xs[1]はfが一変数関数の時、NoneなのでNoneが判別
             if let Some(xs_1) = xs[1].clone() {
-                if let Some(mut xs1_grad) = xs_1.borrow().grad {
-                    xs1_grad = xs1_grad.clone() + xs_grad[1].unwrap();
-                } else {
-                    xs_1.borrow_mut().grad = xs_grad[1];
-                }
+                let current_grad_1 = xs_1.borrow_mut().grad.unwrap_or_else(|| 0.0);
 
-                //xs[0]にcreatorがあるか確認
+                xs_1.borrow_mut().grad = Some(current_grad_1 + xs_grad[1].unwrap());
+
+                //xs[1]にcreatorがあるか確認、あったらfuncに追加
                 if let Some(func_creator) = &xs_1.borrow().creator {
                     funcs.push(Rc::clone(&func_creator));
                 }
             }
         }
+    }
+
+    fn cleargrad(&mut self) {
+        self.grad = None;
     }
 }
 #[cfg(test)]
@@ -539,7 +546,6 @@ impl Function for Add {
     fn get_outputs(&self) -> [Option<Rc<RefCell<Variable>>>; 2] {
         let mut outputs = [None, None];
         outputs[0] = self.outputs[0].as_ref().unwrap().upgrade().clone();
-        outputs[1] = self.outputs[1].as_ref().unwrap().upgrade().clone();
 
         outputs
     }
