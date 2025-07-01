@@ -63,6 +63,7 @@ struct Variable {
     grad: Option<f32>,
     creator: Option<Rc<RefCell<dyn Function>>>,
     name: Option<String>,
+    generation: i32,
 }
 
 impl Variable {
@@ -72,16 +73,22 @@ impl Variable {
             grad: None,
             creator: None,
             name: None,
+            generation: 0,
         }))
     }
 
     fn set_creator(&mut self, func: Rc<RefCell<dyn Function>>) {
         self.creator = Some(Rc::clone(&func));
+        self.generation = func.borrow().get_generation() + 1;
     }
 
     fn backward(&self) {
         let mut funcs: Vec<Rc<RefCell<dyn Function>>> =
             vec![Rc::clone(self.creator.as_ref().unwrap())];
+
+        fn add_func(f: Rc<RefCell<dyn Function>>) {
+            funcs
+        }
 
         //&selfで最初の変数はborrowされるので場合分け
         let mut last_variable = true;
@@ -129,6 +136,7 @@ impl Variable {
                     funcs.push(Rc::clone(&func_creator));
                 }
             }
+            println!("funcs_vec={}", funcs.len());
         }
     }
 
@@ -156,6 +164,7 @@ trait Function: Debug {
     //　関数クラス.inputs, .outputsではvariableのbackwardの中でアクセスできないので、関数にして取得
     fn get_inputs(&self) -> [Option<Rc<RefCell<Variable>>>; 2];
     fn get_outputs(&self) -> [Option<Rc<RefCell<Variable>>>; 2];
+    fn get_generation(&self) -> i32;
 }
 
 #[derive(Debug, Clone)]
@@ -163,6 +172,7 @@ struct Square {
     //Square Class
     inputs: [Option<Rc<RefCell<Variable>>>; 2],
     outputs: [Option<Weak<RefCell<Variable>>>; 2],
+    generation: i32,
 }
 
 impl Function for Square {
@@ -197,6 +207,7 @@ impl Function for Square {
 
         //　inputsを覚える
         self.inputs = inputs.clone();
+        self.generation = inputs[0].as_ref().unwrap().borrow().generation;
 
         //  outputsを弱参照(downgrade)で覚える
         self.outputs = [
@@ -247,12 +258,17 @@ impl Function for Square {
 
         outputs
     }
+
+    fn get_generation(&self) -> i32 {
+        self.generation
+    }
 }
 impl Square {
     fn new() -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             outputs: [None, None],
+            generation: 0,
         }))
     }
 }
@@ -276,6 +292,7 @@ fn square(xs: &[Option<Rc<RefCell<Variable>>>; 2]) -> [Option<Rc<RefCell<Variabl
 struct Exp {
     inputs: [Option<Rc<RefCell<Variable>>>; 2],
     outputs: [Option<Weak<RefCell<Variable>>>; 2],
+    generation: i32,
 }
 
 impl Function for Exp {
@@ -310,6 +327,7 @@ impl Function for Exp {
 
         //　inputsを覚える
         self.inputs = inputs.clone();
+        self.generation = inputs[0].as_ref().unwrap().borrow().generation;
 
         //  outputsを弱参照(downgrade)で覚える
         self.outputs = [
@@ -382,12 +400,17 @@ impl Function for Exp {
 
         outputs
     }
+
+    fn get_generation(&self) -> i32 {
+        self.generation
+    }
 }
 impl Exp {
     fn new() -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             outputs: [None, None],
+            generation: 0,
         }))
     }
 }
@@ -410,6 +433,7 @@ struct Add {
     //Add Class
     inputs: [Option<Rc<RefCell<Variable>>>; 2],
     outputs: [Option<Weak<RefCell<Variable>>>; 2],
+    generation: i32,
 }
 
 impl Function for Add {
@@ -471,6 +495,16 @@ impl Function for Add {
 
         //　inputsを覚える
         self.inputs = inputs.clone();
+
+        //inputsのgenerationをそれぞれ取得
+        let input_0_generation = inputs[0].as_ref().unwrap().borrow().generation;
+        let input_1_generation = inputs[1].as_ref().unwrap().borrow().generation;
+
+        //inputのgenerationで大きい値の方をFuncitonのgenerationとする
+        self.generation = match input_0_generation >= input_1_generation {
+            true => input_0_generation,
+            false => input_1_generation,
+        };
 
         //  outputsを弱参照(downgrade)で覚える
         self.outputs = [
@@ -549,12 +583,17 @@ impl Function for Add {
 
         outputs
     }
+
+    fn get_generation(&self) -> i32 {
+        self.generation
+    }
 }
 impl Add {
     fn new() -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             outputs: [None, None],
+            generation: 0,
         }))
     }
 }
