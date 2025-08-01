@@ -1,0 +1,23 @@
+version: '3'
+services:
+  dev:
+    build:
+      context: .
+    image: cudarc-im
+    container_name: cudarc-dev
+    volumes:
+      - type: bind
+        source: .
+        target: /workdir
+    stdin_open: true
+    tty: true
+    working_dir: /workdir
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+    environment:
+      - USER=user
