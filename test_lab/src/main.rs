@@ -9,6 +9,9 @@ use std::sync::{Mutex};
 //use std::hash::Hash;
 //use std::process::Output;
 use std::rc::{Rc, Weak};
+use std::vec;
+use ndarray::{array, Array2, ArrayView2, Data};
+
 
 //use std::thread;
 //use std::time::Duration;
@@ -132,10 +135,22 @@ fn main() {
     println!("処理時間{:?}", duration);
 }
 
+trait matrix{
+    fn new(data: Vec<f32>,row: usize,col: usize) -> Array2<f32>;
+}
+
+impl matrix for  Array2<f32> {
+    fn new(data: Vec<f32>,row: usize,col: usize) -> Self {
+        let array2 = Array2::from_shape_vec([row,col], data).unwrap();
+        array2
+    }
+    
+}
+
 #[derive(Debug, Clone)]
 struct Variable {
-    data: f32,
-    grad: Option<f32>,
+    data: Array2<f32>,
+    grad: Option<Array2<f32>>,
     creator: Option<Rc<RefCell<dyn Function>>>,
     name: Option<String>,
     generation: i32,
@@ -143,7 +158,7 @@ struct Variable {
 }
 impl Variable {
     
-    fn new_rc(data: f32) -> Rc<RefCell<Self>> {
+    fn new_rc(data: Array2<f32>) -> Rc<RefCell<Self>> {
         let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Variable {
             data,
@@ -194,10 +209,10 @@ impl Variable {
         while let Some(f) = funcs.pop() {
             let xs = f.borrow().get_inputs();
 
-            let mut y_grad: [Option<f32>; 2] = [None, None];
+            let mut y_grad: [Option<Array2<f32>>; 2] = [None, None];
 
             if last_variable {
-                y_grad = [Some(1.0), None];
+                y_grad = [Some(Array2::ones(self.data.dim())), None];
 
                 last_variable = false;
             } else {
@@ -206,7 +221,7 @@ impl Variable {
                     .as_ref()
                     .unwrap()
                     .borrow()
-                    .grad;
+                    .grad.unwrap().view();
             }
 
             let xs_grad = f.borrow().backward(y_grad);
@@ -218,7 +233,7 @@ impl Variable {
                 .unwrap()
                 .borrow()
                 .grad
-                .unwrap_or_else(|| 0.0);
+                .unwrap_or_else(|| Array2::zeros(self.data.dim()));
 
             xs[0].as_ref().unwrap().borrow_mut().grad = Some(current_grad_0 + xs_grad[0].unwrap());
 
@@ -230,7 +245,7 @@ impl Variable {
 
             //xs[1]はfが一変数関数の時、NoneなのでNoneか判別
             if let Some(xs_1) = xs[1].clone() {
-                let current_grad_1 = xs_1.borrow().grad.unwrap_or_else(|| 0.0);
+                let current_grad_1 = xs_1.borrow().grad.unwrap_or_else(|| Array2::zeros(self.data.dim()));
 
                 xs_1.borrow_mut().grad = Some(current_grad_1 + xs_grad[1].unwrap());
 
@@ -254,7 +269,7 @@ impl Variable {
 struct RcVariable(Rc<RefCell<Variable>>);
 
 impl RcVariable {
-    fn new(data: f32) -> Self {
+    fn new(data: Array2<f32>) -> Self {
         RcVariable(Variable::new_rc(data))
     }
 
@@ -262,12 +277,12 @@ impl RcVariable {
         self.0.borrow_mut().backward();
     }
 
-    fn data(&self) -> f32{
-        self.0.borrow().data
+    fn data(&self) -> Array2<f32>{
+        self.0.borrow().data.clone()
     }
 
-    fn grad(&self) -> Option<f32> {
-        self.0.borrow().grad
+    fn grad(&self) -> Option<Array2<f32>> {
+        self.0.borrow().grad.clone()
     }
 
     
@@ -299,8 +314,8 @@ trait Function: Debug {
     ) -> [Option<Rc<RefCell<Variable>>>; 2];
 
     //  forward,backwardはVariableの数値のみを計算する
-    fn forward(&self, x: [Option<f32>; 2]) -> [Option<f32>; 2];
-    fn backward(&self, gy: [Option<f32>; 2]) -> [Option<f32>; 2];
+    fn forward(&self, x: [Option<ArrayView2<f32>>; 2]) -> [Option<ArrayView2<f32>>; 2];
+    fn backward(&self, gy: [Option<ArrayView2<f32>>; 2]) -> [Option<ArrayView2<f32>>; 2];
 
     //　関数クラス.inputs, .outputsではvariableのbackwardの中でアクセスできないので、関数にして取得
     fn get_inputs(&self) -> [Option<Rc<RefCell<Variable>>>; 2];
@@ -331,14 +346,10 @@ impl Function for Square {
 
         let mut xs_data = [None, None];
 
+        let inputs_0 = inputs[0].as_ref().unwrap().borrow();
+
         // inputのvariableからdataを取り出す
-        xs_data[0] = Some(
-            inputs[0]
-                .as_ref()
-                .expect("数値が存在するはず")
-                .borrow()
-                .data,
-        );
+        xs_data[0] = Some(inputs_0.data.view());
 
         let ys_data = self.forward(xs_data);
 
@@ -346,7 +357,7 @@ impl Function for Square {
         
 
         //ys_dataは一変数なので、outputs[1]は必要なし
-        outputs[0] = Some(Variable::new_rc(ys_data[0].expect("数値が存在するはず")));
+        outputs[0] = Some(Variable::new_rc(ys_data[0].unwrap().to_owned()));
 
 
         //ここから下の処理はbackwardするときだけ必要。
@@ -376,16 +387,16 @@ impl Function for Square {
         outputs
     }
 
-    fn forward(&self, xs: [Option<f32>; 2]) -> [Option<f32>; 2] {
+    fn forward(&self, xs: [Option<ArrayView2<f32>>; 2]) -> [Option<ArrayView2<f32>>; 2] {
         let mut ys = [None, None];
-        let y = xs[0].expect("数値がありません").powf(2.0);
+        let y = xs[0].expect("数値がありません").mapv(|x| x.powf(2.0));
 
         ys[0] = Some(y);
 
         ys
     }
 
-    fn backward(&self, gys: [Option<f32>; 2]) -> [Option<f32>; 2] {
+    fn backward(&self, gys: [Option<ArrayView2<f32>>; 2]) -> [Option<ArrayView2<f32>>; 2] {
         let mut gxs = [None, None];
 
         let x0_data = self.inputs[0].as_ref().unwrap().borrow().data;
