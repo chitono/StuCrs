@@ -4,14 +4,15 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::sync::atomic::{self, AtomicBool, AtomicU32, Ordering};
-use std::sync::{Mutex};
+use std::sync::Mutex;
 //use std::future;
 //use std::hash::Hash;
 //use std::process::Output;
+use ndarray::{
+    array, Array, ArrayD, ArrayView, ArrayView2, ArrayViewD, Data, Dimension, IntoDimension, IxDyn,
+};
 use std::rc::{Rc, Weak};
 use std::vec;
-use ndarray::{array, Array2, ArrayView2, Data};
-
 
 //use std::thread;
 //use std::time::Duration;
@@ -19,11 +20,9 @@ use std::time::Instant;
 
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
-
 static NEXT_ID: AtomicU32 = AtomicU32::new(1);
 
 static GRAD_CONFIG: Mutex<bool> = Mutex::new(true);
-
 
 fn set_grad_true() {
     let mut flag = GRAD_CONFIG.lock().unwrap();
@@ -40,39 +39,47 @@ fn get_grad_status() -> bool {
     *flag
 }
 
-
-fn sphere(x:&RcVariable,y:&RcVariable) -> RcVariable {
+fn sphere(x: &RcVariable, y: &RcVariable) -> RcVariable {
     let z = x.clone().pow(2.0) + y.clone().pow(2.0);
     z
 }
 
-fn matyas(x:&RcVariable,y:&RcVariable) -> RcVariable {
-    let z = 0.26.rv()*(x.pow(2.0)+y.pow(2.0))-0.48.rv()*x.clone()*y.clone();
+fn matyas(x: &RcVariable, y: &RcVariable) -> RcVariable {
+    let z = 0.26.rv() * (x.pow(2.0) + y.pow(2.0)) - 0.48.rv() * x.clone() * y.clone();
     z
 }
 
-fn goldstein(x:&RcVariable,y:&RcVariable) -> RcVariable {
-    let z = (1.0.rv()+(x.clone()+y.clone()+1.0.rv()).pow(2.0)*(19.0.rv()-14.0.rv()*x.clone()+3.0.rv()*x.pow(2.0)-14.0.rv()*y.clone()+6.0.rv()*x.clone()*y.clone()+3.0.rv()*y.pow(2.0)))*
-    (30.0.rv()+(2.0.rv()*x.clone()-3.0.rv()*y.clone()).pow(2.0)*(18.0.rv()-32.0.rv()*x.clone()+12.0.rv()*x.clone().pow(2.0)+48.0.rv()*y.clone()-36.0.rv()*x.clone()*y.clone()+27.0.rv()*y.pow(2.0)));
+fn goldstein(x: &RcVariable, y: &RcVariable) -> RcVariable {
+    let z = (1.0.rv()
+        + (x.clone() + y.clone() + 1.0.rv()).pow(2.0)
+            * (19.0.rv() - 14.0.rv() * x.clone() + 3.0.rv() * x.pow(2.0) - 14.0.rv() * y.clone()
+                + 6.0.rv() * x.clone() * y.clone()
+                + 3.0.rv() * y.pow(2.0)))
+        * (30.0.rv()
+            + (2.0.rv() * x.clone() - 3.0.rv() * y.clone()).pow(2.0)
+                * (18.0.rv() - 32.0.rv() * x.clone()
+                    + 12.0.rv() * x.clone().pow(2.0)
+                    + 48.0.rv() * y.clone()
+                    - 36.0.rv() * x.clone() * y.clone()
+                    + 27.0.rv() * y.pow(2.0)));
     z
 }
 
-fn rosenbrock(x0:&RcVariable,x1:&RcVariable) -> RcVariable {
-    let y = 100.0.rv()*(x1.clone()-x0.clone().pow(2.0)).pow(2.0)+(x0.clone()-1.0.rv()).pow(2.0);
+fn rosenbrock(x0: &RcVariable, x1: &RcVariable) -> RcVariable {
+    let y =
+        100.0.rv() * (x1.clone() - x0.clone().pow(2.0)).pow(2.0) + (x0.clone() - 1.0.rv()).pow(2.0);
     y
 }
 
-fn f(x:&RcVariable) -> RcVariable {
-    let y = x.clone().pow(4.0)-2.0.rv()*x.clone().pow(2.0);
+fn f(x: &RcVariable) -> RcVariable {
+    let y = x.clone().pow(4.0) - 2.0.rv() * x.clone().pow(2.0);
     y
 }
 
-fn gx2(x:&RcVariable) -> RcVariable {
-    let y = 12.0.rv()*x.clone().pow(2.0)-4.0.rv();
+fn gx2(x: &RcVariable) -> RcVariable {
+    let y = 12.0.rv() * x.clone().pow(2.0) - 4.0.rv();
     y
 }
-
-
 
 fn main() {
     let start = Instant::now();
@@ -82,86 +89,71 @@ fn main() {
     let mut x0 = 0.0.rv();
     let mut x1 = 2.0.rv();
 
-    
     let mut y = tanh(&x1);
     y.backward();
-    println!("{:?}, {:?}",y.data() ,x1.grad());
+    println!("{:?}, {:?}", y.data(), x1.grad());
 
-    /* 
-    
+    /*
+
     let lr = 0.001;
     let iters = 1000;
 
-    
-    
 
-    
-    
+
+
+
+
     for i in 0..iters {
 
-        
+
 
         println!("{:?}, {:?}",x0.data() ,x1.data());
-        
+
 
         let mut y = rosenbrock(&x0, &x1);
-        
+
 
         x0.cleargrad();
         x1.cleargrad();
         y.backward();
 
-        
 
-        
+
+
         let current_data_0 = x0.data();
         let current_data_1 = x1.data();
-        
+
         let current_grad_0 =x0.grad().unwrap();
         let current_grad_1 =x1.grad().unwrap();
 
         x0.0.borrow_mut().data =current_data_0- lr*current_grad_0;
         x1.0.borrow_mut().data = current_data_1- lr*current_grad_1;
-        
+
 
 
 
     }*/
-
-    //println!("(x0,x1)=({:?},{:?})", x0.0.borrow().data,x1.0.borrow().data); 
+    //println!("(x0,x1)=({:?},{:?})", x0.0.borrow().data,x1.0.borrow().data);
 
     let end = Instant::now();
     let duration = end.duration_since(start);
     println!("処理時間{:?}", duration);
 }
 
-trait matrix{
-    fn new(data: Vec<f32>,row: usize,col: usize) -> Array2<f32>;
-}
-
-impl matrix for  Array2<f32> {
-    fn new(data: Vec<f32>,row: usize,col: usize) -> Self {
-        let array2 = Array2::from_shape_vec([row,col], data).unwrap();
-        array2
-    }
-    
-}
-
 #[derive(Debug, Clone)]
 struct Variable {
-    data: Array2<f32>,
-    grad: Option<Array2<f32>>,
+    data: ArrayD<f32>,
+    grad: Option<ArrayD<f32>>,
     creator: Option<Rc<RefCell<dyn Function>>>,
     name: Option<String>,
     generation: i32,
     id: u32,
 }
 impl Variable {
-    
-    fn new_rc(data: Array2<f32>) -> Rc<RefCell<Self>> {
+    fn new_rc(data: ArrayD<f32>) -> Rc<RefCell<Self>> {
         let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Variable {
-            data,
+            data: data,
             grad: None,
             creator: None,
             name: None,
@@ -202,40 +194,40 @@ impl Variable {
                 });
             }
         }
+        let first_grad = ArrayD::<f32>::ones(self.data.shape());
 
         //&selfで最初の変数はborrowされるので場合分け
         let mut last_variable = true;
 
         while let Some(f) = funcs.pop() {
             let xs = f.borrow().get_inputs();
+            let y = f.borrow().get_output();
+            let y_borrowed = y.borrow();
 
-            let mut y_grad: [Option<Array2<f32>>; 2] = [None, None];
+            let y_grad: ArrayViewD<f32>;
 
             if last_variable {
-                y_grad = [Some(Array2::ones(self.data.dim())), None];
+                y_grad = first_grad.view();
 
                 last_variable = false;
             } else {
                 //関数の出力は一つだけなので、[1]は必要なし
-                y_grad[0] = f.borrow().get_outputs()[0]
-                    .as_ref()
-                    .unwrap()
-                    .borrow()
-                    .grad.unwrap().view();
+
+                y_grad = y_borrowed.grad.as_ref().unwrap().view();
             }
 
             let xs_grad = f.borrow().backward(y_grad);
 
             // gradを置き換えまたは足していくので、Noneか判別
-            let current_grad_0 = xs[0]
-                .clone()
-                .as_ref()
-                .unwrap()
-                .borrow()
+            let xs_0 = xs[0].as_ref().unwrap().borrow();
+            let current_grad_0 = xs_0
                 .grad
-                .unwrap_or_else(|| Array2::zeros(self.data.dim()));
+                .as_ref()
+                .cloned()
+                .unwrap_or_else(|| ArrayD::<f32>::zeros(self.data.shape()));
 
-            xs[0].as_ref().unwrap().borrow_mut().grad = Some(current_grad_0 + xs_grad[0].unwrap());
+            xs[0].as_ref().unwrap().borrow_mut().grad =
+                Some(&current_grad_0 + xs_grad[0].as_ref().unwrap());
 
             //xs[0]にcreatorがあるか確認、あったらfuncに追加
             if let Some(func_creator) = &xs[0].as_ref().unwrap().borrow().creator {
@@ -244,10 +236,15 @@ impl Variable {
             }
 
             //xs[1]はfが一変数関数の時、NoneなのでNoneか判別
-            if let Some(xs_1) = xs[1].clone() {
-                let current_grad_1 = xs_1.borrow().grad.unwrap_or_else(|| Array2::zeros(self.data.dim()));
+            if let Some(xs_1) = &xs[1] {
+                let current_grad_1 = xs_1
+                    .borrow()
+                    .grad
+                    .as_ref()
+                    .cloned()
+                    .unwrap_or_else(|| Array::zeros(self.data.dim()));
 
-                xs_1.borrow_mut().grad = Some(current_grad_1 + xs_grad[1].unwrap());
+                xs_1.borrow_mut().grad = Some(current_grad_1 + xs_grad[1].as_ref().unwrap());
 
                 //xs[1]にcreatorがあるか確認、あったらfuncに追加
                 if let Some(func_creator) = &xs_1.borrow().creator {
@@ -261,15 +258,13 @@ impl Variable {
     fn cleargrad(&mut self) {
         self.grad = None;
     }
-
-    
 }
 
 #[derive(Debug, Clone)]
 struct RcVariable(Rc<RefCell<Variable>>);
 
 impl RcVariable {
-    fn new(data: Array2<f32>) -> Self {
+    fn new(data: ArrayD<f32>) -> Self {
         RcVariable(Variable::new_rc(data))
     }
 
@@ -277,49 +272,44 @@ impl RcVariable {
         self.0.borrow_mut().backward();
     }
 
-    fn data(&self) -> Array2<f32>{
+    fn data(&self) -> ArrayD<f32> {
         self.0.borrow().data.clone()
     }
 
-    fn grad(&self) -> Option<Array2<f32>> {
+    fn grad(&self) -> Option<ArrayD<f32>> {
         self.0.borrow().grad.clone()
     }
-
-    
 
     fn cleargrad(&mut self) {
         self.0.borrow_mut().cleargrad();
     }
 
     fn pow(&self, c: f64) -> RcVariable {
-        let pow_y = pow(&[Some(self.0.clone()), None],c);
+        let pow_y = pow(&[Some(self.0.clone()), None], c);
         RcVariable(pow_y[0].as_ref().unwrap().clone())
     }
 
     fn exp(&self) -> RcVariable {
-        let exp_y = exp_f(&[Some(self.0.clone()),None]);
+        let exp_y = exp_f(&[Some(self.0.clone()), None]);
         RcVariable(exp_y[0].as_ref().unwrap().clone())
     }
 
-    fn log(&self,base:Option<f32>) -> RcVariable {
-        let log_y = log(&[Some(self.0.clone()), None],base);
+    fn log(&self, base: Option<f32>) -> RcVariable {
+        let log_y = log(&[Some(self.0.clone()), None], base);
         RcVariable(log_y[0].as_ref().unwrap().clone())
     }
 }
 
 trait Function: Debug {
-    fn call(
-        &mut self,
-        input: &[Option<Rc<RefCell<Variable>>>; 2],
-    ) -> [Option<Rc<RefCell<Variable>>>; 2];
+    fn call(&mut self, input: &[Option<Rc<RefCell<Variable>>>; 2]) -> Rc<RefCell<Variable>>;
 
     //  forward,backwardはVariableの数値のみを計算する
-    fn forward(&self, x: [Option<ArrayView2<f32>>; 2]) -> [Option<ArrayView2<f32>>; 2];
-    fn backward(&self, gy: [Option<ArrayView2<f32>>; 2]) -> [Option<ArrayView2<f32>>; 2];
+    fn forward(&self, x: [Option<ArrayViewD<f32>>; 2]) -> ArrayD<f32>;
+    fn backward(&self, gy: ArrayViewD<f32>) -> [Option<ArrayD<f32>>; 2];
 
-    //　関数クラス.inputs, .outputsではvariableのbackwardの中でアクセスできないので、関数にして取得
+    //　関数クラス.inputs, .outputではvariableのbackwardの中でアクセスできないので、関数にして取得
     fn get_inputs(&self) -> [Option<Rc<RefCell<Variable>>>; 2];
-    fn get_outputs(&self) -> [Option<Rc<RefCell<Variable>>>; 2];
+    fn get_output(&self) -> Rc<RefCell<Variable>>;
     fn get_generation(&self) -> i32;
     fn get_id(&self) -> u32;
 }
@@ -327,16 +317,13 @@ trait Function: Debug {
 #[derive(Debug, Clone)]
 struct Square {
     inputs: [Option<Rc<RefCell<Variable>>>; 2],
-    outputs: [Option<Weak<RefCell<Variable>>>; 2],
+    output: Option<Weak<RefCell<Variable>>>,
     generation: i32,
     id: u32,
 }
 
 impl Function for Square {
-    fn call(
-        &mut self,
-        inputs: &[Option<Rc<RefCell<Variable>>>; 2],
-    ) -> [Option<Rc<RefCell<Variable>>>; 2] {
+    fn call(&mut self, inputs: &[Option<Rc<RefCell<Variable>>>; 2]) -> Rc<RefCell<Variable>> {
         if let None = &inputs[0] {
             panic!("Squareは一変数関数です。input[0]がNoneです")
         }
@@ -353,57 +340,47 @@ impl Function for Square {
 
         let ys_data = self.forward(xs_data);
 
-        let mut outputs = [None, None];
-        
+        let output: Rc<RefCell<Variable>>;
 
-        //ys_dataは一変数なので、outputs[1]は必要なし
-        outputs[0] = Some(Variable::new_rc(ys_data[0].unwrap().to_owned()));
-
+        output = Variable::new_rc(ys_data);
 
         //ここから下の処理はbackwardするときだけ必要。
 
-        if get_grad_status() == true  {
-
+        if get_grad_status() == true {
             //　inputsを覚える
             self.inputs = inputs.clone();
             self.generation = inputs[0].as_ref().unwrap().borrow().generation;
 
-            //  outputsを弱参照(downgrade)で覚える
-            self.outputs = [
-                outputs[0].as_ref().map(|rc_0| Rc::downgrade(rc_0)),
-                outputs[1].as_ref().map(|rc_1| Rc::downgrade(rc_1)),
-            ];
+            //  outputを弱参照(downgrade)で覚える
+            self.output = Some(Rc::downgrade(&output));
 
             let self_square: Rc<RefCell<dyn Function>> = Rc::new(RefCell::new(self.clone()));
 
-            //outputsに自分をcreatorとして覚えさせる　不変長　配列2
-            outputs[0]
+            //outputに自分をcreatorとして覚えさせる　不変長　配列2
+            output
                 .as_ref()
-                .expect("outputs[0]がNoneになってる")
                 .borrow_mut()
                 .set_creator(self_square.clone());
-
         }
-        outputs
+        output
     }
 
-    fn forward(&self, xs: [Option<ArrayView2<f32>>; 2]) -> [Option<ArrayView2<f32>>; 2] {
-        let mut ys = [None, None];
-        let y = xs[0].expect("数値がありません").mapv(|x| x.powf(2.0));
+    fn forward(&self, xs: [Option<ArrayViewD<f32>>; 2]) -> ArrayD<f32> {
+        let y = xs[0]
+            .as_ref()
+            .expect("数値がありません")
+            .mapv(|x| x.powf(2.0));
 
-        ys[0] = Some(y);
-
-        ys
+        y
     }
 
-    fn backward(&self, gys: [Option<ArrayView2<f32>>; 2]) -> [Option<ArrayView2<f32>>; 2] {
+    fn backward(&self, gys: ArrayViewD<f32>) -> [Option<ArrayD<f32>>; 2] {
         let mut gxs = [None, None];
+        let x0_borrow = self.inputs[0].as_ref().unwrap().borrow();
 
-        let x0_data = self.inputs[0].as_ref().unwrap().borrow().data;
+        let x0_data = x0_borrow.data.view();
 
-        if let Some(gy0_data) = gys[0] {
-            gxs[0] = Some(2.0 * x0_data * gy0_data)
-        }
+        gxs[0] = Some(2.0 * &x0_data * &gys);
 
         gxs
     }
@@ -412,11 +389,18 @@ impl Function for Square {
         self.inputs.clone()
     }
 
-    fn get_outputs(&self) -> [Option<Rc<RefCell<Variable>>>; 2] {
-        let mut outputs = [None, None];
-        outputs[0] = self.outputs[0].as_ref().unwrap().upgrade().clone();
+    fn get_output(&self) -> Rc<RefCell<Variable>> {
+        let output;
+        output = self
+            .output
+            .as_ref()
+            .unwrap()
+            .upgrade()
+            .as_ref()
+            .unwrap()
+            .clone();
 
-        outputs
+        output
     }
 
     fn get_generation(&self) -> i32 {
@@ -431,7 +415,7 @@ impl Square {
         let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
-            outputs: [None, None],
+            output: None,
             generation: 0,
             id: id,
         }))
@@ -443,7 +427,10 @@ impl Square {
 fn square(xs: &[Option<Rc<RefCell<Variable>>>; 2]) -> [Option<Rc<RefCell<Variable>>>; 2] {
     //xを一変数から配列に変換
 
-    Square::new().borrow_mut().call(xs)
+    let y = Square::new().borrow_mut().call(xs);
+
+    let output_list = [Some(y), None];
+    output_list
 }
 
 #[derive(Debug, Clone)]
@@ -485,7 +472,6 @@ impl Function for Exp {
         outputs[0] = Some(Variable::new_rc(ys_data[0].expect("数値が存在するはず")));
 
         if get_grad_status() == true {
-
             //　inputsを覚える
             self.inputs = inputs.clone();
             self.generation = inputs[0].as_ref().unwrap().borrow().generation;
@@ -504,7 +490,6 @@ impl Function for Exp {
                 .expect("outputs[0]がNoneになってる")
                 .borrow_mut()
                 .set_creator(self_exp.clone());
-
         }
 
         outputs
@@ -561,17 +546,14 @@ impl Exp {
     }
 }
 
-fn exp(x:&RcVariable) -> RcVariable {
+fn exp(x: &RcVariable) -> RcVariable {
     let exp_y = exp_f(&[Some(x.0.clone()), None]);
     RcVariable(exp_y[0].as_ref().unwrap().clone())
 }
 
 fn exp_f(xs: &[Option<Rc<RefCell<Variable>>>; 2]) -> [Option<Rc<RefCell<Variable>>>; 2] {
-
     Exp::new().borrow_mut().call(xs)
-} 
-
-
+}
 
 #[derive(Debug, Clone)]
 struct Sin {
@@ -612,7 +594,6 @@ impl Function for Sin {
         outputs[0] = Some(Variable::new_rc(ys_data[0].expect("数値が存在するはず")));
 
         if get_grad_status() == true {
-
             //　inputsを覚える
             self.inputs = inputs.clone();
             self.generation = inputs[0].as_ref().unwrap().borrow().generation;
@@ -631,7 +612,6 @@ impl Function for Sin {
                 .expect("outputs[0]がNoneになってる")
                 .borrow_mut()
                 .set_creator(self_sin.clone());
-
         }
 
         outputs
@@ -688,17 +668,14 @@ impl Sin {
     }
 }
 
-fn sin(x:&RcVariable) -> RcVariable {
+fn sin(x: &RcVariable) -> RcVariable {
     let sin_y = sin_f(&[Some(x.0.clone()), None]);
     RcVariable(sin_y[0].as_ref().unwrap().clone())
 }
 
 fn sin_f(xs: &[Option<Rc<RefCell<Variable>>>; 2]) -> [Option<Rc<RefCell<Variable>>>; 2] {
-
     Sin::new().borrow_mut().call(xs)
-} 
-
-
+}
 
 #[derive(Debug, Clone)]
 struct Cos {
@@ -739,7 +716,6 @@ impl Function for Cos {
         outputs[0] = Some(Variable::new_rc(ys_data[0].expect("数値が存在するはず")));
 
         if get_grad_status() == true {
-
             //　inputsを覚える
             self.inputs = inputs.clone();
             self.generation = inputs[0].as_ref().unwrap().borrow().generation;
@@ -758,7 +734,6 @@ impl Function for Cos {
                 .expect("outputs[0]がNoneになってる")
                 .borrow_mut()
                 .set_creator(self_cos.clone());
-
         }
 
         outputs
@@ -815,16 +790,14 @@ impl Cos {
     }
 }
 
-fn cos(x:&RcVariable) -> RcVariable {
+fn cos(x: &RcVariable) -> RcVariable {
     let cos_y = cos_f(&[Some(x.0.clone()), None]);
     RcVariable(cos_y[0].as_ref().unwrap().clone())
 }
 
 fn cos_f(xs: &[Option<Rc<RefCell<Variable>>>; 2]) -> [Option<Rc<RefCell<Variable>>>; 2] {
-
     Cos::new().borrow_mut().call(xs)
-} 
-
+}
 
 #[derive(Debug, Clone)]
 struct Tanh {
@@ -865,7 +838,6 @@ impl Function for Tanh {
         outputs[0] = Some(Variable::new_rc(ys_data[0].expect("数値が存在するはず")));
 
         if get_grad_status() == true {
-
             //　inputsを覚える
             self.inputs = inputs.clone();
             self.generation = inputs[0].as_ref().unwrap().borrow().generation;
@@ -884,7 +856,6 @@ impl Function for Tanh {
                 .expect("outputs[0]がNoneになってる")
                 .borrow_mut()
                 .set_creator(self_tanh.clone());
-
         }
 
         outputs
@@ -906,7 +877,7 @@ impl Function for Tanh {
         let y0_data = self.inputs[0].as_ref().unwrap().borrow().data.tanh();
 
         if let Some(gy0_data) = gys[0] {
-            gxs[0] = Some((1.0-y0_data.powf(2.0)) * gy0_data)
+            gxs[0] = Some((1.0 - y0_data.powf(2.0)) * gy0_data)
         }
 
         gxs
@@ -942,16 +913,14 @@ impl Tanh {
     }
 }
 
-fn tanh(x:&RcVariable) -> RcVariable {
+fn tanh(x: &RcVariable) -> RcVariable {
     let tanh_y = tanh_f(&[Some(x.0.clone()), None]);
     RcVariable(tanh_y[0].as_ref().unwrap().clone())
 }
 
 fn tanh_f(xs: &[Option<Rc<RefCell<Variable>>>; 2]) -> [Option<Rc<RefCell<Variable>>>; 2] {
-
     Tanh::new().borrow_mut().call(xs)
-} 
-
+}
 
 #[derive(Debug, Clone)]
 struct Add_f {
@@ -1031,7 +1000,6 @@ impl Function for Add_f {
                 .expect("outputs[0]がNoneになってる")
                 .borrow_mut()
                 .set_creator(self_add.clone());
-
         }
 
         outputs
@@ -1280,7 +1248,6 @@ impl Function for Sub_f {
         outputs[0] = Some(Variable::new_rc(ys_data[0].expect("数値が存在するはず")));
 
         if get_grad_status() == true {
-        
             //　inputsを覚える
             self.inputs = inputs.clone();
 
@@ -1309,8 +1276,8 @@ impl Function for Sub_f {
                 .expect("outputs[0]がNoneになってる")
                 .borrow_mut()
                 .set_creator(self_sub.clone());
-        } 
-       
+        }
+
         outputs
     }
 
@@ -1419,7 +1386,6 @@ impl Function for Div_f {
         outputs[0] = Some(Variable::new_rc(ys_data[0].expect("数値が存在するはず")));
 
         if get_grad_status() == true {
-
             //　inputsを覚える
             self.inputs = inputs.clone();
 
@@ -1448,7 +1414,6 @@ impl Function for Div_f {
                 .expect("outputs[0]がNoneになってる")
                 .borrow_mut()
                 .set_creator(self_div.clone());
-
         }
         outputs
     }
@@ -1553,7 +1518,6 @@ impl Function for Neg_f {
         outputs[0] = Some(Variable::new_rc(ys_data[0].expect("数値が存在するはず")));
 
         if get_grad_status() == true {
-       
             //　inputsを覚える
             self.inputs = inputs.clone();
             self.generation = inputs[0].as_ref().unwrap().borrow().generation;
@@ -1573,8 +1537,7 @@ impl Function for Neg_f {
                 .expect("outputs[0]がNoneになってる")
                 .borrow_mut()
                 .set_creator(self_neg.clone());
-
-        }    
+        }
         outputs
     }
 
@@ -1636,10 +1599,9 @@ fn neg(xs: &[Option<Rc<RefCell<Variable>>>; 2]) -> [Option<Rc<RefCell<Variable>>
 struct Pow {
     inputs: [Option<Rc<RefCell<Variable>>>; 2],
     outputs: [Option<Weak<RefCell<Variable>>>; 2],
-    c:f32,
+    c: f32,
     generation: i32,
     id: u32,
-    
 }
 
 impl Function for Pow {
@@ -1676,7 +1638,6 @@ impl Function for Pow {
         outputs[0] = Some(Variable::new_rc(ys_data[0].expect("数値が存在するはず")));
 
         if get_grad_status() == true {
-        
             //　inputsを覚える
             self.inputs = inputs.clone();
             self.generation = inputs[0].as_ref().unwrap().borrow().generation;
@@ -1696,14 +1657,13 @@ impl Function for Pow {
                 .expect("outputs[0]がNoneになってる")
                 .borrow_mut()
                 .set_creator(self_pow.clone());
-
-        }    
+        }
         outputs
     }
 
     fn forward(&self, xs: [Option<f32>; 2]) -> [Option<f32>; 2] {
         let mut ys = [None, None];
-        let c= self.c;
+        let c = self.c;
         let y = xs[0].expect("数値が存在するはず in forward").powf(c);
 
         ys[0] = Some(y);
@@ -1714,10 +1674,10 @@ impl Function for Pow {
     fn backward(&self, gys: [Option<f32>; 2]) -> [Option<f32>; 2] {
         let mut gxs = [None, None];
         let x0_data = self.inputs[0].as_ref().unwrap().borrow().data;
-        let c=self.c;
-        
+        let c = self.c;
+
         if let Some(gy0_data) = gys[0] {
-            gxs[0] = Some(c*x0_data.powf(c-1.0)*gy0_data);
+            gxs[0] = Some(c * x0_data.powf(c - 1.0) * gy0_data);
         }
 
         gxs
@@ -1742,31 +1702,29 @@ impl Function for Pow {
     }
 }
 impl Pow {
-    fn new(c:f64) -> Rc<RefCell<Self>> {
+    fn new(c: f64) -> Rc<RefCell<Self>> {
         let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             outputs: [None, None],
-            c:c as f32,
+            c: c as f32,
             generation: 0,
             id: id,
         }))
     }
 }
 
-fn pow(xs: &[Option<Rc<RefCell<Variable>>>; 2],c:f64) -> [Option<Rc<RefCell<Variable>>>; 2] {
+fn pow(xs: &[Option<Rc<RefCell<Variable>>>; 2], c: f64) -> [Option<Rc<RefCell<Variable>>>; 2] {
     Pow::new(c).borrow_mut().call(xs)
 }
-
 
 #[derive(Debug, Clone)]
 struct Log {
     inputs: [Option<Rc<RefCell<Variable>>>; 2],
     outputs: [Option<Weak<RefCell<Variable>>>; 2],
-    base:Option<f32>,
+    base: Option<f32>,
     generation: i32,
     id: u32,
-    
 }
 
 impl Function for Log {
@@ -1803,7 +1761,6 @@ impl Function for Log {
         outputs[0] = Some(Variable::new_rc(ys_data[0].expect("数値が存在するはず")));
 
         if get_grad_status() == true {
-        
             //　inputsを覚える
             self.inputs = inputs.clone();
             self.generation = inputs[0].as_ref().unwrap().borrow().generation;
@@ -1823,15 +1780,14 @@ impl Function for Log {
                 .expect("outputs[0]がNoneになってる")
                 .borrow_mut()
                 .set_creator(self_log.clone());
-
-        }    
+        }
         outputs
     }
 
     fn forward(&self, xs: [Option<f32>; 2]) -> [Option<f32>; 2] {
         let mut ys = [None, None];
-        let base= self.base;
-        let  y;
+        let base = self.base;
+        let y;
 
         //baseがeか他の値かで場合分け(eの場合、baseはNone)
         if let Some(base_data) = base {
@@ -1839,7 +1795,6 @@ impl Function for Log {
         } else {
             y = xs[0].expect("数値が存在するはず").ln();
         }
-        
 
         ys[0] = Some(y);
 
@@ -1850,13 +1805,13 @@ impl Function for Log {
         let mut gxs = [None, None];
         let x0_data = self.inputs[0].as_ref().unwrap().borrow().data;
         let base = self.base;
-        
+
         //baseがeか他の値かで場合分け(eの場合、baseはNone)
         if let Some(gy0_data) = gys[0] {
             if let Some(base_data) = base {
-                gxs[0] = Some(1.0/(x0_data*base_data.ln())*gy0_data);
-            }else {
-                gxs[0] = Some((1.0/x0_data)*gy0_data)
+                gxs[0] = Some(1.0 / (x0_data * base_data.ln()) * gy0_data);
+            } else {
+                gxs[0] = Some((1.0 / x0_data) * gy0_data)
             };
         }
 
@@ -1882,27 +1837,24 @@ impl Function for Log {
     }
 }
 impl Log {
-    fn new(base:Option<f32>) -> Rc<RefCell<Self>> {
+    fn new(base: Option<f32>) -> Rc<RefCell<Self>> {
         let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             outputs: [None, None],
-            base:base,
+            base: base,
             generation: 0,
             id: id,
         }))
     }
 }
 
-
-
-fn log(xs: &[Option<Rc<RefCell<Variable>>>; 2],base:Option<f32>) -> [Option<Rc<RefCell<Variable>>>; 2] {
+fn log(
+    xs: &[Option<Rc<RefCell<Variable>>>; 2],
+    base: Option<f32>,
+) -> [Option<Rc<RefCell<Variable>>>; 2] {
     Log::new(base).borrow_mut().call(xs)
 }
-
-
-
-
 
 //演算子のオーバーロード
 
@@ -1947,8 +1899,6 @@ impl Neg for RcVariable {
     }
 }
 
-
-
 trait f32ToRcVariable {
     fn rv(&self) -> RcVariable;
 }
@@ -1959,9 +1909,6 @@ impl f32ToRcVariable for f64 {
         RcVariable::new(*self as f32)
     }
 }
-
-
-
 
 /*
 #[cfg(test)]
