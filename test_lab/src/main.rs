@@ -9,7 +9,7 @@ use std::sync::Mutex;
 //use std::hash::Hash;
 //use std::process::Output;
 use ndarray::{
-    array, Array, ArrayBase, ArrayD, ArrayView, ArrayView2, ArrayViewD, Data, Dim, Dimension, IntoDimension, IxDyn, IxDynImpl, OwnedRepr, Shape
+    array, Array, ArrayBase, ArrayD, ArrayViewD,  Dimension,  IxDyn,  OwnedRepr,Axis,
 };
 use std::rc::{Rc, Weak};
 use std::vec;
@@ -96,8 +96,8 @@ fn main() {
 
     // `&[usize; 2]`を`IxDyn`に変換
         //let dyn_shape = IxDyn(&shape_array);
-        let mut y = x0.T() ;
-        y.backward();
+        let mut y = x0.sum( Some(1), false) ;
+        //y.backward();
 
         println!("y_data={:?}\n",y.data());
 
@@ -317,6 +317,12 @@ impl RcVariable {
         let y = transpose_f(&[Some(self.0.clone()), None]);
         RcVariable(y.clone())
     }
+
+    fn sum(&self,axis:Option<u16>,keepdims:bool) -> RcVariable {
+        let y = sum_f(&[Some(self.0.clone()), None], axis, keepdims);
+        RcVariable(y.clone())
+    }
+    
 
 
     
@@ -1964,6 +1970,139 @@ fn transpose(x: &RcVariable) -> RcVariable {
     let y = transpose_f(&[Some(x.0.clone()), None]);
     RcVariable(y.clone())
 }
+
+
+
+#[derive(Debug, Clone)]
+struct Sum {
+    inputs: [Option<Rc<RefCell<Variable>>>; 2],
+    output: Option<Weak<RefCell<Variable>>>,
+    axis: Option<u16>,
+    keepdims: bool,
+    generation: i32,
+    id: u32,
+}
+
+impl Function for Sum {
+    fn call(&mut self, inputs: &[Option<Rc<RefCell<Variable>>>; 2]) -> Rc<RefCell<Variable>> {
+        if let None = &inputs[0] {
+            panic!("Sumは一変数関数です。input[0]がNoneです")
+        }
+        if let Some(_variable) = &inputs[1] {
+            panic!("Sumは一変数関数です。input[1]がNoneではある必要があります")
+        }
+
+        let mut xs_data = [None, None];
+
+        let inputs_0 = inputs[0].as_ref().unwrap().borrow();
+
+        // inputのvariableからdataを取り出す
+        xs_data[0] = Some(inputs_0.data.view());
+
+        let ys_data = self.forward(xs_data);
+
+        let output;
+
+        //ys_dataは一変数なので、outputs[1]は必要なし
+        output = Variable::new_rc(ys_data);
+
+        if get_grad_status() == true {
+            //　inputsを覚える
+            self.inputs = inputs.clone();
+            self.generation = inputs[0].as_ref().unwrap().borrow().generation;
+
+            //  outputsを弱参照(downgrade)で覚える
+            self.output = Some(Rc::downgrade(&output));
+
+            let self_f: Rc<RefCell<dyn Function>> = Rc::new(RefCell::new(self.clone()));
+
+            //outputsに自分をcreatorとして覚えさせる　不変長　配列2
+            output.borrow_mut().set_creator(self_f.clone());
+        }
+
+        output
+    }
+
+    fn forward(&self, xs: [Option<ArrayViewD<f32>>; 2]) -> ArrayD<f32> {
+        let axis = self.axis;
+        
+        let y;
+
+        if let Some(axis_data) = axis {
+            if axis_data != 0 && axis_data != 1 {
+                panic!("axisは0か1の値のみ指定できます")
+            }
+
+            y = xs[0].as_ref().expect("数値がありません").to_owned().sum_axis(Axis(axis_data as usize));
+        }else {
+            let scalar_y = xs[0].as_ref().expect("数値がありません").to_owned().sum();
+            y = array![scalar_y].into_dyn();
+        }
+        
+
+        y
+    }
+
+    fn backward(&self, gys: ArrayViewD<f32>) -> [Option<ArrayD<f32>>; 2] {
+        let mut gxs = [None, None];
+        let x_borrow = self.inputs[0].as_ref().unwrap().borrow();
+        let x_shape = x_borrow.data.shape();
+        
+        gxs[0] = Some(gys.to_owned().into_shape(x_shape).unwrap());
+        
+        gxs
+    }
+
+    fn get_inputs(&self) -> [Option<Rc<RefCell<Variable>>>; 2] {
+        self.inputs.clone()
+    }
+
+    fn get_output(&self) -> Rc<RefCell<Variable>> {
+        let output;
+        output = self
+            .output
+            .as_ref()
+            .unwrap()
+            .upgrade()
+            .as_ref()
+            .unwrap()
+            .clone();
+
+        output
+    }
+
+    fn get_generation(&self) -> i32 {
+        self.generation
+    }
+    fn get_id(&self) -> u32 {
+        self.id
+    }
+}
+impl Sum {
+    fn new(axis:Option<u16>,keepdims:bool) -> Rc<RefCell<Self>> {
+        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
+        Rc::new(RefCell::new(Self {
+            inputs: [None, None],
+            output: None,
+            axis:axis,
+            keepdims:keepdims,
+            generation: 0,
+            id: id,
+        }))
+    }
+}
+
+
+
+fn sum_f(xs: &[Option<Rc<RefCell<Variable>>>; 2],axis: Option<u16>,keepdims: bool) -> Rc<RefCell<Variable>> {
+    Sum::new(axis,keepdims).borrow_mut().call(&xs)
+}
+
+fn sum(x: &RcVariable,axis:Option<u16>,keepdims:bool) -> RcVariable {
+    let y = sum_f(&[Some(x.0.clone()), None],axis,keepdims);
+    RcVariable(y.clone())
+}
+
 
 
 
