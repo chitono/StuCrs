@@ -3,24 +3,19 @@ use std::cell::RefCell;
 //use std::clone;
 use std::collections::HashSet;
 use std::fmt::Debug;
-use std::sync::atomic::{ AtomicU32, Ordering};
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Mutex;
 //use std::future;
 //use std::hash::Hash;
 //use std::process::Output;
-use ndarray::{
-Array, ArrayD, ArrayViewD,    IxDyn,  
-};
+use ndarray::{Array, ArrayD, ArrayViewD, IxDyn};
 use std::rc::{Rc, Weak};
 use std::vec;
 
 //use std::thread;
 //use std::time::Duration;
 
-
 use crate::functions::*;
-
-
 
 static NEXT_ID: AtomicU32 = AtomicU32::new(1);
 
@@ -85,12 +80,11 @@ fn gx2(x: &RcVariable) -> RcVariable {
     y
 } */
 
-
 #[derive(Debug, Clone)]
 pub struct Variable {
     pub data: ArrayD<f32>,
-        grad: Option<ArrayD<f32>>,
-        creator: Option<Rc<RefCell<dyn Function>>>,
+    grad: Option<ArrayD<f32>>,
+    creator: Option<Rc<RefCell<dyn Function>>>,
     pub name: Option<String>,
     pub generation: i32,
     pub id: u32,
@@ -230,20 +224,18 @@ impl RcVariable {
         self.0.borrow_mut().cleargrad();
     }
 
-    
-
     pub fn pow(&self, c: f64) -> RcVariable {
         let y = pow(&[Some(self.0.clone()), None], c);
         RcVariable(y.clone())
-    } 
+    }
 
     pub fn exp(&self) -> RcVariable {
         let y = exp(&self);
         y
     }
-    
-    pub fn reshape(&self,shape: IxDyn) -> RcVariable {
-        let y = reshape(&self,shape);
+
+    pub fn reshape(&self, shape: IxDyn) -> RcVariable {
+        let y = reshape(&self, shape);
         y
     }
 
@@ -252,14 +244,10 @@ impl RcVariable {
         y
     }
 
-    pub fn sum(&self,axis:Option<u16>) -> RcVariable {
+    pub fn sum(&self, axis: Option<u16>) -> RcVariable {
         let y = sum(&self, axis);
         y
     }
-    
-
-
-    
 }
 
 pub trait Function: Debug {
@@ -276,9 +264,8 @@ pub trait Function: Debug {
     fn get_id(&self) -> u32;
 }
 
-
 #[derive(Debug, Clone)]
- struct AddF {
+struct AddF {
     inputs: [Option<Rc<RefCell<Variable>>>; 2],
     output: Option<Weak<RefCell<Variable>>>,
     generation: i32,
@@ -343,7 +330,6 @@ impl Function for AddF {
     }
 
     fn backward(&self, gys: ArrayViewD<f32>) -> [Option<ArrayD<f32>>; 2] {
-        
         let mut gx0 = gys.clone().to_owned();
         let mut gx1 = gys.clone().to_owned();
 
@@ -356,12 +342,7 @@ impl Function for AddF {
         if x0_shape != x1_shape {
             gx0 = array_sum_to(&gys, x0_shape);
             gx1 = array_sum_to(&gys, x1_shape);
-
         }
-
-        
-
-        
 
         let gxs = [Some(gx0.to_owned()), Some(gx1.to_owned())];
 
@@ -476,7 +457,6 @@ impl Function for MulF {
 
     fn backward(&self, gys: ArrayViewD<f32>) -> [Option<ArrayD<f32>>; 2] {
         let mut gxs = [None, None];
-        
 
         let x0_borrow = self.inputs[0].as_ref().unwrap().borrow();
         let x1_borrow = self.inputs[1].as_ref().unwrap().borrow();
@@ -484,8 +464,8 @@ impl Function for MulF {
         let x0_data = x0_borrow.data.view();
         let x1_data = x1_borrow.data.view();
 
-        let mut gx0 = &x1_data*&gys;
-        let mut gx1 = &x0_data*&gys;
+        let mut gx0 = &x1_data * &gys;
+        let mut gx1 = &x0_data * &gys;
 
         let x0_shape = IxDyn(x0_borrow.data.shape());
         let x1_shape = IxDyn(x1_borrow.data.shape());
@@ -493,7 +473,6 @@ impl Function for MulF {
         if x0_shape != x1_shape {
             gx0 = array_sum_to(&gx0.view(), x0_shape);
             gx1 = array_sum_to(&gx1.view(), x1_shape);
-
         }
 
         gxs[0] = Some(gx0);
@@ -609,9 +588,8 @@ impl Function for SubF {
     }
 
     fn backward(&self, gys: ArrayViewD<f32>) -> [Option<ArrayD<f32>>; 2] {
-
         let mut gx0 = gys.clone().to_owned();
-        let mut gx1 = gys.clone().to_owned();
+        let mut gx1 = -gys.clone().to_owned();
 
         let x0_borrow = self.inputs[0].as_ref().unwrap().borrow();
         let x1_borrow = self.inputs[1].as_ref().unwrap().borrow();
@@ -622,18 +600,9 @@ impl Function for SubF {
         if x0_shape != x1_shape {
             gx0 = array_sum_to(&gys, x0_shape);
             gx1 = array_sum_to(&gys, x1_shape);
-
         }
 
-        
-
-        
-
-        let gxs = [Some(gx0.to_owned()), Some(-gx1.to_owned())];
-
-        
-        
-        
+        let gxs = [Some(gx0.to_owned()), Some(gx1.to_owned())];
 
         gxs
     }
@@ -678,10 +647,6 @@ impl SubF {
 pub fn sub(xs: &[Option<Rc<RefCell<Variable>>>; 2]) -> Rc<RefCell<Variable>> {
     SubF::new().borrow_mut().call(&xs)
 }
-
-
-
-
 
 #[derive(Debug, Clone)]
 struct DivF {
@@ -757,12 +722,19 @@ impl Function for DivF {
         let x0_data = x0_borrow.data.view();
         let x1_data = x1_borrow.data.view();
 
-        gxs[0] = Some(&x1_data * &gys);
-        gxs[1] = Some(&x0_data * &gys);
+        let mut gx0 = &gys / &x1_data;
+        let mut gx1 = &gys * (-&x0_data / &x1_data.mapv(|x| x.powf(2.0)));
 
+        let x0_shape = IxDyn(x0_borrow.data.shape());
+        let x1_shape = IxDyn(x1_borrow.data.shape());
 
-        gxs[0] = Some(&gys / &x1_data);
-        gxs[1] = Some(&gys * (-&x0_data/&x1_data.mapv(|x|x.powf(2.0))) );
+        if x0_shape != x1_shape {
+            gx0 = array_sum_to(&gx0.view(), x0_shape);
+            gx1 = array_sum_to(&gx1.view(), x1_shape);
+        }
+
+        gxs[0] = Some(gx0);
+        gxs[1] = Some(gx1);
 
         gxs
     }
@@ -808,7 +780,6 @@ pub fn div(xs: &[Option<Rc<RefCell<Variable>>>; 2]) -> Rc<RefCell<Variable>> {
     DivF::new().borrow_mut().call(&xs)
 }
 
-
 #[derive(Debug, Clone)]
 struct NegF {
     inputs: [Option<Rc<RefCell<Variable>>>; 2],
@@ -820,10 +791,10 @@ struct NegF {
 impl Function for NegF {
     fn call(&mut self, inputs: &[Option<Rc<RefCell<Variable>>>; 2]) -> Rc<RefCell<Variable>> {
         if let None = &inputs[0] {
-            panic!("Expは一変数関数です。input[0]がNoneです")
+            panic!("Negは一変数関数です。input[0]がNoneです")
         }
         if let Some(_variable) = &inputs[1] {
-            panic!("Expは一変数関数です。input[1]がNoneではある必要があります")
+            panic!("Negは一変数関数です。input[1]がNoneではある必要があります")
         }
 
         let mut xs_data = [None, None];
@@ -865,7 +836,7 @@ impl Function for NegF {
 
     fn backward(&self, gys: ArrayViewD<f32>) -> [Option<ArrayD<f32>>; 2] {
         let mut gxs = [None, None];
-        
+
         gxs[0] = Some(-&gys);
 
         gxs
@@ -907,7 +878,6 @@ impl NegF {
         }))
     }
 }
-
 
 pub fn neg(xs: &[Option<Rc<RefCell<Variable>>>; 2]) -> Rc<RefCell<Variable>> {
     NegF::new().borrow_mut().call(&xs)
@@ -964,7 +934,10 @@ impl Function for Pow {
 
     fn forward(&self, xs: [Option<ArrayViewD<f32>>; 2]) -> ArrayD<f32> {
         let c = self.c;
-        let y = xs[0].as_ref().expect("数値がありません").mapv(|x| x.powf(c));
+        let y = xs[0]
+            .as_ref()
+            .expect("数値がありません")
+            .mapv(|x| x.powf(c));
 
         y
     }
@@ -975,7 +948,7 @@ impl Function for Pow {
         let x0_data = x0_borrow.data.view();
         let c = self.c;
 
-        gxs[0] = Some(c*x0_data.mapv(|gx| gx.powf(c-1.0)) * &gys);
+        gxs[0] = Some(c * x0_data.mapv(|gx| gx.powf(c - 1.0)) * &gys);
 
         gxs
     }
@@ -1006,7 +979,7 @@ impl Function for Pow {
     }
 }
 impl Pow {
-    fn new(c:f64) -> Rc<RefCell<Self>> {
+    fn new(c: f64) -> Rc<RefCell<Self>> {
         let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
@@ -1018,20 +991,11 @@ impl Pow {
     }
 }
 
-
-
-pub fn pow(xs: &[Option<Rc<RefCell<Variable>>>; 2],c:f64) -> Rc<RefCell<Variable>> {
+pub fn pow(xs: &[Option<Rc<RefCell<Variable>>>; 2], c: f64) -> Rc<RefCell<Variable>> {
     Pow::new(c).borrow_mut().call(&xs)
 }
 
-
-
-
-
-
-
-
-/* 
+/*
 //rustの数値のデフォルトがf64なので、f32に変換してからRcVariableを生成
 impl ArrayDToRcVariable for ArrayBase<OwnedRepr<f32>, Dim<[usize;1]>> {
     fn rv(&self) -> RcVariable {
