@@ -3,5 +3,5 @@ resolver = "2"
 members = [
     "test_lab",
     "my_scratch",
-    "stucrs",
+    "stucrs", "cuda_test",
 ]

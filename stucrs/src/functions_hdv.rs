@@ -1,4 +1,3 @@
-
 use std::cell::RefCell;
 //use std::clone;
 use std::collections::HashSet;
@@ -18,7 +17,7 @@ use std::time::Instant;
 
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
-use stucrs::{functions,core};
+use stucrs::{core, functions};
 
 static NEXT_ID: AtomicU32 = AtomicU32::new(1);
 
@@ -99,11 +98,9 @@ fn gx2(x: &RcVariable) -> RcVariable {
     y
 } */
 
-fn main() {
-    
-}
+fn main() {}
 
-/* 
+/*
 
 fn main() {
     let start = Instant::now();
@@ -118,7 +115,7 @@ fn main() {
         //let x1 = array![[11.0f32, 12.0, 13.0], [14.0, 15.0, 16.0]].rv();
         //let x2 = array![[11.0f32, 12.0, 13.0], [14.0, 15.0, 16.0]].rv();
         //let  shape_array = [1,6];
-        
+
 
         // `&[usize; 2]`を`IxDyn`に変換
         //let dyn_shape = IxDyn(&shape_array);
@@ -127,22 +124,22 @@ fn main() {
 
         y.backward(false);
 
-       
+
         //println!("x_grad = {:?}\n",x0.0.borrow().grad.as_ref().unwrap().data());
 
         //let mut gx = x0.grad().clone();
         //println!("x0 = {:?}", x0.clone());
-        
+
 
         //gx.0.borrow_mut().data = Array::zeros(gx)
         //x0.cleargrad();
         //println!("x0 = {:?}", x0.clone());
-        
-        
-        
+
+
+
 
         //gx.as_mut().unwrap().backward(false);
-        
+
 
         //println!("{:?}", x0.grad().as_ref().unwrap().data());
 
@@ -262,7 +259,7 @@ impl Variable {
             } else {
                 set_grad_false();
             }
-            
+
             let xs = f_borrowed.get_inputs();
 
             let y = f_borrowed.get_output();
@@ -280,25 +277,25 @@ impl Variable {
             }
 
             let xs_grad = f_borrowed.backward(&y_grad.as_ref().unwrap().clone());
-        
+
             // gradを置き換えまたは足していくので、Noneか判別
             let mut xs_0 = xs[0].as_ref().unwrap();
-            
+
             let current_grad_0_data = xs_0
                 .grad()
                 .as_ref()
                 .cloned()
                 .unwrap_or_else(|| ArrayD::<f32>::zeros(xs_0.data().shape()).rv());
-            
+
             xs_0.0.borrow_mut().grad =
                 Some(current_grad_0_data + xs_grad[0].as_ref().unwrap().clone());
-            
+
             //xs[0]にcreatorがあるか確認、あったらfuncに追加
             if let Some(func_creator) = &xs_0.0.borrow().creator {
                 add_func(&mut funcs, &mut seen_set, func_creator.clone());
                 //funcs.push(Rc::clone(&func_creator));
             }
-            
+
             //xs[1]はfが一変数関数の時、NoneなのでNoneか判別
             if let Some(xs_1) = &xs[1] {
                 let current_grad_1_data = xs_1
@@ -306,24 +303,22 @@ impl Variable {
                     .as_ref()
                     .cloned()
                     .unwrap_or_else(|| Array::zeros(xs_1.data().shape()).rv());
-                
+
                 xs_1.0.borrow_mut().grad =
                     Some(current_grad_1_data + xs_grad[1].as_ref().unwrap().clone());
-                
+
                 //xs[1]にcreatorがあるか確認、あったらfuncに追加
                 if let Some(func_creator) = &xs_1.0.borrow().creator {
                     add_func(&mut funcs, &mut seen_set, func_creator.clone());
                     //funcs.push(Rc::clone(&func_creator));
                 }
             }
-            
+
             if get_keep_grad_status() == false {
                 println!("hozonsinai");
-            
-                y_grad = None;
-            } 
 
-            
+                y_grad = None;
+            }
         }
     }
 
@@ -644,9 +639,8 @@ impl Function for Sin {
         let output = ys_data.clone();
 
         //ここから下の処理はbackwardするときだけ必要。
-    
+
         if get_grad_status() == true {
-            
             //　inputsを覚える
             self.inputs = inputs.clone();
 
@@ -660,7 +654,7 @@ impl Function for Sin {
             //outputに自分をcreatorとして覚えさせる　不変長　配列2
             output.0.borrow_mut().set_creator(self_f.clone());
         }
-        
+
         output
     }
 
@@ -752,9 +746,8 @@ impl Function for Cos {
         let output = ys_data.clone();
 
         //ここから下の処理はbackwardするときだけ必要。
-        
+
         if get_grad_status() == true {
-            
             //　inputsを覚える
             self.inputs = inputs.clone();
 
@@ -779,18 +772,17 @@ impl Function for Cos {
     }
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
-        
         let mut gxs = [None, None];
         let x = self.inputs[0].as_ref().unwrap();
 
         let sinx = sin(x);
-        
+
         let sin_x = -sinx;
-        
+
         let gx = sin_x * gy.clone();
-        
+
         gxs[0] = Some(gx);
-        
+
         gxs
     }
 
@@ -971,7 +963,7 @@ impl Function for Add_f {
         let ys_data = self.forward(&xs_data);
 
         let output = ys_data.clone();
-        
+
         if get_grad_status() == true {
             //　inputsを覚える
             self.inputs = inputs.clone();
@@ -1078,7 +1070,7 @@ impl Function for Mul_f {
         let ys_data = self.forward(&xs_data);
 
         let output = ys_data.clone();
-    
+
         if get_grad_status() == true {
             //　inputsを覚える
             self.inputs = inputs.clone();
@@ -1190,7 +1182,7 @@ impl Function for Sub_f {
         let ys_data = self.forward(&xs_data);
 
         let output = ys_data.clone();
-        
+
         if get_grad_status() == true {
             //　inputsを覚える
             self.inputs = inputs.clone();
@@ -1412,7 +1404,7 @@ impl Function for Neg_f {
         let output = ys_data.clone();
 
         //ここから下の処理はbackwardするときだけ必要。
-        
+
         if get_grad_status() == true {
             //　inputsを覚える
             self.inputs = inputs.clone();
@@ -2133,7 +2125,6 @@ impl Div for RcVariable {
 impl Neg for RcVariable {
     type Output = RcVariable;
     fn neg(self) -> Self::Output {
-        
         let neg_y = neg(&[Some(self.clone()), None]);
         neg_y
     }
