@@ -1882,6 +1882,8 @@ fn sum(x: &RcVariable, axis: Option<u16>, keepdims: bool) -> RcVariable {
 
 //演算子のオーバーロード
 
+
+
 impl Add for RcVariable {
     type Output = RcVariable;
     fn add(self, rhs: RcVariable) -> Self::Output {
@@ -1946,6 +1948,8 @@ impl f32ToRcVariable for f64 {
         array.rv()
     }
 }
+
+    
 
 /*
 //rustの数値のデフォルトがf64なので、f32に変換してからRcVariableを生成

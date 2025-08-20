@@ -1456,56 +1456,31 @@ impl Function for MatMul {
         let w = xs[1].as_ref().unwrap();
 
         //match以降の場合分けを関数にしたい
-        let y = match (x.ndim(), w.ndim()) {
-            // 1D × 1D → スカラー出力
-            (1, 1) => {
-                let x = x.clone().into_dimensionality::<Ix1>().unwrap();
-                let w = w.clone().into_dimensionality::<Ix1>().unwrap();
-                let y = x.dot(&w);
-                ArrayD::from_elem(ndarray::IxDyn(&[]), y) // スカラーとして返す
-            }
-
-            // 2D × 1D → 1Dベクトル
-            (2, 1) => {
-                let x = x.clone().into_dimensionality::<Ix2>().unwrap();
-                let w = w.clone().into_dimensionality::<Ix1>().unwrap();
-                let y = x.dot(&w);
-                y.into_dyn()
-            }
-
-            // 2D × 2D → 行列積
-            (2, 2) => {
-                let x = x.clone().into_dimensionality::<Ix2>().unwrap();
-                let w = w.clone().into_dimensionality::<Ix2>().unwrap();
-                let y = x.dot(&w);
-                y.into_dyn()
-            }
-
-            _ => {
-                panic!("3次元以上の行列積は未実装");
-            }
-        };
+        let y = array_matmul(x, w);
 
         y
     }
 
-    fn backward(&self, gys: ArrayViewD<f32>) -> [Option<ArrayD<f32>>; 2] {
+
+
+    fn backward(&self, gy: ArrayViewD<f32>) -> [Option<ArrayD<f32>>; 2] {
         let mut gxs = [None, None];
 
-        let x0_borrow = self.inputs[0].as_ref().unwrap().borrow();
-        let x1_borrow = self.inputs[1].as_ref().unwrap().borrow();
+        let x_borrow = self.inputs[0].as_ref().unwrap().borrow();
+        let w_borrow = self.inputs[1].as_ref().unwrap().borrow();
 
-        let x0_data = x0_borrow.data.view();
-        let x1_data = x1_borrow.data.view();
+        let x_data = x_borrow.data.view();
+        let w_data = w_borrow.data.view();
 
-        let mut gx0 = &x1_data * &gys;
-        let mut gx1 = &x0_data * &gys;
+        let gx = array_matmul(&gy,&w_data.t());
+        let gw = array_matmul(&x_data.t(),&gy);
 
-        gxs[0] = Some(gx0);
-        gxs[1] = Some(gx1);
+        gxs[0] = Some(gx);
+        gxs[1] = Some(gw);
 
         gxs
-    }
+    }   
+
 
     fn get_inputs(&self) -> [Option<Rc<RefCell<Variable>>>; 2] {
         self.inputs.clone()
@@ -1544,8 +1519,56 @@ impl MatMul {
     }
 }
 
-pub fn matmul(xs: &[Option<Rc<RefCell<Variable>>>; 2]) -> Rc<RefCell<Variable>> {
+pub fn array_matmul(x_array: &ArrayViewD<f32>,w_array: &ArrayViewD<f32>) -> ArrayD<f32>{
+    let y = match (x_array.ndim(), w_array.ndim()) {
+            // 1D × 1D → スカラー出力
+            (1, 1) => {
+                let x = x_array.clone().into_dimensionality::<Ix1>().unwrap();
+                let w = w_array.clone().into_dimensionality::<Ix1>().unwrap();
+                let y = x.dot(&w);
+                ArrayD::from_elem(ndarray::IxDyn(&[]), y) // スカラーとして返す
+            }
+
+            // 2D × 1D 
+            (2, 1) => {
+                let x = x_array.clone().into_dimensionality::<Ix2>().unwrap();
+                let w = w_array.clone().into_dimensionality::<Ix1>().unwrap();
+                let y = x.dot(&w);
+                y.into_dyn()
+            }
+
+            // 1D × 2D 
+            (1, 2) => {
+                let x = x_array.clone().into_dimensionality::<Ix1>().unwrap();
+                let w = w_array.clone().into_dimensionality::<Ix2>().unwrap();
+                let y = x.dot(&w);
+                y.into_dyn()
+            
+            }
+
+            // 2D × 2D 
+            (2, 2) => {
+                let x = x_array.clone().into_dimensionality::<Ix2>().unwrap();
+                let w = w_array.clone().into_dimensionality::<Ix2>().unwrap();
+                let y = x.dot(&w);
+                y.into_dyn()
+            }
+
+            _ => {
+                panic!("3次元以上の行列積は未実装");
+            }
+        };
+
+        y
+}
+
+fn matmul_f(xs: &[Option<Rc<RefCell<Variable>>>; 2]) -> Rc<RefCell<Variable>> {
     MatMul::new().borrow_mut().call(&xs)
+}
+
+pub fn matmul(x: &RcVariable, w :&RcVariable ) -> RcVariable{
+    let y =matmul_f(&[Some(x.0.clone()),Some(w.0.clone())]);
+    RcVariable(y.clone())
 }
 
 /*

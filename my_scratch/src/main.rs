@@ -1,7 +1,7 @@
 use ndarray::array;
 use std::time::Instant;
 
-//use stucrs::functions::sin;
+use stucrs::functions::matmul;
 use stucrs::ArrayDToRcVariable;
 fn main() {
     let start = Instant::now();
@@ -10,14 +10,14 @@ fn main() {
 
     let iters = 1;
     for _i in 0..iters {
-        let x = array![1.0f32, 2.0, 3.0].rv();
-        let x1 = array![10.0].rv();
+        let x = array![[1.0, 2.0, 3.0],[4.0, 5.0, 6.0]].rv();
+        let x1 = array![[10.0, 40.0],[20.0, 50.0],[30.0, 60.0]].rv();
         //let x2 = array![[11.0f32, 12.0, 13.0], [14.0, 15.0, 16.0]].rv();
         //let  shape_array = [1,6];
 
         // `&[usize; 2]`を`IxDyn`に変換
         //let dyn_shape = IxDyn(&shape_array);
-        let mut y = &x + &x1;
+        let mut y = matmul(&x, &x1);
 
         y.backward();
 
