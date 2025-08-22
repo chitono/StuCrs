@@ -83,8 +83,8 @@ fn gx2(x: &RcVariable) -> RcVariable {
 #[derive(Debug, Clone)]
 pub struct Variable {
     pub data: ArrayD<f32>,
-    grad: Option<ArrayD<f32>>,
-    creator: Option<Rc<RefCell<dyn Function>>>,
+    pub grad: Option<ArrayD<f32>>,
+    pub creator: Option<Rc<RefCell<dyn Function>>>,
     pub name: Option<String>,
     pub generation: i32,
     pub id: u32,
@@ -140,6 +140,7 @@ impl Variable {
         let mut last_variable = true;
 
         while let Some(f_rc) = funcs.pop() {
+            
             let xs = f_rc.borrow().get_inputs();
             let y_rc;
             let y;
@@ -171,6 +172,7 @@ impl Variable {
 
             //xs[0]にcreatorがあるか確認、あったらfuncに追加
             if let Some(func_creator) = &xs_0.creator {
+            
                 add_func(&mut funcs, &mut seen_set, func_creator.clone());
                 //funcs.push(Rc::clone(&func_creator));
             }
@@ -188,6 +190,7 @@ impl Variable {
 
                 //xs[1]にcreatorがあるか確認、あったらfuncに追加
                 if let Some(func_creator) = &xs_1.borrow().creator {
+                    
                     add_func(&mut funcs, &mut seen_set, func_creator.clone());
                     //funcs.push(Rc::clone(&func_creator));
                 }
@@ -220,8 +223,13 @@ impl RcVariable {
         self.0.borrow().grad.clone()
     }
 
+    
     pub fn cleargrad(&mut self) {
         self.0.borrow_mut().cleargrad();
+    }
+
+    pub fn len(&self) ->  u32{
+        self.data().len() as u32
     }
 
     pub fn pow(&self, c: f64) -> RcVariable {
