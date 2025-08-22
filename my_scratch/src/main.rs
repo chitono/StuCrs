@@ -1,30 +1,101 @@
-use ndarray::array;
+use ndarray::{array,Array, Data};
+use stucrs::core::RcVariable;
+use stucrs::functions::sum;
+use std::array;
 use std::time::Instant;
 
 use stucrs::functions::matmul;
-use stucrs::ArrayDToRcVariable;
+use stucrs::{ArrayDToRcVariable, F32ToRcVariable};
+
+use ndarray_rand::RandomExt;
+use ndarray_rand::rand_distr::Uniform;
+
+fn predict(x:&RcVariable,w:&RcVariable,b:&RcVariable) -> RcVariable {
+        let y = matmul(&x, &w) + b.clone();
+        y
+    }
+
+fn mean_squared_error(x0:&RcVariable,x1:&RcVariable) ->RcVariable{
+    let diff =x0.clone()-x1.clone();
+    let len = diff.len() as f32;
+    println!("len = {:?}",len);
+    
+    let error = sum(&diff.pow(2.0), None) /len.rv();
+    
+    error
+
+
+}
+
 fn main() {
     let start = Instant::now();
-
-    //set_grad_false();
-
-    let iters = 1;
-    for _i in 0..iters {
-        let x = array![[1.0, 2.0, 3.0],[4.0, 5.0, 6.0]].rv();
-        let x1 = array![[10.0, 40.0],[20.0, 50.0],[30.0, 60.0]].rv();
+    
+    let x_data = Array::random((100, 1), Uniform::new(0.0f32, 1.0));
         //let x2 = array![[11.0f32, 12.0, 13.0], [14.0, 15.0, 16.0]].rv();
-        //let  shape_array = [1,6];
+        
+        
+    let y_data = 2.0*x_data.clone() +5.0 + Array::random((100, 1), Uniform::new(0.0f32, 1.0));
+    println!("y_data = {:?}",y_data.clone());
 
-        // `&[usize; 2]`を`IxDyn`に変換
-        //let dyn_shape = IxDyn(&shape_array);
-        let mut y = matmul(&x, &x1);
+    let x=x_data.rv();
 
-        y.backward();
+    let y=y_data.rv();
+    
+    let mut w = Array::zeros((1,1)).rv();
+    let mut b = Array::zeros(1).rv();
+    
 
-        println!("y_data = {:?}\n", y.clone().data());
+    
+    //set_grad_false();
+    let lr =0.1;
+    let iters = 10000;
+    for _i in 0..iters {
+        //println!("w1 = {:?}\n", w.clone());
 
-        println!("x_grad = {:?}\n", x.clone().grad());
-        println!("x1_grad = {:?}\n", x1.clone().grad());
+       let y_pred=predict(&x, &w, &b);
+       //println!("y_pred = {:?}\n",y_pred.clone().data().clone());
+        //println!("w2 = {:?}\n", w.clone());
+
+       let mut loss=mean_squared_error(&y, &y_pred);
+        //println!("loss = {:?}\n", loss.0.borrow().creator);
+
+       w.cleargrad();
+       b.cleargrad();
+       
+       loss.backward();
+       //println!("wwwwwwwwwwwwwwwwwwwwwwwwwwwww\n");
+
+        
+
+       //let w_data=lr*w.grad();
+       //let b_data=lr*b.grad();
+
+
+       let w_data=w.data().clone();
+       let b_data=b.data().clone();
+
+       //let w.data=w_data-lr*w.grad(); 
+
+  
+
+        let current_grad_w =w.grad().unwrap();
+        let current_grad_b =b.grad().unwrap();
+
+       // w =  (w_data - lr*current_grad_w).rv();
+       // b = (b_data - lr*current_grad_b).rv();
+
+        w.0.borrow_mut().data =w_data- lr*current_grad_w;
+        b.0.borrow_mut().data = b_data- lr*current_grad_b;
+
+    
+
+    // y.backward();
+
+        println!("w = {:?}\n", w.clone().data());
+
+        println!("b= {:?}\n", b.clone().data());
+        //println!("loss = {:?}\n", loss.clone());
+        //println!("x1_grad = {:?}\n", x1.clone().grad());
 
         //println!("x2_grad={:?}\n", x2.grad());
     }
