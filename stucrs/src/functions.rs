@@ -831,10 +831,7 @@ impl Function for Reshape {
         let y_shape = self.shape.clone();
         let y = xs[0]
             .as_ref()
-            .expect("数値がありません")
-            .to_owned()
-            .into_shape(y_shape)
-            .unwrap();
+            .expect("数値がありません").to_shape(y_shape).unwrap().to_owned();
 
         y
     }
@@ -844,7 +841,7 @@ impl Function for Reshape {
         let x_borrow = self.inputs[0].as_ref().unwrap().borrow();
         let x_shape = x_borrow.data.shape();
 
-        gxs[0] = Some(gys.to_owned().into_shape(x_shape).unwrap());
+        gxs[0] = Some(gys.to_owned().to_shape(x_shape).unwrap().to_owned());
 
         gxs
     }
