@@ -17,7 +17,8 @@ use std::time::Instant;
 
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
-use crate::core_hdv::*;
+
+use crate::core_new::*;
 
 static NEXT_ID: AtomicU32 = AtomicU32::new(1);
 
@@ -1882,72 +1883,6 @@ fn sum(x: &RcVariable, axis: Option<u16>, keepdims: bool) -> RcVariable {
 
 //演算子のオーバーロード
 
-
-
-impl Add for RcVariable {
-    type Output = RcVariable;
-    fn add(self, rhs: RcVariable) -> Self::Output {
-        // add_op関数はRc<RefCell<Variable>>を扱う
-        let add_y = add(&[Some(self.clone()), Some(rhs.clone())]);
-        add_y
-    }
-}
-
-impl Mul for RcVariable {
-    type Output = RcVariable;
-    fn mul(self, rhs: RcVariable) -> Self::Output {
-        let mul_y = mul(&[Some(self.clone()), Some(rhs.clone())]);
-        mul_y
-    }
-}
-
-impl Sub for RcVariable {
-    type Output = RcVariable;
-    fn sub(self, rhs: RcVariable) -> Self::Output {
-        let sub_y = sub(&[Some(self.clone()), Some(rhs.clone())]);
-        sub_y
-    }
-}
-
-impl Div for RcVariable {
-    type Output = RcVariable;
-    fn div(self, rhs: RcVariable) -> Self::Output {
-        let div_y = div(&[Some(self.clone()), Some(rhs.clone())]);
-        div_y
-    }
-}
-
-impl Neg for RcVariable {
-    type Output = RcVariable;
-    fn neg(self) -> Self::Output {
-        let neg_y = neg(&[Some(self.clone()), None]);
-        neg_y
-    }
-}
-
-//array型からRcVariable型を生成
-trait ArrayDToRcVariable {
-    fn rv(&self) -> RcVariable;
-}
-//arrayは任意の次元に対応
-impl<D: Dimension> ArrayDToRcVariable for ArrayBase<OwnedRepr<f32>, D> {
-    fn rv(&self) -> RcVariable {
-        RcVariable::new(self.view().into_dyn())
-    }
-}
-
-trait f32ToRcVariable {
-    fn rv(&self) -> RcVariable;
-}
-
-//rustの数値のデフォルトがf64なので、f32に変換する
-//f32からarray型に変換し、rv()でRcVariableを生成
-impl f32ToRcVariable for f64 {
-    fn rv(&self) -> RcVariable {
-        let array = array![*self as f32];
-        array.rv()
-    }
-}
 
     
 

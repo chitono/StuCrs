@@ -16,7 +16,7 @@ use std::vec;
 
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
-use crate::functions_hdv::*;
+use crate::functions_new::*;
 
 static NEXT_ID: AtomicU32 = AtomicU32::new(1);
 
@@ -397,14 +397,14 @@ pub trait Function: Debug {
 }
 
 #[derive(Debug, Clone)]
-struct Add_f {
+struct AddF {
     inputs: [Option<RcVariable>; 2],
     output: Option<Weak<RefCell<Variable>>>,
     generation: i32,
     id: u32,
 }
 
-impl Function for Add_f {
+impl Function for AddF {
     fn call(&mut self, inputs: &[Option<RcVariable>; 2]) -> RcVariable {
         if let None = &inputs[0] {
             panic!("Addは二変数関数です。input[0]がNoneです")
@@ -455,9 +455,9 @@ impl Function for Add_f {
     }
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
-        let mut gxs = [None, None];
 
-        gxs = [Some(gy.clone()), Some(gy.clone())];
+
+        let gxs = [Some(gy.clone()), Some(gy.clone())];
 
         gxs
     }
@@ -487,7 +487,7 @@ impl Function for Add_f {
         self.id
     }
 }
-impl Add_f {
+impl AddF {
     fn new() -> Rc<RefCell<Self>> {
         let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
@@ -500,18 +500,18 @@ impl Add_f {
 }
 
 pub fn add(xs: &[Option<RcVariable>; 2]) -> RcVariable {
-    Add_f::new().borrow_mut().call(&xs)
+    AddF::new().borrow_mut().call(&xs)
 }
 
 #[derive(Debug, Clone)]
-struct Mul_f {
+struct MulF {
     inputs: [Option<RcVariable>; 2],
     output: Option<Weak<RefCell<Variable>>>,
     generation: i32,
     id: u32,
 }
 
-impl Function for Mul_f {
+impl Function for MulF {
     fn call(&mut self, inputs: &[Option<RcVariable>; 2]) -> RcVariable {
         if let None = &inputs[0] {
             panic!("Mulは二変数関数です。input[0]がNoneです")
@@ -599,7 +599,7 @@ impl Function for Mul_f {
         self.id
     }
 }
-impl Mul_f {
+impl MulF {
     fn new() -> Rc<RefCell<Self>> {
         let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
@@ -612,18 +612,18 @@ impl Mul_f {
 }
 
 pub fn mul(xs: &[Option<RcVariable>; 2]) -> RcVariable {
-    Mul_f::new().borrow_mut().call(&xs)
+    MulF::new().borrow_mut().call(&xs)
 }
 
 #[derive(Debug, Clone)]
-struct Sub_f {
+struct SubF {
     inputs: [Option<RcVariable>; 2],
     output: Option<Weak<RefCell<Variable>>>,
     generation: i32,
     id: u32,
 }
 
-impl Function for Sub_f {
+impl Function for SubF {
     fn call(&mut self, inputs: &[Option<RcVariable>; 2]) -> RcVariable {
         if let None = &inputs[0] {
             panic!("Subは二変数関数です。input[0]がNoneです")
@@ -708,7 +708,7 @@ impl Function for Sub_f {
         self.id
     }
 }
-impl Sub_f {
+impl SubF {
     fn new() -> Rc<RefCell<Self>> {
         let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
@@ -721,18 +721,18 @@ impl Sub_f {
 }
 
 pub fn sub(xs: &[Option<RcVariable>; 2]) -> RcVariable {
-    Sub_f::new().borrow_mut().call(&xs)
+    SubF::new().borrow_mut().call(&xs)
 }
 
 #[derive(Debug, Clone)]
-struct Div_f {
+struct DivF {
     inputs: [Option<RcVariable>; 2],
     output: Option<Weak<RefCell<Variable>>>,
     generation: i32,
     id: u32,
 }
 
-impl Function for Div_f {
+impl Function for DivF {
     fn call(&mut self, inputs: &[Option<RcVariable>; 2]) -> RcVariable {
         if let None = &inputs[0] {
             panic!("Divは二変数関数です。input[0]がNoneです")
@@ -820,7 +820,7 @@ impl Function for Div_f {
         self.id
     }
 }
-impl Div_f {
+impl DivF {
     fn new() -> Rc<RefCell<Self>> {
         let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
@@ -833,18 +833,18 @@ impl Div_f {
 }
 
 pub fn div(xs: &[Option<RcVariable>; 2]) -> RcVariable {
-    Div_f::new().borrow_mut().call(&xs)
+    DivF::new().borrow_mut().call(&xs)
 }
 
 #[derive(Debug, Clone)]
-struct Neg_f {
+struct NegF {
     inputs: [Option<RcVariable>; 2],
     output: Option<Weak<RefCell<Variable>>>,
     generation: i32,
     id: u32,
 }
 
-impl Function for Neg_f {
+impl Function for NegF {
     fn call(&mut self, inputs: &[Option<RcVariable>; 2]) -> RcVariable {
         if let None = &inputs[0] {
             panic!("Negは一変数関数です。input[0]がNoneです")
@@ -919,7 +919,7 @@ impl Function for Neg_f {
         self.id
     }
 }
-impl Neg_f {
+impl NegF {
     fn new() -> Rc<RefCell<Self>> {
         let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
@@ -932,7 +932,7 @@ impl Neg_f {
 }
 
 pub fn neg(xs: &[Option<RcVariable>; 2]) -> RcVariable {
-    Neg_f::new().borrow_mut().call(&xs)
+    NegF::new().borrow_mut().call(&xs)
 }
 
 #[derive(Debug, Clone)]
@@ -1547,49 +1547,9 @@ fn sum(x: &RcVariable, axis: Option<u16>, keepdims: bool) -> RcVariable {
 
 //演算子のオーバーロード
 
-impl Add for RcVariable {
-    type Output = RcVariable;
-    fn add(self, rhs: RcVariable) -> Self::Output {
-        // add_op関数はRc<RefCell<Variable>>を扱う
-        let add_y = add(&[Some(self.clone()), Some(rhs.clone())]);
-        add_y
-    }
-}
-
-impl Mul for RcVariable {
-    type Output = RcVariable;
-    fn mul(self, rhs: RcVariable) -> Self::Output {
-        let mul_y = mul(&[Some(self.clone()), Some(rhs.clone())]);
-        mul_y
-    }
-}
-
-impl Sub for RcVariable {
-    type Output = RcVariable;
-    fn sub(self, rhs: RcVariable) -> Self::Output {
-        let sub_y = sub(&[Some(self.clone()), Some(rhs.clone())]);
-        sub_y
-    }
-}
-
-impl Div for RcVariable {
-    type Output = RcVariable;
-    fn div(self, rhs: RcVariable) -> Self::Output {
-        let div_y = div(&[Some(self.clone()), Some(rhs.clone())]);
-        div_y
-    }
-}
-
-impl Neg for RcVariable {
-    type Output = RcVariable;
-    fn neg(self) -> Self::Output {
-        let neg_y = neg(&[Some(self.clone()), None]);
-        neg_y
-    }
-}
 
 //array型からRcVariable型を生成
-trait ArrayDToRcVariable {
+pub trait ArrayDToRcVariable {
     fn rv(&self) -> RcVariable;
 }
 //arrayは任意の次元に対応
@@ -1599,13 +1559,13 @@ impl<D: Dimension> ArrayDToRcVariable for ArrayBase<OwnedRepr<f32>, D> {
     }
 }
 
-trait f32ToRcVariable {
+pub trait F32ToRcVariable {
     fn rv(&self) -> RcVariable;
 }
 
 //rustの数値のデフォルトがf64なので、f32に変換する
 //f32からarray型に変換し、rv()でRcVariableを生成
-impl f32ToRcVariable for f64 {
+impl F32ToRcVariable for f64 {
     fn rv(&self) -> RcVariable {
         let array = array![*self as f32];
         array.rv()

@@ -1002,6 +1002,51 @@ impl Pow {
 pub fn pow(xs: &[Option<Rc<RefCell<Variable>>>; 2], c: f64) -> Rc<RefCell<Variable>> {
     Pow::new(c).borrow_mut().call(&xs)
 }
+impl Add for RcVariable {
+    type Output = RcVariable;
+    fn add(self, rhs: RcVariable) -> Self::Output {
+        // add_op関数はRc<RefCell<Variable>>を扱う
+        let add_y = add(&[Some(self.0.clone()), Some(rhs.0.clone())]);
+        RcVariable(add_y.clone())
+    }
+}
+
+
+
+impl Mul for RcVariable {
+    type Output = RcVariable;
+    fn mul(self, rhs: RcVariable) -> Self::Output {
+        let mul_y = mul(&[Some(self.0.clone()), Some(rhs.0.clone())]);
+        RcVariable(mul_y.clone())
+    }
+}
+
+
+impl Sub for RcVariable {
+    type Output = RcVariable;
+    fn sub(self, rhs: RcVariable) -> Self::Output {
+        let sub_y = sub(&[Some(self.0.clone()), Some(rhs.0.clone())]);
+        RcVariable(sub_y.clone())
+    }
+}
+
+impl Div for RcVariable {
+    type Output = RcVariable;
+    fn div(self, rhs: RcVariable) -> Self::Output {
+        let div_y = div(&[Some(self.0.clone()), Some(rhs.0.clone())]);
+        RcVariable(div_y.clone())
+    }
+}
+
+impl Neg for RcVariable {
+    type Output = RcVariable;
+    fn neg(self) -> Self::Output {
+        let neg_y = neg(&[Some(self.0.clone()), None]);
+        RcVariable(neg_y.clone())
+    }
+}
+
+
 
 /*
 //rustの数値のデフォルトがf64なので、f32に変換してからRcVariableを生成
