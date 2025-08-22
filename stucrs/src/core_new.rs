@@ -356,7 +356,7 @@ impl RcVariable {
         Rc::downgrade(&self.0)
     }
 
-    pub fn pow(&self, c: f64) -> RcVariable {
+    pub fn pow(&self, c: f32) -> RcVariable {
         let y = pow(&[Some(self.clone()), None], c);
         y
     }
@@ -991,9 +991,9 @@ impl Function for Pow {
         let mut gxs = [None, None];
         let x = self.inputs[0].as_ref().unwrap();
 
-        let c = self.c as f64;
+        let c = self.c;
 
-        gxs[0] = Some(c.rv() * x.pow(c - 1.0) * gy.clone());
+        gxs[0] = Some(c.rv() * x.pow(c - 1.0f32) * gy.clone());
 
         gxs
     }
@@ -1024,7 +1024,7 @@ impl Function for Pow {
     }
 }
 impl Pow {
-    fn new(c: f64) -> Rc<RefCell<Self>> {
+    fn new(c: f32) -> Rc<RefCell<Self>> {
         let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
@@ -1036,7 +1036,7 @@ impl Pow {
     }
 }
 
-pub fn pow(xs: &[Option<RcVariable>; 2], c: f64) -> RcVariable {
+pub fn pow(xs: &[Option<RcVariable>; 2], c: f32) -> RcVariable {
     Pow::new(c).borrow_mut().call(&xs)
 }
 
@@ -1565,7 +1565,7 @@ pub trait F32ToRcVariable {
 
 //rustの数値のデフォルトがf64なので、f32に変換する
 //f32からarray型に変換し、rv()でRcVariableを生成
-impl F32ToRcVariable for f64 {
+impl F32ToRcVariable for f32 {
     fn rv(&self) -> RcVariable {
         let array = array![*self as f32];
         array.rv()

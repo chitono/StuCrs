@@ -1,6 +1,6 @@
 use ndarray::{array,Array, Data};
-use stucrs::core::RcVariable;
-use stucrs::functions::{linear_simple, sigmoid_simple, sum};
+use stucrs::core_new::RcVariable;
+use stucrs::functions_new::{linear_simple, sigmoid_simple, sum};
 use std::array;
 use std::time::Instant;
 
