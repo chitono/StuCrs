@@ -7,12 +7,13 @@ use std::sync::Mutex;
 //use std::future;
 //use std::hash::Hash;
 //use std::process::Output;
-use crate::core::*;
+use crate::{core::*, F32ToRcVariable};
 use ndarray::{array, ArrayD, ArrayViewD, Axis, Dimension, Ix1, Ix2, IxDyn};
 
 use std::collections::HashSet;
 use std::rc::{Rc, Weak};
-use std::vec;
+use std::{array, vec};
+
 
 //use std::thread;
 //use std::time::Duration;
@@ -1131,6 +1132,28 @@ pub fn sum(x: &RcVariable, axis: Option<u16>) -> RcVariable {
     RcVariable(y.clone())
 }
 
+fn array_sum(x_array: &ArrayViewD<f32>,axis: Option<u16>) -> ArrayD<f32> {
+
+        let y;
+
+        if let Some(axis_data) = axis {
+            if axis_data != 0 && axis_data != 1 {
+                panic!("axisは0か1の値のみ指定できます")
+            }
+
+            y = x_array
+        
+                .to_owned()
+                .sum_axis(Axis(axis_data as usize));
+        } else {
+            let scalar_y = x_array.to_owned().sum();
+            y = array![scalar_y].into_dyn();
+        }
+
+        y
+    }
+
+
 #[derive(Debug, Clone)]
 struct BroadcastTo {
     inputs: [Option<Rc<RefCell<Variable>>>; 2],
@@ -1248,6 +1271,16 @@ pub fn broadcast_to(x: &RcVariable, shape: IxDyn) -> RcVariable {
     let y = broadcast_to_f(&[Some(x.0.clone()), None], shape);
     RcVariable(y.clone())
 }
+
+fn array_broadcast_to( x_array: &ArrayViewD<f32>,shape: IxDyn) -> ArrayD<f32> {
+        let y_shape = shape;
+        let y = x_array
+            .broadcast(y_shape)
+            .unwrap()
+            .mapv(|x| x.clone());
+
+        y
+    }
 
 #[derive(Debug, Clone)]
 struct SumTo {
@@ -1568,10 +1601,180 @@ pub fn matmul(x: &RcVariable, w :&RcVariable ) -> RcVariable{
     RcVariable(y.clone())
 }
 
-/*
-//rustの数値のデフォルトがf64なので、f32に変換してからRcVariableを生成
-impl ArrayDToRcVariable for ArrayBase<OwnedRepr<f32>, Dim<[usize;1]>> {
-    fn rv(&self) -> RcVariable {
-        RcVariable::new(self.view().into_dyn())
+
+
+
+
+
+
+
+
+
+#[derive(Debug, Clone)]
+struct MeanSquaredError {
+    inputs: [Option<Rc<RefCell<Variable>>>; 2],
+    output: Option<Weak<RefCell<Variable>>>,
+    generation: i32,
+    id: u32,
+}
+
+impl Function for MeanSquaredError {
+    fn call(&mut self, inputs: &[Option<Rc<RefCell<Variable>>>; 2]) -> Rc<RefCell<Variable>> {
+        if let None = &inputs[0] {
+            panic!("MeanSquaredErrorは二変数関数です。input[0]がNoneです")
+        }
+        if let None = &inputs[1] {
+            panic!("MeanSquaredErroは二変数関数です。input[1]がNoneです")
+        }
+
+        let mut xs_data = [None, None];
+
+        let inputs_0 = inputs[0].as_ref().unwrap().borrow();
+        let inputs_1 = inputs[1].as_ref().unwrap().borrow();
+
+        // inputのvariableからdataを取り出す
+        xs_data[0] = Some(inputs_0.data.view());
+        xs_data[1] = Some(inputs_1.data.view());
+
+        let ys_data = self.forward(xs_data);
+
+        let output;
+
+        //ys_dataは一変数なので、outputs[1]は必要なし
+        output = Variable::new_rc(ys_data);
+
+        if get_grad_status() == true {
+            //　inputsを覚える
+            self.inputs = inputs.clone();
+
+            let input_0_generation = inputs_0.generation;
+            let input_1_generation = inputs_1.generation;
+
+            //inputのgenerationで大きい値の方をFuncitonのgenerationとする
+            self.generation = match input_0_generation >= input_1_generation {
+                true => input_0_generation,
+                false => input_1_generation,
+            };
+
+            //  outputsを弱参照(downgrade)で覚える
+            self.output = Some(Rc::downgrade(&output));
+
+            let self_f: Rc<RefCell<dyn Function>> = Rc::new(RefCell::new(self.clone()));
+
+            //outputsに自分をcreatorとして覚えさせる　不変長　配列2
+            output.borrow_mut().set_creator(self_f.clone());
+        }
+
+        output
     }
-}*/
+
+    fn forward(&self, xs: [Option<ArrayViewD<f32>>; 2]) -> ArrayD<f32> {
+        //xs[0]の方をX, xs[1]の方をWとする
+        let x0 = xs[0].as_ref().unwrap().to_owned();
+        let x1 = xs[1].as_ref().unwrap().to_owned();
+
+
+    
+        let diff =&x0-&x1;
+        let len = diff.len() as f32;
+        
+    
+        let error = array_sum(&diff.mapv(|x| x.powf(2.0)).view() , None) /len;
+
+        error
+    }
+
+
+
+    fn backward(&self, gy: ArrayViewD<f32>) -> [Option<ArrayD<f32>>; 2] {
+        let mut gxs = [None, None];
+
+        let x0_borrow = self.inputs[0].as_ref().unwrap().borrow();
+        let x1_borrow = self.inputs[1].as_ref().unwrap().borrow();
+
+        let x0_data = &x0_borrow.data;
+        let x1_data = &x1_borrow.data;
+
+        let diff =x0_data-x1_data;
+        let diff_shape = IxDyn(diff.shape());
+        let gy=array_broadcast_to(&gy, diff_shape);
+
+        let gx0 = &gy*&diff*(2.0/diff.len() as f32);
+        let gx1 = -gx0.clone();
+        gxs[0] = Some(gx0);
+        gxs[1] = Some(gx1);
+
+        gxs
+    }   
+
+
+    fn get_inputs(&self) -> [Option<Rc<RefCell<Variable>>>; 2] {
+        self.inputs.clone()
+    }
+
+    fn get_output(&self) -> Rc<RefCell<Variable>> {
+        let output;
+        output = self
+            .output
+            .as_ref()
+            .unwrap()
+            .upgrade()
+            .as_ref()
+            .unwrap()
+            .clone();
+
+        output
+    }
+
+    fn get_generation(&self) -> i32 {
+        self.generation
+    }
+    fn get_id(&self) -> u32 {
+        self.id
+    }
+}
+impl MeanSquaredError {
+    fn new() -> Rc<RefCell<Self>> {
+        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
+        Rc::new(RefCell::new(Self {
+            inputs: [None, None],
+            output: None,
+            generation: 0,
+            id: id,
+        }))
+    }
+}
+
+
+fn mean_squared_error_f(xs: &[Option<Rc<RefCell<Variable>>>; 2]) -> Rc<RefCell<Variable>> {
+    MeanSquaredError::new().borrow_mut().call(&xs)
+}
+
+pub fn mean_squared_error(x0: &RcVariable, x1 :&RcVariable ) -> RcVariable{
+    let y =mean_squared_error_f(&[Some(x0.0.clone()),Some(x1.0.clone())]);
+    RcVariable(y.clone())
+}
+
+
+pub fn linear_simple(x: &RcVariable,w :&RcVariable,b: &Option<RcVariable>) -> RcVariable {
+    let t = matmul(&x, &w);
+    
+    let y;
+
+    if let Some(b_rc) = b {
+        y = t.clone()+b_rc.clone();
+        
+    }else {
+        y = t.clone();
+    }
+
+    y
+    
+
+}
+
+
+pub fn sigmoid_simple(x: &RcVariable) -> RcVariable {
+    let y = 1.0f32.rv() /(1.0f32.rv()+exp(&-x.clone()));
+    y
+}
