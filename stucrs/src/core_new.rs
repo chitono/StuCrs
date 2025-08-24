@@ -2,37 +2,44 @@ use std::cell::RefCell;
 //use std::clone;
 use std::collections::HashSet;
 use std::fmt::Debug;
+//use std::io::SeekFrom;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Mutex;
 //use std::future;
 //use std::hash::Hash;
 //use std::process::Output;
-use ndarray::{array, Array, ArrayBase, ArrayD, ArrayViewD, Axis, Dimension, IxDyn, OwnedRepr};
+use ndarray::{array, Array, ArrayBase, ArrayD, ArrayViewD, Dimension, IxDyn, OwnedRepr};
 use std::rc::{Rc, Weak};
 use std::vec;
 
 //use std::thread;
 //use std::time::Duration;
 
-use std::ops::{Add, Div, Mul, Neg, Sub};
+//use std::ops::{Add, Div, Mul, Neg, Sub};
 
 use crate::functions_new::*;
 
+/// Variableや関数たちにidを付けるための値
 static NEXT_ID: AtomicU32 = AtomicU32::new(1);
 
+/// 微分するかしないかというフラグ
+/// 推論するときなど、微分する必要がないときに切り替える
 static GRAD_CONFIG: Mutex<bool> = Mutex::new(true);
 static KEEP_GRAD: Mutex<bool> = Mutex::new(false);
 
+///微分するフラグGRAD_CONFIGをtrueに設定する関数
 pub fn set_grad_true() {
     let mut flag = GRAD_CONFIG.lock().unwrap();
     *flag = true;
 }
 
+///微分するフラグGRAD_CONFIGをfalseに設定する関数
 pub fn set_grad_false() {
     let mut flag = GRAD_CONFIG.lock().unwrap();
     *flag = false;
 }
 
+///微分するフラグGRAD_CONFIGの現在の状態を返す関数
 fn get_grad_status() -> bool {
     let flag = GRAD_CONFIG.lock().unwrap();
     *flag
@@ -247,9 +254,10 @@ impl Variable {
 
         //&selfで最初の変数はborrowされるので場合分け
         let mut last_variable = true;
+        let current_grad_flag = get_grad_status();
 
         while let Some(f_rc) = funcs.pop() {
-            //println!("f = {:?}\n",f_rc.clone());
+            //println!("f = {:?}\n", f_rc.clone());
             let f_borrowed = f_rc.borrow();
             if double_grad == true {
                 set_grad_true();
@@ -261,7 +269,7 @@ impl Variable {
 
             let y = f_borrowed.get_output();
 
-            let mut y_grad: Option<RcVariable>;
+            let y_grad: Option<RcVariable>;
 
             if last_variable {
                 y_grad = Some(ArrayD::<f32>::ones(self.data.shape()).rv());
@@ -273,10 +281,10 @@ impl Variable {
                 y_grad = y.0.borrow().grad.clone();
             }
 
-            let xs_grad = f_borrowed.backward(&y_grad.as_ref().unwrap().clone());
+            let xs_grad = f_borrowed.backward(&y_grad.as_ref().unwrap());
 
             // gradを置き換えまたは足していくので、Noneか判別
-            let mut xs_0 = xs[0].as_ref().unwrap();
+            let xs_0 = xs[0].as_ref().unwrap();
 
             let current_grad_0_data = xs_0
                 .grad()
@@ -310,11 +318,72 @@ impl Variable {
                     //funcs.push(Rc::clone(&func_creator));
                 }
             }
+        }
+        if current_grad_flag == true {
+            set_grad_true();
+        } else {
+            set_grad_false();
+        }
+    }
 
-            if get_keep_grad_status() == false {
-                println!("hozonsinai");
+    fn clear_grad_backward(&mut self) {
+        let mut funcs: Vec<Rc<RefCell<dyn Function>>> =
+            vec![Rc::clone(self.creator.as_ref().unwrap())];
 
-                y_grad = None;
+        let mut seen_set = HashSet::new();
+
+        fn add_func(
+            funcs_list: &mut Vec<Rc<RefCell<dyn Function>>>,
+            seen_set: &mut HashSet<u32>,
+            f: Rc<RefCell<dyn Function>>,
+        ) {
+            if seen_set.insert(f.borrow().get_id()) {
+                funcs_list.push(Rc::clone(&f));
+                funcs_list.sort_by(|a, b| {
+                    a.borrow()
+                        .get_generation()
+                        .cmp(&b.borrow().get_generation())
+                });
+            }
+        }
+        //let first_grad = ArrayD::<f32>::ones(self.data.shape()).rv();
+
+        //&selfで最初の変数はborrowされるので場合分け
+        let mut last_variable = true;
+
+        while let Some(f_rc) = funcs.pop() {
+            let f_borrowed = f_rc.borrow();
+
+            let xs = f_borrowed.get_inputs();
+
+            let mut y = f_borrowed.get_output();
+
+            if last_variable {
+                self.cleargrad();
+
+                last_variable = false;
+            } else {
+                //関数の出力は一つだけなので、[1]は必要なし
+
+                y.cleargrad();
+            }
+
+            // gradを置き換えまたは足していくので、Noneか判別
+            let xs_0 = xs[0].as_ref().unwrap();
+
+            //xs[0]にcreatorがあるか確認、あったらfuncに追加
+            if let Some(func_creator) = &xs_0.0.borrow().creator {
+                add_func(&mut funcs, &mut seen_set, func_creator.clone());
+                //funcs.push(Rc::clone(&func_creator));
+            }
+
+            //xs[1]はfが一変数関数の時、NoneなのでNoneか判別
+            if let Some(xs_1) = &xs[1] {
+                //xs[1]にcreatorがあるか確認、あったらfuncに追加
+                if let Some(func_creator) = &xs_1.0.borrow().creator {
+                    add_func(&mut funcs, &mut seen_set, func_creator.clone());
+                    //funcs.push(Rc::clone(&func_creator));
+                }
             }
         }
     }
@@ -336,6 +405,10 @@ impl RcVariable {
         self.0.borrow_mut().backward(double_grad);
     }
 
+    pub fn clear_grad_backward(&mut self) {
+        self.0.borrow_mut().clear_grad_backward();
+    }
+
     pub fn data(&self) -> ArrayD<f32> {
         self.0.borrow().data.clone()
     }
@@ -346,6 +419,10 @@ impl RcVariable {
 
     pub fn cleargrad(&mut self) {
         self.0.borrow_mut().cleargrad();
+    }
+
+    pub fn len(&self) -> u32 {
+        self.data().len() as u32
     }
 
     pub fn generation(&self) -> i32 {
@@ -365,21 +442,21 @@ impl RcVariable {
         let y = exp(&self);
         y
     }
-    /*
-    fn reshape(&self, shape: IxDyn) -> RcVariable {
-        let y = reshape_f(&[Some(self.0.clone()), None], shape);
-        RcVariable(y.clone())
+
+    pub fn reshape(&self, shape: IxDyn) -> RcVariable {
+        let y = reshape(self, shape);
+        y
     }
 
-    fn T(&self) -> RcVariable {
-        let y = transpose_f(&[Some(self.0.clone()), None]);
-        RcVariable(y.clone())
+    pub fn t(&self) -> RcVariable {
+        let y = transpose(self);
+        y
     }
 
-    fn sum(&self, axis: Option<u16>, keepdims: bool) -> RcVariable {
-        let y = sum_f(&[Some(self.0.clone()), None], axis, keepdims);
-        RcVariable(y.clone())
-    }  */
+    pub fn sum(&self, axis: Option<u16>) -> RcVariable {
+        let y = sum(self, axis);
+        y
+    }
 }
 
 pub trait Function: Debug {
@@ -450,14 +527,27 @@ impl Function for AddF {
     fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
         let x0 = xs[0].as_ref().unwrap();
         let x1 = xs[1].as_ref().unwrap();
-        let y_data = x0.clone().data() + x1.clone().data();
+        let y_data = x0.data() + x1.data();
+
         y_data.rv()
     }
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
+        let mut gx0 = gy.clone();
+        let mut gx1 = gy.clone();
 
+        let x0 = self.inputs[0].as_ref().unwrap();
+        let x1 = self.inputs[1].as_ref().unwrap();
 
-        let gxs = [Some(gy.clone()), Some(gy.clone())];
+        let x0_shape = IxDyn(x0.data().shape());
+        let x1_shape = IxDyn(x1.data().shape());
+
+        if x0_shape != x1_shape {
+            gx0 = sum_to(&gx0, x0_shape);
+            gx1 = sum_to(&gx1, x1_shape);
+        }
+
+        let gxs = [Some(gx0), Some(gx1)];
 
         gxs
     }
@@ -557,20 +647,27 @@ impl Function for MulF {
     fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
         let x0 = xs[0].as_ref().unwrap();
         let x1 = xs[1].as_ref().unwrap();
-        let y_data = x0.clone().data() * x1.clone().data();
+        let y_data = x0.data() * x1.data();
 
         y_data.rv()
     }
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
-        let mut gxs = [None, None];
-
         let x0 = self.inputs[0].as_ref().unwrap();
         let x1 = self.inputs[1].as_ref().unwrap();
 
-        gxs[0] = Some(x1.clone() * gy.clone());
-        gxs[1] = Some(x0.clone() * gy.clone());
+        let mut gx0 = x1.clone() * gy.clone();
+        let mut gx1 = x0.clone() * gy.clone();
 
+        let x0_shape = IxDyn(x0.data().shape());
+        let x1_shape = IxDyn(x1.data().shape());
+
+        if x0_shape != x1_shape {
+            gx0 = sum_to(&gx0, x0_shape);
+            gx1 = sum_to(&gx1, x1_shape);
+        }
+
+        let gxs = [Some(gx0), Some(gx1)];
         gxs
     }
 
@@ -669,16 +766,27 @@ impl Function for SubF {
     fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
         let x0 = xs[0].as_ref().unwrap();
         let x1 = xs[1].as_ref().unwrap();
-        let y_data = x0.clone().data() - x1.clone().data();
+        let y_data = x0.data() - x1.data();
 
         y_data.rv()
     }
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
-        let mut gxs = [None, None];
+        let mut gx0 = gy.clone();
+        let mut gx1 = -gy.clone();
 
-        gxs[0] = Some(gy.clone());
-        gxs[1] = Some(-gy.clone());
+        let x0 = self.inputs[0].as_ref().unwrap();
+        let x1 = self.inputs[1].as_ref().unwrap();
+
+        let x0_shape = IxDyn(x0.data().shape());
+        let x1_shape = IxDyn(x1.data().shape());
+
+        if x0_shape != x1_shape {
+            gx0 = sum_to(&gx0, x0_shape);
+            gx1 = sum_to(&gx1, x1_shape);
+        }
+
+        let gxs = [Some(gx0), Some(gx1)];
 
         gxs
     }
@@ -778,19 +886,27 @@ impl Function for DivF {
     fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
         let x0 = xs[0].as_ref().unwrap();
         let x1 = xs[1].as_ref().unwrap();
-        let y_data = x0.clone().data() / x1.clone().data();
+        let y_data = x0.data() / x1.data();
 
         y_data.rv()
     }
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
-        let mut gxs = [None, None];
-
         let x0 = self.inputs[0].as_ref().unwrap();
         let x1 = self.inputs[1].as_ref().unwrap();
 
-        gxs[0] = Some(gy.clone() / x1.clone());
-        gxs[1] = Some(gy.clone() * (-x0.clone() / x1.pow(2.0).clone()));
+        let mut gx0 = gy.clone() / x1.clone();
+        let mut gx1 = gy.clone() * (-x0.clone() / x1.clone().pow(2.0));
+
+        let x0_shape = IxDyn(x0.data().shape());
+        let x1_shape = IxDyn(x1.data().shape());
+
+        if x0_shape != x1_shape {
+            gx0 = sum_to(&gx0, x0_shape);
+            gx1 = sum_to(&gx1, x1_shape);
+        }
+
+        let gxs = [Some(gx0), Some(gx1)];
 
         gxs
     }
@@ -881,15 +997,13 @@ impl Function for NegF {
 
     fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
         let x = xs[0].as_ref().unwrap();
-        let y_data = -x.clone().data();
+        let y_data = -x.data();
 
         y_data.rv()
     }
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
-        let mut gxs = [None, None];
-
-        gxs[0] = Some(-gy.clone());
+        let gxs = [Some(-gy.clone()), None];
 
         gxs
     }
@@ -982,7 +1096,7 @@ impl Function for Pow {
     fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
         let c = self.c;
         let x = xs[0].as_ref().unwrap();
-        let y_data = x.clone().data().mapv(|x| x.powf(c));
+        let y_data = x.data().mapv(|x| x.powf(c));
 
         y_data.rv()
     }
@@ -1546,7 +1660,6 @@ fn sum(x: &RcVariable, axis: Option<u16>, keepdims: bool) -> RcVariable {
 */
 
 //演算子のオーバーロード
-
 
 //array型からRcVariable型を生成
 pub trait ArrayDToRcVariable {
