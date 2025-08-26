@@ -50,8 +50,8 @@ impl Neg for RcVariable {
 
 pub mod core_new;
 //pub mod core_hdv;
-pub mod Layers;
 pub mod functions_new;
+pub mod layers;
 pub mod models;
 pub mod optimizers;
 //pub mod functions_hdv;
