@@ -1,4 +1,4 @@
-use crate::core_new::{ArrayDToRcVariable, F32ToRcVariable};
+use crate::core_new::ArrayDToRcVariable;
 use crate::core_new::{RcVariable, Variable};
 use crate::functions_new as F;
 use fxhash::FxHashMap;
@@ -20,6 +20,7 @@ pub trait Layer: Debug {
 
     fn get_input(&self) -> RcVariable;
     fn get_output(&self) -> RcVariable;
+    fn call(&mut self, input: &RcVariable) -> RcVariable;
     fn get_generation(&self) -> i32;
     fn get_id(&self) -> u32;
     fn params(&mut self) -> &mut FxHashMap<u32, RcVariable>;
@@ -68,6 +69,22 @@ impl Layer for Linear {
         RcVariable(output)
     }
 
+    fn call(&mut self, input: &RcVariable) -> RcVariable {
+        // inputのvariableからdataを取り出す
+
+        let output = self.forward(input);
+
+        //ここから下の処理はbackwardするときだけ必要。
+
+        //　inputを弱参照で覚える
+        self.input = Some(input.downgrade());
+
+        //  outputを弱参照(downgrade)で覚える
+        self.output = Some(output.downgrade());
+
+        output
+    }
+
     fn get_generation(&self) -> i32 {
         self.generation
     }
@@ -86,24 +103,6 @@ impl Layer for Linear {
 }
 
 impl Linear {
-    pub fn call(&mut self, input: &RcVariable) -> RcVariable {
-        // inputのvariableからdataを取り出す
-
-        let output = self.forward(input);
-
-        //ここから下の処理はbackwardするときだけ必要。
-
-        //　inputsを覚える
-        self.input = Some(input.downgrade());
-
-        self.generation = input.generation();
-
-        //  outputを弱参照(downgrade)で覚える
-        self.output = Some(output.downgrade());
-
-        output
-    }
-
     fn forward(&mut self, x: &RcVariable) -> RcVariable {
         if let None = &self.w_id {
             let i = x.data().shape()[1];
@@ -136,9 +135,9 @@ impl Linear {
         y
     }
 
-    pub fn new(out_size: u32, biased: bool, opt_in_size: Option<u32>) -> Rc<RefCell<Self>> {
+    pub fn new(out_size: u32, biased: bool, opt_in_size: Option<u32>) -> Self {
         let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
-        let linear = Rc::new(RefCell::new(Self {
+        let mut linear = Self {
             input: None,
             output: None,
             out_size: out_size,
@@ -147,7 +146,7 @@ impl Linear {
             params: FxHashMap::default(),
             generation: 0,
             id: id,
-        }));
+        };
 
         //in_sizeが設定されていたら、ここでWを作成
         //されていない場合は後で作成
@@ -162,14 +161,14 @@ impl Linear {
 
             let w = w_data.rv();
 
-            linear.borrow_mut().w_id = Some(w.id());
-            linear.borrow_mut().set_params(&w.clone());
+            linear.w_id = Some(w.id());
+            linear.set_params(&w.clone());
         }
 
         if biased == true {
             let b = Array::zeros(out_size as usize).rv();
-            linear.borrow_mut().b_id = Some(b.id());
-            linear.borrow_mut().set_params(&b.clone());
+            linear.b_id = Some(b.id());
+            linear.set_params(&b.clone());
         }
 
         linear
@@ -227,6 +226,24 @@ impl Layer for Dense {
         RcVariable(output)
     }
 
+    fn call(&mut self, input: &RcVariable) -> RcVariable {
+        // inputのvariableからdataを取り出す
+
+        let output = self.forward(input);
+
+        //ここから下の処理はbackwardするときだけ必要。
+
+        //　inputsを覚える
+        self.input = Some(input.downgrade());
+
+        self.generation = input.generation();
+
+        //  outputを弱参照(downgrade)で覚える
+        self.output = Some(output.downgrade());
+
+        output
+    }
+
     fn get_generation(&self) -> i32 {
         self.generation
     }
@@ -245,24 +262,6 @@ impl Layer for Dense {
 }
 
 impl Dense {
-    pub fn call(&mut self, input: &RcVariable) -> RcVariable {
-        // inputのvariableからdataを取り出す
-
-        let output = self.forward(input);
-
-        //ここから下の処理はbackwardするときだけ必要。
-
-        //　inputsを覚える
-        self.input = Some(input.downgrade());
-
-        self.generation = input.generation();
-
-        //  outputを弱参照(downgrade)で覚える
-        self.output = Some(output.downgrade());
-
-        output
-    }
-
     fn forward(&mut self, x: &RcVariable) -> RcVariable {
         if let None = &self.w_id {
             let i = x.data().shape()[1];
@@ -305,9 +304,9 @@ impl Dense {
         biased: bool,
         opt_in_size: Option<u32>,
         activation: Activation,
-    ) -> Rc<RefCell<Self>> {
+    ) -> Self {
         let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
-        let linear = Rc::new(RefCell::new(Self {
+        let mut linear = Self {
             input: None,
             output: None,
             out_size: out_size,
@@ -317,7 +316,7 @@ impl Dense {
             params: FxHashMap::default(),
             generation: 0,
             id: id,
-        }));
+        };
 
         //in_sizeが設定されていたら、ここでWを作成
         //されていない場合は後で作成
@@ -332,14 +331,14 @@ impl Dense {
 
             let w = w_data.rv();
 
-            linear.borrow_mut().w_id = Some(w.id());
-            linear.borrow_mut().set_params(&w.clone());
+            linear.w_id = Some(w.id());
+            linear.set_params(&w.clone());
         }
 
         if biased == true {
             let b = Array::zeros(out_size as usize).rv();
-            linear.borrow_mut().b_id = Some(b.id());
-            linear.borrow_mut().set_params(&b.clone());
+            linear.b_id = Some(b.id());
+            linear.set_params(&b.clone());
         }
 
         linear
