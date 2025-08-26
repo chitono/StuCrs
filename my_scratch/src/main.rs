@@ -21,11 +21,12 @@ fn f(x: &RcVariable) -> RcVariable {
 
 fn main() {
     let mut x = array![1.0f32].rv();
-    let mut y = F::sin(&x);
+    let mut y = F::tanh(&x);
     y.backward(true);
+    println!("y = {:?}", y.data());
 
     let start = Instant::now();
-    let iters = 3;
+    let iters = 1;
 
     for _i in 0..iters {
         let opt_gx = x.grad();
@@ -33,7 +34,7 @@ fn main() {
         x.cleargrad();
 
         gx.backward(true);
-        println!("x = {:?}", x.grad().as_ref().unwrap().data());
+        println!("x_grad = {:?}", x.grad().as_ref().unwrap().data());
     }
     //set_grad_false();
 
