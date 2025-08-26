@@ -20,30 +20,20 @@ fn f(x: &RcVariable) -> RcVariable {
 }
 
 fn main() {
-    let mut x = array![2.0f32].rv();
+    let mut x = array![1.0f32].rv();
+    let mut y = F::sin(&x);
+    y.backward(true);
 
     let start = Instant::now();
-    let iters = 10;
+    let iters = 3;
 
     for _i in 0..iters {
-        println!("x = {:?}", x.data());
-
-        let mut y = f(&x);
-        x.cleargrad();
-        y.backward(true);
-        //y.clear_grad_backward();
-
         let opt_gx = x.grad();
         let mut gx = opt_gx.unwrap();
         x.cleargrad();
 
-        gx.backward(false);
-        let opt_gx2 = x.grad();
-        let gx2 = opt_gx2.unwrap();
-
-        let x_data = x.data();
-
-        x.0.borrow_mut().data = x_data - (&gx.data() / &gx2.data());
+        gx.backward(true);
+        println!("x = {:?}", x.grad().as_ref().unwrap().data());
     }
     //set_grad_false();
 
