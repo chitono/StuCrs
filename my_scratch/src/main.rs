@@ -7,6 +7,7 @@ use stucrs::core_new::{F32ToRcVariable, RcVariable};
 use stucrs::functions_new as F;
 use stucrs::layers::{self as L, Dense, Layer, Linear};
 use stucrs::models::{BaseModel, Model};
+use stucrs::optimizers::{Optimizer, SGD};
 
 use std::f32::consts::PI;
 
@@ -38,44 +39,30 @@ fn main() {
     model.stack(l1);
     model.stack(l2);
 
+    let lr = 0.1;
+
+    let mut optimizer = SGD::new(lr);
+
+    optimizer.setup(&model);
+
     let start = Instant::now();
     //set_grad_false();
-    let lr = 0.1;
+
     let iters = 10000;
     for i in 0..iters {
         let y_pred = model.call(&x);
-
-        //println!("y_pred = {:?}\n", y_pred.clone().data());
-        //println!("w2 = {:?}\n", w.clone());
 
         let mut loss = F::mean_squared_error(&y, &y_pred);
 
         model.cleargrad();
         loss.backward(false);
 
-        for layer in model.layers() {
-            for (_id, param) in layer.params() {
-                let param_data = param.data();
-                let current_grad = param.grad().as_ref().unwrap().data();
-                param.0.borrow_mut().data = param_data - lr * current_grad;
-            }
-        }
+        optimizer.update();
 
-        //loss.clear_grad_backward();
-
-        //println!("w1 = {:?}\n", W1.clone().data());
-        // y.backward();
         if i % 1000 == 0 {
             println!("i = {:?}", i);
             println!("loss = {:?}\n", loss.data());
         }
-        //println!("w1 = {:?}\n", W1.clone().data());
-        //println!("b1= {:?}\n", B1.clone().data());
-        //println!("w2 = {:?}\n", W2.clone().data());
-        //println!("b2 = {:?}\n", B2.clone().data());
-        //println!("x1_grad = {:?}\n", x1.clone().grad());
-
-        //println!("x2_grad={:?}\n", x2.grad())
     }
 
     let end = Instant::now();
