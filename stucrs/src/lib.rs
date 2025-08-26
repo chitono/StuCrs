@@ -1,8 +1,9 @@
-use ndarray::{array, ArrayBase, Dimension, OwnedRepr};
+//use ndarray::{array, ArrayBase, Dimension, OwnedRepr};
 
 use core_new::RcVariable;
 use core_new::{add, div, mul, neg, sub};
 use std::ops::{Add, Div, Mul, Neg, Sub};
+use std::sync::atomic::{AtomicU32, Ordering};
 
 //演算子のオーバーロード
 
@@ -47,18 +48,30 @@ impl Neg for RcVariable {
     }
 }
 
-
 pub mod core_new;
 //pub mod core_hdv;
+pub mod Layers;
 pub mod functions_new;
+pub mod models;
+pub mod optimizers;
 //pub mod functions_hdv;
 pub use core_new::set_grad_false;
 pub use core_new::set_grad_true;
 
 #[cfg(test)]
 mod tests {
-    //use super::*;
+    use crate::{
+        core_new::F32ToRcVariable,
+        functions_new::{sin, tanh},
+    };
+
+    use super::*;
 
     #[test]
-    fn it_works() {}
+    fn it_works() {
+        let x = 1.0f32.rv();
+        let mut y = tanh(&x);
+        y.backward(false);
+        println!("x={:?}", x.clone());
+    }
 }
