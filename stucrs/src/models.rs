@@ -7,10 +7,12 @@ use std::rc::{Rc, Weak};
 pub trait Model {
     fn stack(&mut self, layer: impl Layer + 'static);
     fn forward(&mut self, x: &RcVariable) -> RcVariable;
-    fn layers(&mut self) -> Rc<RefCell<Vec<Box<dyn Layer + 'static>>>>;
+    fn layers(&self) -> Rc<RefCell<Vec<Box<dyn Layer + 'static>>>>;
+    fn layers_mut(&mut self) -> Rc<RefCell<Vec<Box<dyn Layer + 'static>>>>;
     fn cleargrad(&mut self);
 }
 
+#[derive(Debug, Clone)]
 pub struct BaseModel {
     input: Option<Weak<RefCell<Variable>>>,
     output: Option<Weak<RefCell<Variable>>>,
@@ -28,7 +30,11 @@ impl Model for BaseModel {
             layer.cleargrad();
         }
     }
-    fn layers(&mut self) -> Rc<RefCell<Vec<Box<dyn Layer + 'static>>>> {
+    fn layers(&self) -> Rc<RefCell<Vec<Box<dyn Layer + 'static>>>> {
+        self.layers.clone()
+    }
+
+    fn layers_mut(&mut self) -> Rc<RefCell<Vec<Box<dyn Layer + 'static>>>> {
         self.layers.clone()
     }
 
