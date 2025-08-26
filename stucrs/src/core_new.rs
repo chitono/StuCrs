@@ -286,14 +286,12 @@ impl Variable {
             // gradを置き換えまたは足していくので、Noneか判別
             let xs_0 = xs[0].as_ref().unwrap();
 
-            let current_grad_0_data = xs_0
-                .grad()
-                .as_ref()
-                .cloned()
-                .unwrap_or_else(|| ArrayD::<f32>::zeros(xs_0.data().shape()).rv());
-
-            xs_0.0.borrow_mut().grad =
-                Some(current_grad_0_data + xs_grad[0].as_ref().unwrap().clone());
+            if let Some(current_grad_0_data) = xs_0.grad() {
+                xs_0.0.borrow_mut().grad =
+                    Some(current_grad_0_data + xs_grad[0].as_ref().unwrap().clone());
+            } else {
+                xs_0.0.borrow_mut().grad = Some(xs_grad[0].as_ref().unwrap().clone())
+            }
 
             //xs[0]にcreatorがあるか確認、あったらfuncに追加
             if let Some(func_creator) = &xs_0.0.borrow().creator {
@@ -303,14 +301,12 @@ impl Variable {
 
             //xs[1]はfが一変数関数の時、NoneなのでNoneか判別
             if let Some(xs_1) = &xs[1] {
-                let current_grad_1_data = xs_1
-                    .grad()
-                    .as_ref()
-                    .cloned()
-                    .unwrap_or_else(|| Array::zeros(xs_1.data().shape()).rv());
-
-                xs_1.0.borrow_mut().grad =
-                    Some(current_grad_1_data + xs_grad[1].as_ref().unwrap().clone());
+                if let Some(current_grad_1_data) = xs_1.grad() {
+                    xs_1.0.borrow_mut().grad =
+                        Some(current_grad_1_data + xs_grad[1].as_ref().unwrap().clone());
+                } else {
+                    xs_1.0.borrow_mut().grad = Some(xs_grad[1].as_ref().unwrap().clone())
+                }
 
                 //xs[1]にcreatorがあるか確認、あったらfuncに追加
                 if let Some(func_creator) = &xs_1.0.borrow().creator {
@@ -425,6 +421,10 @@ impl RcVariable {
         self.data().len() as u32
     }
 
+    pub fn id(&self) -> u32 {
+        self.0.borrow().id
+    }
+
     pub fn generation(&self) -> i32 {
         self.0.borrow().generation
     }
@@ -455,6 +455,72 @@ impl RcVariable {
 
     pub fn sum(&self, axis: Option<u16>) -> RcVariable {
         let y = sum(self, axis);
+        y
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Parameter(pub RcVariable);
+
+impl Parameter {
+    pub fn new(data: ArrayViewD<f32>) -> Self {
+        Parameter(RcVariable(Variable::new_rc(data.to_owned())))
+    }
+
+    pub fn backward(&mut self, double_grad: bool) {
+        self.0 .0.borrow_mut().backward(double_grad);
+    }
+
+    pub fn clear_grad_backward(&mut self) {
+        self.0 .0.borrow_mut().clear_grad_backward();
+    }
+
+    pub fn data(&self) -> ArrayD<f32> {
+        self.0 .0.borrow().data.clone()
+    }
+
+    pub fn grad(&self) -> Option<RcVariable> {
+        self.0 .0.borrow().grad.clone()
+    }
+
+    pub fn cleargrad(&mut self) {
+        self.0 .0.borrow_mut().cleargrad();
+    }
+
+    pub fn len(&self) -> u32 {
+        self.data().len() as u32
+    }
+
+    pub fn generation(&self) -> i32 {
+        self.0 .0.borrow().generation
+    }
+
+    pub fn downgrade(&self) -> Weak<RefCell<Variable>> {
+        Rc::downgrade(&self.0 .0)
+    }
+
+    pub fn pow(&self, c: f32) -> RcVariable {
+        let y = pow(&[Some(self.0.clone()), None], c);
+        y
+    }
+
+    pub fn exp(&self) -> RcVariable {
+        let y = exp(&self.0);
+        y
+    }
+
+    pub fn reshape(&self, shape: IxDyn) -> RcVariable {
+        let y = reshape(&self.0, shape);
+        y
+    }
+
+    pub fn t(&self) -> RcVariable {
+        let y = transpose(&self.0);
+        y
+    }
+
+    pub fn sum(&self, axis: Option<u16>) -> RcVariable {
+        let y = sum(&self.0, axis);
         y
     }
 }
