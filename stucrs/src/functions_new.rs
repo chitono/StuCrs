@@ -7,7 +7,10 @@ use std::sync::Mutex;
 //use std::future;
 //use std::hash::Hash;
 //use std::process::Output;
-use ndarray::{array, ArrayD, ArrayViewD, Axis, Dimension, Ix1, Ix2, IxDyn};
+use ndarray::{
+    array, s, Array1, ArrayD, ArrayView1, ArrayViewD, ArrayViewMut1, ArrayViewMut2, Axis,
+    Dimension, Ix1, Ix2, IxDyn, Slice, Zip,
+};
 use std::rc::{Rc, Weak};
 use std::vec;
 
@@ -1337,7 +1340,10 @@ impl Function for Sum {
                 panic!("axisは0か1の値のみ指定できます")
             }
 
-            y_data = x.data().sum_axis(Axis(axis_data as usize));
+            y_data = x
+                .data()
+                .sum_axis(Axis(axis_data as usize))
+                .insert_axis(Axis(axis_data as usize));
         } else {
             let scalar_y = x.data().sum();
             y_data = array![scalar_y].into_dyn();
@@ -1589,7 +1595,6 @@ impl Function for SumTo {
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
         let x = self.inputs[0].as_ref().unwrap();
-        let a = x.data().shape();
 
         let x_shape = IxDyn(x.data().shape());
 
@@ -1972,6 +1977,28 @@ pub fn mean_squared_error(x0: &RcVariable, x1: &RcVariable) -> RcVariable {
     y
 }
 
+/*
+fn add_at_1d(mut x: ArrayViewMut1<f32>, indices: &[usize], y: ArrayViewMut1<f32>) {
+    Zip::from(indices).and(b).for_each(|&idx, b_data| {
+        if let Some(a_data) = a.get_mut(idx) {
+            *a_data += *b_data;
+        }
+    });
+} */
+
+/*
+fn add_at_2d(mut a: ArrayViewMut2<f32>, indices: (&[usize], &[usize]), b: ArrayViewMut2<f32>) {
+    let (row_indices, col_indices) = indices;
+    Zip::from(row_indices)
+        .and(col_indices)
+        .and(b.to_shape(b.len()))
+        .for_each(|&row, &col, b_data| {
+            if let Some(a_data) = a.get_mut((row, col)) {
+                *a_data += *b_data;
+            }
+        });
+} */
+
 pub fn linear_simple(x: &RcVariable, w: &RcVariable, b: &Option<RcVariable>) -> RcVariable {
     let t = matmul(&x, &w);
 
@@ -1990,4 +2017,155 @@ pub fn sigmoid_simple(x: &RcVariable) -> RcVariable {
     let mainasu_x = -x.clone();
     let y = 1.0f32.rv() / (1.0f32.rv() + exp(&mainasu_x));
     y
+}
+
+pub fn softmax_simple(x: &RcVariable) -> RcVariable {
+    let exp_y = exp(&x);
+
+    let sum_y = sum(&exp_y, Some(1));
+
+    let y = exp_y / sum_y;
+    y
+}
+
+// ここで渡すtはone-hotベクトル状態の教師データ
+pub fn softmax_cross_entropy_simple(x: &RcVariable, t: &RcVariable) -> RcVariable {
+    if x.data().shape() != t.data().shape() {
+        panic!("交差エントロピー誤差でのxとtの形状が異なります。tがone-hotベクトルでない可能性があります。")
+    }
+
+    let n = x.data().shape()[0] as f32;
+
+    let p = softmax_simple(&x);
+
+    let clamped_p = clamp(&p, 1.0e-15, 1.0);
+
+    let log_p = log(&clamped_p, None);
+
+    let tlog_p = log_p * t.clone();
+
+    let y = -sum(&tlog_p, None) / n.rv();
+    y
+}
+
+//clamp
+
+#[derive(Debug, Clone)]
+pub struct Clamp {
+    inputs: [Option<RcVariable>; 2],
+    output: Option<Weak<RefCell<Variable>>>,
+    min: f32,
+    max: f32,
+    generation: i32,
+    id: u32,
+}
+
+impl Function for Clamp {
+    fn call(&mut self, inputs: &[Option<RcVariable>; 2]) -> RcVariable {
+        if let None = &inputs[0] {
+            panic!("Clampは一変数関数です。input[0]がNoneです")
+        }
+        if let Some(_variable) = &inputs[1] {
+            panic!("Clampは一変数関数です。input[1]がNoneではある必要があります")
+        }
+
+        let xs_data = [Some(inputs[0].as_ref().unwrap().clone()), None];
+
+        // inputのvariableからdataを取り出す
+
+        let ys_data = self.forward(&xs_data);
+
+        let output = ys_data.clone();
+
+        //ここから下の処理はbackwardするときだけ必要。
+
+        if get_grad_status() == true {
+            //　inputsを覚える
+            self.inputs = inputs.clone();
+
+            self.generation = inputs[0].as_ref().unwrap().generation();
+
+            //  outputを弱参照(downgrade)で覚える
+            self.output = Some(output.downgrade());
+
+            let self_f: Rc<RefCell<dyn Function>> = Rc::new(RefCell::new(self.clone()));
+
+            //outputに自分をcreatorとして覚えさせる　不変長　配列2
+            output.0.borrow_mut().set_creator(self_f.clone());
+        }
+
+        output
+    }
+
+    fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
+        let x_data = xs[0].as_ref().unwrap().data();
+
+        //最大値をはじめに調整
+        let mut y_data = x_data.mapv(|x| if x > self.max { self.max } else { x });
+
+        //最小値を調整
+        y_data = y_data.mapv(|x| if x < self.min { self.min } else { x });
+        y_data.rv()
+    }
+
+    fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
+        let x = self.inputs[0].as_ref().unwrap();
+
+        let min_mask = x.data().mapv(|x| if x >= self.min { 1.0f32 } else { 0.0 });
+        let max_mask = x.data().mapv(|x| if x <= self.max { 1.0f32 } else { 0.0 });
+
+        let mask = (min_mask * max_mask).rv();
+
+        let gx = gy.clone() * mask;
+
+        let gxs = [Some(gx), None];
+        gxs
+    }
+
+    fn get_inputs(&self) -> [Option<RcVariable>; 2] {
+        self.inputs.clone()
+    }
+
+    fn get_output(&self) -> RcVariable {
+        let output;
+        output = self
+            .output
+            .as_ref()
+            .unwrap()
+            .upgrade()
+            .as_ref()
+            .unwrap()
+            .clone();
+
+        RcVariable(output)
+    }
+
+    fn get_generation(&self) -> i32 {
+        self.generation
+    }
+    fn get_id(&self) -> u32 {
+        self.id
+    }
+}
+impl Clamp {
+    fn new(min: f32, max: f32) -> Rc<RefCell<Self>> {
+        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
+        Rc::new(RefCell::new(Self {
+            inputs: [None, None],
+            output: None,
+            min: min,
+            max: max,
+            generation: 0,
+            id: id,
+        }))
+    }
+}
+
+pub fn clamp(x: &RcVariable, min: f32, max: f32) -> RcVariable {
+    let y = clamp_f(&[Some(x.clone()), None], min, max);
+    y
+}
+
+fn clamp_f(xs: &[Option<RcVariable>; 2], min: f32, max: f32) -> RcVariable {
+    Clamp::new(min, max).borrow_mut().call(&xs)
 }
