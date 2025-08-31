@@ -1,3 +1,4 @@
+use crate::config::id_generator;
 use crate::core_new::ArrayDToRcVariable;
 use crate::core_new::{RcVariable, Variable};
 use crate::functions_new as F;
@@ -13,7 +14,7 @@ use std::rc::{Rc, Weak};
 use std::sync::atomic::{AtomicU32, Ordering};
 
 /// Variableや関数たちにidを付けるための値
-static NEXT_ID: AtomicU32 = AtomicU32::new(1);
+//static NEXT_ID: AtomicU32 = AtomicU32::new(1);
 
 pub trait Layer: Debug {
     fn set_params(&mut self, param: &RcVariable);
@@ -22,8 +23,8 @@ pub trait Layer: Debug {
     fn get_output(&self) -> RcVariable;
     fn call(&mut self, input: &RcVariable) -> RcVariable;
     fn get_generation(&self) -> i32;
-    fn get_id(&self) -> u32;
-    fn params(&mut self) -> &mut FxHashMap<u32, RcVariable>;
+    fn get_id(&self) -> usize;
+    fn params(&mut self) -> &mut FxHashMap<usize, RcVariable>;
     fn cleargrad(&mut self);
 }
 
@@ -32,11 +33,11 @@ pub struct Linear {
     input: Option<Weak<RefCell<Variable>>>,
     output: Option<Weak<RefCell<Variable>>>,
     out_size: u32,
-    w_id: Option<u32>,
-    b_id: Option<u32>,
-    params: FxHashMap<u32, RcVariable>,
+    w_id: Option<usize>,
+    b_id: Option<usize>,
+    params: FxHashMap<usize, RcVariable>,
     generation: i32,
-    id: u32,
+    id: usize,
 }
 
 impl Layer for Linear {
@@ -88,10 +89,10 @@ impl Layer for Linear {
     fn get_generation(&self) -> i32 {
         self.generation
     }
-    fn get_id(&self) -> u32 {
+    fn get_id(&self) -> usize {
         self.id
     }
-    fn params(&mut self) -> &mut FxHashMap<u32, RcVariable> {
+    fn params(&mut self) -> &mut FxHashMap<usize, RcVariable> {
         &mut self.params
     }
 
@@ -136,7 +137,6 @@ impl Linear {
     }
 
     pub fn new(out_size: u32, biased: bool, opt_in_size: Option<u32>) -> Self {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         let mut linear = Self {
             input: None,
             output: None,
@@ -145,7 +145,7 @@ impl Linear {
             b_id: None,
             params: FxHashMap::default(),
             generation: 0,
-            id: id,
+            id: id_generator(),
         };
 
         //in_sizeが設定されていたら、ここでWを作成
@@ -188,12 +188,12 @@ pub struct Dense {
     input: Option<Weak<RefCell<Variable>>>,
     output: Option<Weak<RefCell<Variable>>>,
     out_size: u32,
-    w_id: Option<u32>,
-    b_id: Option<u32>,
+    w_id: Option<usize>,
+    b_id: Option<usize>,
     activation: Activation,
-    params: FxHashMap<u32, RcVariable>,
+    params: FxHashMap<usize, RcVariable>,
     generation: i32,
-    id: u32,
+    id: usize,
 }
 
 impl Layer for Dense {
@@ -247,10 +247,10 @@ impl Layer for Dense {
     fn get_generation(&self) -> i32 {
         self.generation
     }
-    fn get_id(&self) -> u32 {
+    fn get_id(&self) -> usize {
         self.id
     }
-    fn params(&mut self) -> &mut FxHashMap<u32, RcVariable> {
+    fn params(&mut self) -> &mut FxHashMap<usize, RcVariable> {
         &mut self.params
     }
 
@@ -305,8 +305,7 @@ impl Dense {
         opt_in_size: Option<u32>,
         activation: Activation,
     ) -> Self {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
-        let mut linear = Self {
+        let mut dense = Self {
             input: None,
             output: None,
             out_size: out_size,
@@ -315,7 +314,7 @@ impl Dense {
             activation: activation,
             params: FxHashMap::default(),
             generation: 0,
-            id: id,
+            id: id_generator(),
         };
 
         //in_sizeが設定されていたら、ここでWを作成
@@ -331,17 +330,17 @@ impl Dense {
 
             let w = w_data.rv();
 
-            linear.w_id = Some(w.id());
-            linear.set_params(&w.clone());
+            dense.w_id = Some(w.id());
+            dense.set_params(&w.clone());
         }
 
         if biased == true {
             let b = Array::zeros(out_size as usize).rv();
-            linear.b_id = Some(b.id());
-            linear.set_params(&b.clone());
+            dense.b_id = Some(b.id());
+            dense.set_params(&b.clone());
         }
 
-        linear
+        dense
     }
 
     pub fn update_params(&mut self, lr: f32) {

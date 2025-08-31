@@ -17,9 +17,11 @@ use std::vec;
 //use std::thread;
 //use std::time::Duration;
 
+use crate::config::id_generator;
 use crate::core_new::*;
+use crate::datasets::double_matrix_shuffle_rows_immutable;
 
-static NEXT_ID: AtomicU32 = AtomicU32::new(1);
+//static NEXT_ID: AtomicU32 = AtomicU32::new(1);
 
 static GRAD_CONFIG: Mutex<bool> = Mutex::new(true);
 static KEEP_GRAD: Mutex<bool> = Mutex::new(false);
@@ -97,8 +99,6 @@ fn gx2(x: &RcVariable) -> RcVariable {
     let y = 12.0.rv() * x.clone().pow(2.0) - 4.0.rv();
     y
 } */
-
-fn main() {}
 
 /*
 
@@ -197,7 +197,7 @@ pub struct Square {
     inputs: [Option<RcVariable>; 2],
     output: Option<Weak<RefCell<Variable>>>,
     generation: i32,
-    id: u32,
+    id: usize,
 }
 
 impl Function for Square {
@@ -273,18 +273,17 @@ impl Function for Square {
     fn get_generation(&self) -> i32 {
         self.generation
     }
-    fn get_id(&self) -> u32 {
+    fn get_id(&self) -> usize {
         self.id
     }
 }
 impl Square {
     fn new() -> Rc<RefCell<Self>> {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             output: None,
             generation: 0,
-            id: id,
+            id: id_generator(),
         }))
     }
 }
@@ -305,7 +304,7 @@ pub struct Exp {
     inputs: [Option<RcVariable>; 2],
     output: Option<Weak<RefCell<Variable>>>,
     generation: i32,
-    id: u32,
+    id: usize,
 }
 
 impl Function for Exp {
@@ -381,18 +380,17 @@ impl Function for Exp {
     fn get_generation(&self) -> i32 {
         self.generation
     }
-    fn get_id(&self) -> u32 {
+    fn get_id(&self) -> usize {
         self.id
     }
 }
 impl Exp {
     fn new() -> Rc<RefCell<Self>> {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             output: None,
             generation: 0,
-            id: id,
+            id: id_generator(),
         }))
     }
 }
@@ -411,7 +409,7 @@ pub struct Sin {
     inputs: [Option<RcVariable>; 2],
     output: Option<Weak<RefCell<Variable>>>,
     generation: i32,
-    id: u32,
+    id: usize,
 }
 
 impl Function for Sin {
@@ -488,18 +486,17 @@ impl Function for Sin {
     fn get_generation(&self) -> i32 {
         self.generation
     }
-    fn get_id(&self) -> u32 {
+    fn get_id(&self) -> usize {
         self.id
     }
 }
 impl Sin {
     fn new() -> Rc<RefCell<Self>> {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             output: None,
             generation: 0,
-            id: id,
+            id: id_generator(),
         }))
     }
 }
@@ -518,7 +515,7 @@ pub struct Cos {
     inputs: [Option<RcVariable>; 2],
     output: Option<Weak<RefCell<Variable>>>,
     generation: i32,
-    id: u32,
+    id: usize,
 }
 
 impl Function for Cos {
@@ -595,18 +592,17 @@ impl Function for Cos {
     fn get_generation(&self) -> i32 {
         self.generation
     }
-    fn get_id(&self) -> u32 {
+    fn get_id(&self) -> usize {
         self.id
     }
 }
 impl Cos {
     fn new() -> Rc<RefCell<Self>> {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             output: None,
             generation: 0,
-            id: id,
+            id: id_generator(),
         }))
     }
 }
@@ -625,7 +621,7 @@ pub struct Tanh {
     inputs: [Option<RcVariable>; 2],
     output: Option<Weak<RefCell<Variable>>>,
     generation: i32,
-    id: u32,
+    id: usize,
 }
 
 impl Function for Tanh {
@@ -702,18 +698,17 @@ impl Function for Tanh {
     fn get_generation(&self) -> i32 {
         self.generation
     }
-    fn get_id(&self) -> u32 {
+    fn get_id(&self) -> usize {
         self.id
     }
 }
 impl Tanh {
     fn new() -> Rc<RefCell<Self>> {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             output: None,
             generation: 0,
-            id: id,
+            id: id_generator(),
         }))
     }
 }
@@ -732,7 +727,7 @@ pub struct Sinh {
     inputs: [Option<RcVariable>; 2],
     output: Option<Weak<RefCell<Variable>>>,
     generation: i32,
-    id: u32,
+    id: usize,
 }
 
 impl Function for Sinh {
@@ -807,18 +802,17 @@ impl Function for Sinh {
     fn get_generation(&self) -> i32 {
         self.generation
     }
-    fn get_id(&self) -> u32 {
+    fn get_id(&self) -> usize {
         self.id
     }
 }
 impl Sinh {
     fn new() -> Rc<RefCell<Self>> {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             output: None,
             generation: 0,
-            id: id,
+            id: id_generator(),
         }))
     }
 }
@@ -837,7 +831,7 @@ pub struct Cosh {
     inputs: [Option<RcVariable>; 2],
     output: Option<Weak<RefCell<Variable>>>,
     generation: i32,
-    id: u32,
+    id: usize,
 }
 
 impl Function for Cosh {
@@ -911,18 +905,17 @@ impl Function for Cosh {
     fn get_generation(&self) -> i32 {
         self.generation
     }
-    fn get_id(&self) -> u32 {
+    fn get_id(&self) -> usize {
         self.id
     }
 }
 impl Cosh {
     fn new() -> Rc<RefCell<Self>> {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             output: None,
             generation: 0,
-            id: id,
+            id: id_generator(),
         }))
     }
 }
@@ -942,7 +935,7 @@ struct Log {
     output: Option<Weak<RefCell<Variable>>>,
     base: Option<f32>,
     generation: i32,
-    id: u32,
+    id: usize,
 }
 
 impl Function for Log {
@@ -1032,19 +1025,18 @@ impl Function for Log {
     fn get_generation(&self) -> i32 {
         self.generation
     }
-    fn get_id(&self) -> u32 {
+    fn get_id(&self) -> usize {
         self.id
     }
 }
 impl Log {
     fn new(base: Option<f32>) -> Rc<RefCell<Self>> {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             output: None,
             base: base,
             generation: 0,
-            id: id,
+            id: id_generator(),
         }))
     }
 }
@@ -1078,7 +1070,7 @@ struct Reshape {
     output: Option<Weak<RefCell<Variable>>>,
     shape: IxDyn,
     generation: i32,
-    id: u32,
+    id: usize,
 }
 
 impl Function for Reshape {
@@ -1155,19 +1147,18 @@ impl Function for Reshape {
     fn get_generation(&self) -> i32 {
         self.generation
     }
-    fn get_id(&self) -> u32 {
+    fn get_id(&self) -> usize {
         self.id
     }
 }
 impl Reshape {
     fn new(shape: IxDyn) -> Rc<RefCell<Self>> {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             output: None,
             shape: shape,
             generation: 0,
-            id: id,
+            id: id_generator(),
         }))
     }
 }
@@ -1186,7 +1177,7 @@ struct Transpose {
     inputs: [Option<RcVariable>; 2],
     output: Option<Weak<RefCell<Variable>>>,
     generation: i32,
-    id: u32,
+    id: usize,
 }
 
 impl Function for Transpose {
@@ -1259,18 +1250,17 @@ impl Function for Transpose {
     fn get_generation(&self) -> i32 {
         self.generation
     }
-    fn get_id(&self) -> u32 {
+    fn get_id(&self) -> usize {
         self.id
     }
 }
 impl Transpose {
     fn new() -> Rc<RefCell<Self>> {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             output: None,
             generation: 0,
-            id: id,
+            id: id_generator(),
         }))
     }
 }
@@ -1290,7 +1280,7 @@ struct Sum {
     output: Option<Weak<RefCell<Variable>>>,
     axis: Option<u16>,
     generation: i32,
-    id: u32,
+    id: usize,
 }
 
 impl Function for Sum {
@@ -1382,20 +1372,19 @@ impl Function for Sum {
     fn get_generation(&self) -> i32 {
         self.generation
     }
-    fn get_id(&self) -> u32 {
+    fn get_id(&self) -> usize {
         self.id
     }
 }
 impl Sum {
     fn new(axis: Option<u16>) -> Rc<RefCell<Self>> {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             output: None,
             axis: axis,
 
             generation: 0,
-            id: id,
+            id: id_generator(),
         }))
     }
 }
@@ -1432,7 +1421,7 @@ struct BroadcastTo {
     output: Option<Weak<RefCell<Variable>>>,
     shape: IxDyn,
     generation: i32,
-    id: u32,
+    id: usize,
 }
 
 impl Function for BroadcastTo {
@@ -1514,19 +1503,18 @@ impl Function for BroadcastTo {
     fn get_generation(&self) -> i32 {
         self.generation
     }
-    fn get_id(&self) -> u32 {
+    fn get_id(&self) -> usize {
         self.id
     }
 }
 impl BroadcastTo {
     fn new(shape: IxDyn) -> Rc<RefCell<Self>> {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             output: None,
             shape: shape,
             generation: 0,
-            id: id,
+            id: id_generator(),
         }))
     }
 }
@@ -1546,7 +1534,7 @@ struct SumTo {
     output: Option<Weak<RefCell<Variable>>>,
     shape: IxDyn,
     generation: i32,
-    id: u32,
+    id: usize,
 }
 
 impl Function for SumTo {
@@ -1625,19 +1613,18 @@ impl Function for SumTo {
     fn get_generation(&self) -> i32 {
         self.generation
     }
-    fn get_id(&self) -> u32 {
+    fn get_id(&self) -> usize {
         self.id
     }
 }
 impl SumTo {
     fn new(shape: IxDyn) -> Rc<RefCell<Self>> {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             output: None,
             shape: shape,
             generation: 0,
-            id: id,
+            id: id_generator(),
         }))
     }
 }
@@ -1689,7 +1676,7 @@ struct MatMul {
     inputs: [Option<RcVariable>; 2],
     output: Option<Weak<RefCell<Variable>>>,
     generation: i32,
-    id: u32,
+    id: usize,
 }
 
 impl Function for MatMul {
@@ -1785,18 +1772,17 @@ impl Function for MatMul {
     fn get_generation(&self) -> i32 {
         self.generation
     }
-    fn get_id(&self) -> u32 {
+    fn get_id(&self) -> usize {
         self.id
     }
 }
 impl MatMul {
     fn new() -> Rc<RefCell<Self>> {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             output: None,
             generation: 0,
-            id: id,
+            id: id_generator(),
         }))
     }
 }
@@ -1857,7 +1843,7 @@ struct MeanSquaredError {
     inputs: [Option<RcVariable>; 2],
     output: Option<Weak<RefCell<Variable>>>,
     generation: i32,
-    id: u32,
+    id: usize,
 }
 
 impl Function for MeanSquaredError {
@@ -1952,18 +1938,17 @@ impl Function for MeanSquaredError {
     fn get_generation(&self) -> i32 {
         self.generation
     }
-    fn get_id(&self) -> u32 {
+    fn get_id(&self) -> usize {
         self.id
     }
 }
 impl MeanSquaredError {
     fn new() -> Rc<RefCell<Self>> {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             output: None,
             generation: 0,
-            id: id,
+            id: id_generator(),
         }))
     }
 }
@@ -2024,7 +2009,7 @@ pub fn softmax_simple(x: &RcVariable) -> RcVariable {
 
     let sum_y = sum(&exp_y, Some(1));
 
-    let y = exp_y / sum_y;
+    let y = exp_y.clone() / sum_y.clone();
     y
 }
 
@@ -2044,7 +2029,7 @@ pub fn softmax_cross_entropy_simple(x: &RcVariable, t: &RcVariable) -> RcVariabl
 
     let tlog_p = log_p * t.clone();
 
-    let y = -sum(&tlog_p, None) / n.rv();
+    let y = (-sum(&tlog_p, None)) / n.rv();
     y
 }
 
@@ -2057,7 +2042,7 @@ pub struct Clamp {
     min: f32,
     max: f32,
     generation: i32,
-    id: u32,
+    id: usize,
 }
 
 impl Function for Clamp {
@@ -2143,20 +2128,19 @@ impl Function for Clamp {
     fn get_generation(&self) -> i32 {
         self.generation
     }
-    fn get_id(&self) -> u32 {
+    fn get_id(&self) -> usize {
         self.id
     }
 }
 impl Clamp {
     fn new(min: f32, max: f32) -> Rc<RefCell<Self>> {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             output: None,
             min: min,
             max: max,
             generation: 0,
-            id: id,
+            id: id_generator(),
         }))
     }
 }

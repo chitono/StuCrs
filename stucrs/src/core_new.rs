@@ -1,3 +1,4 @@
+use std::any::type_name_of_val;
 use std::cell::RefCell;
 //use std::clone;
 use std::collections::HashSet;
@@ -17,10 +18,11 @@ use std::vec;
 
 //use std::ops::{Add, Div, Mul, Neg, Sub};
 
+use crate::config::id_generator;
 use crate::functions_new::*;
 
 /// Variableや関数たちにidを付けるための値
-static NEXT_ID: AtomicU32 = AtomicU32::new(1);
+//static NEXT_ID: AtomicU32 = AtomicU32::new(1);
 
 /// 微分するかしないかというフラグ
 /// 推論するときなど、微分する必要がないときに切り替える
@@ -203,18 +205,17 @@ pub struct Variable {
     creator: Option<Rc<RefCell<dyn Function>>>,
     pub name: Option<String>,
     pub generation: i32,
-    pub id: u32,
+    pub id: usize,
 }
 impl Variable {
     pub fn new_rc(data: ArrayD<f32>) -> Rc<RefCell<Self>> {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Variable {
             data: data,
             grad: None,
             creator: None,
             name: None,
             generation: 0,
-            id: id,
+            id: id_generator(),
         }))
     }
 
@@ -238,7 +239,7 @@ impl Variable {
 
         fn add_func(
             funcs_list: &mut Vec<Rc<RefCell<dyn Function>>>,
-            seen_set: &mut HashSet<u32>,
+            seen_set: &mut HashSet<usize>,
             f: Rc<RefCell<dyn Function>>,
         ) {
             if seen_set.insert(f.borrow().get_id()) {
@@ -257,7 +258,7 @@ impl Variable {
         let current_grad_flag = get_grad_status();
 
         while let Some(f_rc) = funcs.pop() {
-            //println!("f = {:?}\n", f_rc.clone());
+            //println!("f = {:?}\n", get_struct_name(&f_rc.borrow()));
             let f_borrowed = f_rc.borrow();
             if double_grad == true {
                 set_grad_true();
@@ -330,7 +331,7 @@ impl Variable {
 
         fn add_func(
             funcs_list: &mut Vec<Rc<RefCell<dyn Function>>>,
-            seen_set: &mut HashSet<u32>,
+            seen_set: &mut HashSet<usize>,
             f: Rc<RefCell<dyn Function>>,
         ) {
             if seen_set.insert(f.borrow().get_id()) {
@@ -418,10 +419,10 @@ impl RcVariable {
     }
 
     pub fn len(&self) -> u32 {
-        self.data().len() as u32
+        self.data().shape()[0] as u32
     }
 
-    pub fn id(&self) -> u32 {
+    pub fn id(&self) -> usize {
         self.0.borrow().id
     }
 
@@ -488,7 +489,7 @@ impl Parameter {
     }
 
     pub fn len(&self) -> u32 {
-        self.data().len() as u32
+        self.data().shape()[0] as u32
     }
 
     pub fn generation(&self) -> i32 {
@@ -536,7 +537,7 @@ pub trait Function: Debug {
     fn get_inputs(&self) -> [Option<RcVariable>; 2];
     fn get_output(&self) -> RcVariable;
     fn get_generation(&self) -> i32;
-    fn get_id(&self) -> u32;
+    fn get_id(&self) -> usize;
 }
 
 #[derive(Debug, Clone)]
@@ -544,7 +545,7 @@ struct AddF {
     inputs: [Option<RcVariable>; 2],
     output: Option<Weak<RefCell<Variable>>>,
     generation: i32,
-    id: u32,
+    id: usize,
 }
 
 impl Function for AddF {
@@ -639,18 +640,17 @@ impl Function for AddF {
     fn get_generation(&self) -> i32 {
         self.generation
     }
-    fn get_id(&self) -> u32 {
+    fn get_id(&self) -> usize {
         self.id
     }
 }
 impl AddF {
     fn new() -> Rc<RefCell<Self>> {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             output: None,
             generation: 0,
-            id: id,
+            id: id_generator(),
         }))
     }
 }
@@ -664,7 +664,7 @@ struct MulF {
     inputs: [Option<RcVariable>; 2],
     output: Option<Weak<RefCell<Variable>>>,
     generation: i32,
-    id: u32,
+    id: usize,
 }
 
 impl Function for MulF {
@@ -758,18 +758,17 @@ impl Function for MulF {
     fn get_generation(&self) -> i32 {
         self.generation
     }
-    fn get_id(&self) -> u32 {
+    fn get_id(&self) -> usize {
         self.id
     }
 }
 impl MulF {
     fn new() -> Rc<RefCell<Self>> {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             output: None,
             generation: 0,
-            id: id,
+            id: id_generator(),
         }))
     }
 }
@@ -783,7 +782,7 @@ struct SubF {
     inputs: [Option<RcVariable>; 2],
     output: Option<Weak<RefCell<Variable>>>,
     generation: i32,
-    id: u32,
+    id: usize,
 }
 
 impl Function for SubF {
@@ -878,18 +877,17 @@ impl Function for SubF {
     fn get_generation(&self) -> i32 {
         self.generation
     }
-    fn get_id(&self) -> u32 {
+    fn get_id(&self) -> usize {
         self.id
     }
 }
 impl SubF {
     fn new() -> Rc<RefCell<Self>> {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             output: None,
             generation: 0,
-            id: id,
+            id: id_generator(),
         }))
     }
 }
@@ -903,7 +901,7 @@ struct DivF {
     inputs: [Option<RcVariable>; 2],
     output: Option<Weak<RefCell<Variable>>>,
     generation: i32,
-    id: u32,
+    id: usize,
 }
 
 impl Function for DivF {
@@ -998,18 +996,17 @@ impl Function for DivF {
     fn get_generation(&self) -> i32 {
         self.generation
     }
-    fn get_id(&self) -> u32 {
+    fn get_id(&self) -> usize {
         self.id
     }
 }
 impl DivF {
     fn new() -> Rc<RefCell<Self>> {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             output: None,
             generation: 0,
-            id: id,
+            id: id_generator(),
         }))
     }
 }
@@ -1023,7 +1020,7 @@ struct NegF {
     inputs: [Option<RcVariable>; 2],
     output: Option<Weak<RefCell<Variable>>>,
     generation: i32,
-    id: u32,
+    id: usize,
 }
 
 impl Function for NegF {
@@ -1095,18 +1092,17 @@ impl Function for NegF {
     fn get_generation(&self) -> i32 {
         self.generation
     }
-    fn get_id(&self) -> u32 {
+    fn get_id(&self) -> usize {
         self.id
     }
 }
 impl NegF {
     fn new() -> Rc<RefCell<Self>> {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             output: None,
             generation: 0,
-            id: id,
+            id: id_generator(),
         }))
     }
 }
@@ -1121,7 +1117,7 @@ struct Pow {
     output: Option<Weak<RefCell<Variable>>>,
     c: f32,
     generation: i32,
-    id: u32,
+    id: usize,
 }
 
 impl Function for Pow {
@@ -1199,19 +1195,18 @@ impl Function for Pow {
     fn get_generation(&self) -> i32 {
         self.generation
     }
-    fn get_id(&self) -> u32 {
+    fn get_id(&self) -> usize {
         self.id
     }
 }
 impl Pow {
     fn new(c: f32) -> Rc<RefCell<Self>> {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             output: None,
             c: c as f32,
             generation: 0,
-            id: id,
+            id: id_generator(),
         }))
     }
 }
@@ -1219,511 +1214,6 @@ impl Pow {
 pub fn pow(xs: &[Option<RcVariable>; 2], c: f32) -> RcVariable {
     Pow::new(c).borrow_mut().call(&xs)
 }
-
-/*
-#[derive(Debug, Clone)]
-struct Log {
-    inputs: [Option<Rc<RefCell<Variable>>>; 2],
-    output: Option<Weak<RefCell<Variable>>>,
-    base: Option<f32>,
-    generation: i32,
-    id: u32,
-}
-
-impl Function for Log {
-    fn call(&mut self, inputs: &[Option<Rc<RefCell<Variable>>>; 2]) -> Rc<RefCell<Variable>> {
-        if let None = &inputs[0] {
-            panic!("Logは一変数関数です。input[0]がNoneです")
-        }
-        if let Some(_variable) = &inputs[1] {
-            panic!("Logは一変数関数です。input[1]がNoneではある必要があります")
-        }
-
-        let mut xs_data = [None, None];
-
-        let inputs_0 = inputs[0].as_ref().unwrap().borrow();
-
-        // inputのvariableからdataを取り出す
-        xs_data[0] = Some(inputs_0.data.view());
-
-        let ys_data = self.forward(xs_data);
-
-        let output;
-
-        //ys_dataは一変数なので、outputs[1]は必要なし
-        output = Variable::new_rc(ys_data);
-
-        if get_grad_status() == true {
-            //　inputsを覚える
-            self.inputs = inputs.clone();
-            self.generation = inputs[0].as_ref().unwrap().borrow().generation;
-
-            //  outputsを弱参照(downgrade)で覚える
-            self.output = Some(Rc::downgrade(&output));
-
-            let self_f: Rc<RefCell<dyn Function>> = Rc::new(RefCell::new(self.clone()));
-
-            //outputsに自分をcreatorとして覚えさせる　不変長　配列2
-            output.borrow_mut().set_creator(self_f.clone());
-        }
-
-        output
-    }
-
-    fn forward(&self, xs: [Option<ArrayViewD<f32>>; 2]) -> ArrayD<f32> {
-        let base = self.base;
-        let y;
-
-        //baseがeか他の値かで場合分け(eの場合、baseはNone)
-        if let Some(base_data) = base {
-            y = xs[0]
-                .as_ref()
-                .expect("数値が存在する")
-                .mapv(|x| x.log(base_data));
-        } else {
-            y = xs[0].as_ref().expect("数値が存在するはず").mapv(|x| x.ln());
-        }
-        y
-    }
-
-    fn backward(&self, gys: ArrayViewD<f32>) -> [Option<ArrayD<f32>>; 2] {
-        let mut gxs = [None, None];
-        let x0_borrow = self.inputs[0].as_ref().unwrap().borrow();
-        let x0_data = x0_borrow.data.view();
-        let base = self.base;
-
-        //baseがeか他の値かで場合分け(eの場合、baseはNone)
-        if let Some(base_data) = base {
-            gxs[0] = Some(1.0 / (&x0_data * base_data.ln()) * &gys);
-        } else {
-            gxs[0] = Some((1.0 / &x0_data) * &gys);
-        }
-
-        gxs
-    }
-
-    fn get_inputs(&self) -> [Option<Rc<RefCell<Variable>>>; 2] {
-        self.inputs.clone()
-    }
-
-    fn get_output(&self) -> Rc<RefCell<Variable>> {
-        let output;
-        output = self
-            .output
-            .as_ref()
-            .unwrap()
-            .upgrade()
-            .as_ref()
-            .unwrap()
-            .clone();
-
-        output
-    }
-
-    fn get_generation(&self) -> i32 {
-        self.generation
-    }
-    fn get_id(&self) -> u32 {
-        self.id
-    }
-}
-impl Log {
-    fn new(base: Option<f32>) -> Rc<RefCell<Self>> {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
-        Rc::new(RefCell::new(Self {
-            inputs: [None, None],
-            output: None,
-            base: base,
-            generation: 0,
-            id: id,
-        }))
-    }
-}
-
-fn log(x: &RcVariable, base: Option<f32>) -> RcVariable {
-    let y = log_f(&[Some(x.0.clone()), None], base);
-    RcVariable(y.clone())
-}
-
-fn log_f(xs: &[Option<Rc<RefCell<Variable>>>; 2], base: Option<f32>) -> Rc<RefCell<Variable>> {
-    Log::new(base).borrow_mut().call(&xs)
-}
-
-/*
-
-
-
-
-
-
-
-
-
-*/
-
-// 行列計算用関数
-#[derive(Debug, Clone)]
-struct Reshape {
-    inputs: [Option<Rc<RefCell<Variable>>>; 2],
-    output: Option<Weak<RefCell<Variable>>>,
-    shape: IxDyn,
-    generation: i32,
-    id: u32,
-}
-
-impl Function for Reshape {
-    fn call(&mut self, inputs: &[Option<Rc<RefCell<Variable>>>; 2]) -> Rc<RefCell<Variable>> {
-        if let None = &inputs[0] {
-            panic!("Reshapeは一変数関数です。input[0]がNoneです")
-        }
-        if let Some(_variable) = &inputs[1] {
-            panic!("Reshapeは一変数関数です。input[1]がNoneではある必要があります")
-        }
-
-        let mut xs_data = [None, None];
-
-        let inputs_0 = inputs[0].as_ref().unwrap().borrow();
-
-        // inputのvariableからdataを取り出す
-        xs_data[0] = Some(inputs_0.data.view());
-
-        let ys_data = self.forward(xs_data);
-
-        let output;
-
-        //ys_dataは一変数なので、outputs[1]は必要なし
-        output = Variable::new_rc(ys_data);
-
-        if get_grad_status() == true {
-            //　inputsを覚える
-            self.inputs = inputs.clone();
-            self.generation = inputs[0].as_ref().unwrap().borrow().generation;
-
-            //  outputsを弱参照(downgrade)で覚える
-            self.output = Some(Rc::downgrade(&output));
-
-            let self_f: Rc<RefCell<dyn Function>> = Rc::new(RefCell::new(self.clone()));
-
-            //outputsに自分をcreatorとして覚えさせる　不変長　配列2
-            output.borrow_mut().set_creator(self_f.clone());
-        }
-
-        output
-    }
-
-    fn forward(&self, xs: [Option<ArrayViewD<f32>>; 2]) -> ArrayD<f32> {
-        let y_shape = self.shape.clone();
-        let y = xs[0]
-            .as_ref()
-            .expect("数値がありません")
-            .to_owned()
-            .into_shape(y_shape)
-            .unwrap();
-
-        y
-    }
-
-    fn backward(&self, gys: ArrayViewD<f32>) -> [Option<ArrayD<f32>>; 2] {
-        let mut gxs = [None, None];
-        let x_borrow = self.inputs[0].as_ref().unwrap().borrow();
-        let x_shape = x_borrow.data.shape();
-
-        gxs[0] = Some(gys.to_owned().into_shape(x_shape).unwrap());
-
-        gxs
-    }
-
-    fn get_inputs(&self) -> [Option<Rc<RefCell<Variable>>>; 2] {
-        self.inputs.clone()
-    }
-
-    fn get_output(&self) -> Rc<RefCell<Variable>> {
-        let output;
-        output = self
-            .output
-            .as_ref()
-            .unwrap()
-            .upgrade()
-            .as_ref()
-            .unwrap()
-            .clone();
-
-        output
-    }
-
-    fn get_generation(&self) -> i32 {
-        self.generation
-    }
-    fn get_id(&self) -> u32 {
-        self.id
-    }
-}
-impl Reshape {
-    fn new(shape: IxDyn) -> Rc<RefCell<Self>> {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
-        Rc::new(RefCell::new(Self {
-            inputs: [None, None],
-            output: None,
-            shape: shape,
-            generation: 0,
-            id: id,
-        }))
-    }
-}
-
-fn reshape_f(xs: &[Option<Rc<RefCell<Variable>>>; 2], shape: IxDyn) -> Rc<RefCell<Variable>> {
-    Reshape::new(shape).borrow_mut().call(&xs)
-}
-
-fn reshape(x: &RcVariable, shape: IxDyn) -> RcVariable {
-    let y = reshape_f(&[Some(x.0.clone()), None], shape);
-    RcVariable(y.clone())
-}
-
-#[derive(Debug, Clone)]
-struct Transpose {
-    inputs: [Option<Rc<RefCell<Variable>>>; 2],
-    output: Option<Weak<RefCell<Variable>>>,
-    generation: i32,
-    id: u32,
-}
-
-impl Function for Transpose {
-    fn call(&mut self, inputs: &[Option<Rc<RefCell<Variable>>>; 2]) -> Rc<RefCell<Variable>> {
-        if let None = &inputs[0] {
-            panic!("Transposeは一変数関数です。input[0]がNoneです")
-        }
-        if let Some(_variable) = &inputs[1] {
-            panic!("Transposeは一変数関数です。input[1]がNoneではある必要があります")
-        }
-
-        let mut xs_data = [None, None];
-
-        let inputs_0 = inputs[0].as_ref().unwrap().borrow();
-
-        // inputのvariableからdataを取り出す
-        xs_data[0] = Some(inputs_0.data.view());
-
-        let ys_data = self.forward(xs_data);
-
-        let output;
-
-        //ys_dataは一変数なので、outputs[1]は必要なし
-        output = Variable::new_rc(ys_data);
-
-        if get_grad_status() == true {
-            //　inputsを覚える
-            self.inputs = inputs.clone();
-            self.generation = inputs[0].as_ref().unwrap().borrow().generation;
-
-            //  outputsを弱参照(downgrade)で覚える
-            self.output = Some(Rc::downgrade(&output));
-
-            let self_f: Rc<RefCell<dyn Function>> = Rc::new(RefCell::new(self.clone()));
-
-            //outputsに自分をcreatorとして覚えさせる　不変長　配列2
-            output.borrow_mut().set_creator(self_f.clone());
-        }
-
-        output
-    }
-
-    fn forward(&self, xs: [Option<ArrayViewD<f32>>; 2]) -> ArrayD<f32> {
-        let y = xs[0].as_ref().expect("数値がありません").t().to_owned();
-
-        y
-    }
-
-    fn backward(&self, gys: ArrayViewD<f32>) -> [Option<ArrayD<f32>>; 2] {
-        let mut gxs = [None, None];
-
-        gxs[0] = Some(gys.t().to_owned());
-
-        gxs
-    }
-
-    fn get_inputs(&self) -> [Option<Rc<RefCell<Variable>>>; 2] {
-        self.inputs.clone()
-    }
-
-    fn get_output(&self) -> Rc<RefCell<Variable>> {
-        let output;
-        output = self
-            .output
-            .as_ref()
-            .unwrap()
-            .upgrade()
-            .as_ref()
-            .unwrap()
-            .clone();
-
-        output
-    }
-
-    fn get_generation(&self) -> i32 {
-        self.generation
-    }
-    fn get_id(&self) -> u32 {
-        self.id
-    }
-}
-impl Transpose {
-    fn new() -> Rc<RefCell<Self>> {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
-        Rc::new(RefCell::new(Self {
-            inputs: [None, None],
-            output: None,
-            generation: 0,
-            id: id,
-        }))
-    }
-}
-
-fn transpose_f(xs: &[Option<Rc<RefCell<Variable>>>; 2]) -> Rc<RefCell<Variable>> {
-    Transpose::new().borrow_mut().call(&xs)
-}
-
-fn transpose(x: &RcVariable) -> RcVariable {
-    let y = transpose_f(&[Some(x.0.clone()), None]);
-    RcVariable(y.clone())
-}
-
-#[derive(Debug, Clone)]
-struct Sum {
-    inputs: [Option<Rc<RefCell<Variable>>>; 2],
-    output: Option<Weak<RefCell<Variable>>>,
-    axis: Option<u16>,
-    keepdims: bool,
-    generation: i32,
-    id: u32,
-}
-
-impl Function for Sum {
-    fn call(&mut self, inputs: &[Option<Rc<RefCell<Variable>>>; 2]) -> Rc<RefCell<Variable>> {
-        if let None = &inputs[0] {
-            panic!("Sumは一変数関数です。input[0]がNoneです")
-        }
-        if let Some(_variable) = &inputs[1] {
-            panic!("Sumは一変数関数です。input[1]がNoneではある必要があります")
-        }
-
-        let mut xs_data = [None, None];
-
-        let inputs_0 = inputs[0].as_ref().unwrap().borrow();
-
-        // inputのvariableからdataを取り出す
-        xs_data[0] = Some(inputs_0.data.view());
-
-        let ys_data = self.forward(xs_data);
-
-        let output;
-
-        //ys_dataは一変数なので、outputs[1]は必要なし
-        output = Variable::new_rc(ys_data);
-
-        if get_grad_status() == true {
-            //　inputsを覚える
-            self.inputs = inputs.clone();
-            self.generation = inputs[0].as_ref().unwrap().borrow().generation;
-
-            //  outputsを弱参照(downgrade)で覚える
-            self.output = Some(Rc::downgrade(&output));
-
-            let self_f: Rc<RefCell<dyn Function>> = Rc::new(RefCell::new(self.clone()));
-
-            //outputsに自分をcreatorとして覚えさせる　不変長　配列2
-            output.borrow_mut().set_creator(self_f.clone());
-        }
-
-        output
-    }
-
-    fn forward(&self, xs: [Option<ArrayViewD<f32>>; 2]) -> ArrayD<f32> {
-        let axis = self.axis;
-
-        let y;
-
-        if let Some(axis_data) = axis {
-            if axis_data != 0 && axis_data != 1 {
-                panic!("axisは0か1の値のみ指定できます")
-            }
-
-            y = xs[0]
-                .as_ref()
-                .expect("数値がありません")
-                .to_owned()
-                .sum_axis(Axis(axis_data as usize));
-        } else {
-            let scalar_y = xs[0].as_ref().expect("数値がありません").to_owned().sum();
-            y = array![scalar_y].into_dyn();
-        }
-
-        y
-    }
-    //broadcast_to関数ができるまで保留
-    fn backward(&self, gys: ArrayViewD<f32>) -> [Option<ArrayD<f32>>; 2] {
-        let mut gxs = [None, None];
-        let x_borrow = self.inputs[0].as_ref().unwrap().borrow();
-        let x_shape = x_borrow.data.shape();
-
-        gxs[0] = Some(gys.to_owned().into_shape(x_shape).unwrap());
-
-        gxs
-    }
-
-    fn get_inputs(&self) -> [Option<Rc<RefCell<Variable>>>; 2] {
-        self.inputs.clone()
-    }
-
-    fn get_output(&self) -> Rc<RefCell<Variable>> {
-        let output;
-        output = self
-            .output
-            .as_ref()
-            .unwrap()
-            .upgrade()
-            .as_ref()
-            .unwrap()
-            .clone();
-
-        output
-    }
-
-    fn get_generation(&self) -> i32 {
-        self.generation
-    }
-    fn get_id(&self) -> u32 {
-        self.id
-    }
-}
-impl Sum {
-    fn new(axis: Option<u16>, keepdims: bool) -> Rc<RefCell<Self>> {
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
-        Rc::new(RefCell::new(Self {
-            inputs: [None, None],
-            output: None,
-            axis: axis,
-            keepdims: keepdims,
-            generation: 0,
-            id: id,
-        }))
-    }
-}
-
-fn sum_f(
-    xs: &[Option<Rc<RefCell<Variable>>>; 2],
-    axis: Option<u16>,
-    keepdims: bool,
-) -> Rc<RefCell<Variable>> {
-    Sum::new(axis, keepdims).borrow_mut().call(&xs)
-}
-
-fn sum(x: &RcVariable, axis: Option<u16>, keepdims: bool) -> RcVariable {
-    let y = sum_f(&[Some(x.0.clone()), None], axis, keepdims);
-    RcVariable(y.clone())
-}
-
-*/
 
 //演算子のオーバーロード
 
