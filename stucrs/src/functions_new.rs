@@ -2,44 +2,26 @@ use std::cell::RefCell;
 //use std::clone;
 use std::collections::HashSet;
 use std::fmt::Debug;
-use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::Mutex;
+
+//use std::sync::Mutex;
 //use std::future;
 //use std::hash::Hash;
 //use std::process::Output;
-use ndarray::{
-    array, s, Array1, ArrayD, ArrayView1, ArrayViewD, ArrayViewMut1, ArrayViewMut2, Axis,
-    Dimension, Ix1, Ix2, IxDyn, Slice, Zip,
-};
+use ndarray::*;
 use std::rc::{Rc, Weak};
 use std::vec;
 
 //use std::thread;
 //use std::time::Duration;
 
-use crate::config::id_generator;
+use crate::config::{get_grad_status, id_generator};
 use crate::core_new::*;
-use crate::datasets::double_matrix_shuffle_rows_immutable;
 
 //static NEXT_ID: AtomicU32 = AtomicU32::new(1);
 
-static GRAD_CONFIG: Mutex<bool> = Mutex::new(true);
+/*
+
 static KEEP_GRAD: Mutex<bool> = Mutex::new(false);
-
-fn set_grad_true() {
-    let mut flag = GRAD_CONFIG.lock().unwrap();
-    *flag = true;
-}
-
-fn set_grad_false() {
-    let mut flag = GRAD_CONFIG.lock().unwrap();
-    *flag = false;
-}
-
-fn get_grad_status() -> bool {
-    let flag = GRAD_CONFIG.lock().unwrap();
-    *flag
-}
 
 fn set_keep_grad_true() {
     let mut flag = KEEP_GRAD.lock().unwrap();
@@ -54,7 +36,7 @@ fn set_keep_grad_false() {
 fn get_keep_grad_status() -> bool {
     let flag = KEEP_GRAD.lock().unwrap();
     *flag
-}
+} */
 
 /*
 

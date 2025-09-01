@@ -57,8 +57,6 @@ pub mod layers;
 pub mod models;
 pub mod optimizers;
 //pub mod functions_hdv;
-pub use core_new::set_grad_false;
-pub use core_new::set_grad_true;
 
 #[cfg(test)]
 mod tests {

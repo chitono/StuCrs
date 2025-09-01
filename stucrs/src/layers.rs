@@ -11,10 +11,6 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 
 use std::rc::{Rc, Weak};
-use std::sync::atomic::{AtomicU32, Ordering};
-
-/// Variableや関数たちにidを付けるための値
-//static NEXT_ID: AtomicU32 = AtomicU32::new(1);
 
 pub trait Layer: Debug {
     fn set_params(&mut self, param: &RcVariable);

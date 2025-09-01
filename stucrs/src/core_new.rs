@@ -18,34 +18,10 @@ use std::vec;
 
 //use std::ops::{Add, Div, Mul, Neg, Sub};
 
-use crate::config::id_generator;
+use crate::config::{get_grad_status, id_generator, set_grad_false, set_grad_true};
 use crate::functions_new::*;
 
-/// Variableや関数たちにidを付けるための値
-//static NEXT_ID: AtomicU32 = AtomicU32::new(1);
-
-/// 微分するかしないかというフラグ
-/// 推論するときなど、微分する必要がないときに切り替える
-static GRAD_CONFIG: Mutex<bool> = Mutex::new(true);
 static KEEP_GRAD: Mutex<bool> = Mutex::new(false);
-
-///微分するフラグGRAD_CONFIGをtrueに設定する関数
-pub fn set_grad_true() {
-    let mut flag = GRAD_CONFIG.lock().unwrap();
-    *flag = true;
-}
-
-///微分するフラグGRAD_CONFIGをfalseに設定する関数
-pub fn set_grad_false() {
-    let mut flag = GRAD_CONFIG.lock().unwrap();
-    *flag = false;
-}
-
-///微分するフラグGRAD_CONFIGの現在の状態を返す関数
-fn get_grad_status() -> bool {
-    let flag = GRAD_CONFIG.lock().unwrap();
-    *flag
-}
 
 pub fn set_keep_grad_true() {
     let mut flag = KEEP_GRAD.lock().unwrap();
