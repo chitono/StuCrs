@@ -20,6 +20,9 @@ use plotters::prelude::*;
 use rand::seq::SliceRandom;
 use rand::*;
 
+
+
+
 fn main() {
     let max_epoch = 300;
     let lr = 1.0;
@@ -76,6 +79,9 @@ fn main() {
     let duration = end.duration_since(start);
     println!("処理時間{:?}", duration);
 }
+
+
+
 
 /*
 let root = BitMapBackend::new("plot.png", (640, 640)).into_drawing_area();
