@@ -115,7 +115,7 @@ pub fn double_matrix_shuffle_rows_immutable(
     (new_arr1.to_owned(), new_arr2.to_owned())
 }
 
-pub fn to_one_hot(data: ArrayViewMut1<u32>, num_class: usize) -> Array2<f32> {
+pub fn to_one_hot(data: ArrayView1<u32>, num_class: usize) -> Array2<f32> {
     let mut init_matrix = Array2::zeros((data.len(), num_class));
     for i in 0..data.len() {
         let data_t = data[i];

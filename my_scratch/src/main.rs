@@ -6,23 +6,32 @@ use std::rc::Rc;
 use std::time::Instant;
 use stucrs::core_new::{F32ToRcVariable, RcVariable};
 use stucrs::datasets::*;
-use stucrs::functions_new::{self as F, sum};
+use stucrs::functions_new::{self as F, accuracy, sum};
 use stucrs::layers::{self as L, Activation, Dense, Layer, Linear};
 use stucrs::models::{BaseModel, Model};
 use stucrs::optimizers::{Optimizer, SGD};
 
-use stucrs::core_new::ArrayDToRcVariable;
-
-use ndarray_rand::rand_distr::{StandardNormal, Uniform};
-use ndarray_rand::RandomExt;
+use ndarray_stats::QuantileExt;
 
 use plotters::prelude::*;
 use rand::seq::SliceRandom;
 use rand::*;
 
+fn main() {
+    let a: Array2<f32> = array![
+        [1.0f32, 2.0, 3.0],
+        [6.0, 4.0, 5.0],
+        [1.0, 2.0, 10.0],
+        [12.0, 15.0, 5.0]
+    ];
+    let b = array![2, 0, 1, 1];
+    let b = to_one_hot(b.view(), 3);
 
+    let acc = accuracy(a.view(), b.view());
+    println!("{}", acc);
+}
 
-
+/*
 fn main() {
     let max_epoch = 300;
     let lr = 1.0;
@@ -44,14 +53,14 @@ fn main() {
     optimizer.setup(&model);
     let start = Instant::now();
     for epoch in 0..max_epoch {
-        let mut indices: Vec<usize> = (0..x.shape()[0]).collect();
+        let mut indices: Vec<usize> = (0..data_size).collect();
         let mut rng = thread_rng();
         indices.shuffle(&mut rng);
         let mut sum_loss = array![0.0f32];
 
         for chunk_indices in indices.chunks(batch_size) {
-            let x_batch = x.select(Axis(0), chunk_indices).rv();
-            let t_batch = t.select(Axis(0), chunk_indices).rv();
+            let x_batch = x.select(Axis(0), chunk_indices).to_owned().rv();
+            let t_batch = t.select(Axis(0), chunk_indices).to_owned().rv();
 
             //println!("x_batch = {:?}, t_batch = {:?}", x_batch, t_batch);
 
@@ -78,10 +87,7 @@ fn main() {
     let end = Instant::now();
     let duration = end.duration_since(start);
     println!("処理時間{:?}", duration);
-}
-
-
-
+} */
 
 /*
 let root = BitMapBackend::new("plot.png", (640, 640)).into_drawing_area();
