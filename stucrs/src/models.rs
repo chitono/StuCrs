@@ -1,6 +1,12 @@
-use crate::core_new::{RcVariable, Variable};
+use crate::core_new::ArrayDToRcVariable;
+use crate::core_new::Variable;
+use crate::core_new::{F32ToRcVariable, RcVariable};
 use crate::layers::{self, Layer};
+use crate::optimizers::SGD;
 use fxhash::FxHashMap;
+use ndarray::*;
+use rand::seq::SliceRandom;
+use rand::*;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
@@ -50,6 +56,8 @@ impl Model for BaseModel {
     }
 }
 
+//loss: Loss, optimizer: Optimizer, learning_rate: f32
+
 impl BaseModel {
     pub fn new() -> Self {
         BaseModel {
@@ -72,4 +80,60 @@ impl BaseModel {
 
         output
     }
+
+    /*
+
+    pub fn train(
+        &mut self,
+        train_data: ArrayViewD<f32>,
+        test_data: ArrayViewD<f32>,
+        batch_size: usize,
+        epochs: i32,
+    ) {
+        let data_size = train_data.shape()[0];
+        let mut optimizer = SGD::new(lr);
+        for epoch in 0..epochs {
+            let mut indices: Vec<usize> = (0..train_data.shape()[0]).collect();
+            let mut rng = thread_rng();
+            indices.shuffle(&mut rng);
+            let mut sum_loss = array![0.0f32];
+
+            for chunk_indices in indices.chunks(batch_size) {
+                let x_batch = train_data.select(Axis(0), chunk_indices).to_owned().rv();
+                let t_batch = test_data.select(Axis(0), chunk_indices).to_owned().rv();
+
+                //println!("x_batch = {:?}, t_batch = {:?}", x_batch, t_batch);
+
+                let y = self.call(&x_batch);
+                let mut loss = F::softmax_cross_entropy_simple(&y, &t_batch);
+                self.cleargrad();
+                loss.backward(false);
+                optimizer.update();
+
+                //ここでt_batch.lenはu32からf32に変換、さらに暗黙的にndarray型に変換されて、計算される。
+                //また、sum_lossは静的次元なので、epoch_lossを動的次元から静的次元に変換して足せるようにする。
+
+                let epoch_loss: Array1<f32> = (&loss.data() * (t_batch.len() as f32))
+                    .into_dimensionality()
+                    .unwrap();
+
+                sum_loss = &sum_loss + &epoch_loss;
+            }
+
+            let average_loss = &sum_loss / (data_size as f32);
+
+            println!("epoch = {:?}, loss = {:?}", epoch + 1, average_loss);
+        }
+    }*/
+}
+
+#[derive(Debug, Clone)]
+pub enum Loss {
+    MeanSquaredError,
+    SoftmaxCrossEntropySimple,
+}
+
+#[derive(Debug, Clone)]
+pub enum Optimizer {
+    SGD,
 }
