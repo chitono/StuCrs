@@ -7,5 +7,6 @@ edition = "2021"
 ndarray = "0.16"
 rand = "0.8"
 ndarray-rand = "0.15"
+ndarray-stats = "0.6.0"
 plotters = "0.3.1"
 stucrs = { path = "../stucrs" }
