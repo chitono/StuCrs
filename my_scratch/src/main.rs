@@ -1,9 +1,12 @@
 use ndarray::*;
+use ndarray_stats::QuantileExt;
 use std::array;
 use std::cell::RefCell;
 use std::f32::consts::PI;
 use std::rc::Rc;
 use std::time::Instant;
+use stucrs::config;
+use stucrs::core_new::ArrayDToRcVariable;
 use stucrs::core_new::{F32ToRcVariable, RcVariable};
 use stucrs::datasets::*;
 use stucrs::functions_new::{self as F, accuracy, sum};
@@ -11,44 +14,32 @@ use stucrs::layers::{self as L, Activation, Dense, Layer, Linear};
 use stucrs::models::{BaseModel, Model};
 use stucrs::optimizers::{Optimizer, SGD};
 
-use ndarray_stats::QuantileExt;
-
 use plotters::prelude::*;
 use rand::seq::SliceRandom;
 use rand::*;
 
-fn main() {
-    let a: Array2<f32> = array![
-        [1.0f32, 2.0, 3.0],
-        [6.0, 4.0, 5.0],
-        [1.0, 2.0, 10.0],
-        [12.0, 15.0, 5.0]
-    ];
-    let b = array![2, 0, 1, 1];
-    let b = to_one_hot(b.view(), 3);
-
-    let acc = accuracy(a.view(), b.view());
-    println!("{}", acc);
-}
-
-/*
 fn main() {
     let max_epoch = 300;
     let lr = 1.0;
     let batch_size = 30;
     // 3x4の2次元行列を作成
     // `mut`キーワードで可変にする
-    let mut spiral = Spiral::new(true);
+    let train_spiral = Spiral::new(true);
+    let test_spiral = Spiral::new(true);
 
-    let x = spiral.data.view();
-    let t = spiral.label.view_mut();
-    let t = to_one_hot(t, 3);
+    let x_train = train_spiral.data.view();
+    let y_train = train_spiral.label.view();
+    let y_train = to_one_hot(y_train, 3);
+
+    let x_test = test_spiral.data.view();
+    let y_test = test_spiral.label.view();
+    let y_test = to_one_hot(y_test, 3);
 
     let mut model = BaseModel::new();
     model.stack(L::Dense::new(10, true, None, Activation::Sigmoid));
     model.stack(L::Linear::new(3, true, None));
 
-    let data_size = x.shape()[0];
+    let data_size = x_train.shape()[0];
     let mut optimizer = SGD::new(lr);
     optimizer.setup(&model);
     let start = Instant::now();
@@ -57,15 +48,20 @@ fn main() {
         let mut rng = thread_rng();
         indices.shuffle(&mut rng);
         let mut sum_loss = array![0.0f32];
+        let mut sum_acc = array![0.0f32];
 
         for chunk_indices in indices.chunks(batch_size) {
-            let x_batch = x.select(Axis(0), chunk_indices).to_owned().rv();
-            let t_batch = t.select(Axis(0), chunk_indices).to_owned().rv();
+            let x_batch = x_train.select(Axis(0), chunk_indices).to_owned().rv();
+            let y_batch = y_train.select(Axis(0), chunk_indices).to_owned().rv();
 
             //println!("x_batch = {:?}, t_batch = {:?}", x_batch, t_batch);
 
             let y = model.call(&x_batch);
-            let mut loss = F::softmax_cross_entropy_simple(&y, &t_batch);
+            let mut loss = F::softmax_cross_entropy_simple(&y, &y_batch);
+            let acc = accuracy(
+                y.data().into_dimensionality().unwrap().view(),
+                y_batch.data().into_dimensionality().unwrap().view(),
+            );
             model.cleargrad();
             loss.backward(false);
             optimizer.update();
@@ -73,21 +69,70 @@ fn main() {
             //ここでt_batch.lenはu32からf32に変換、さらに暗黙的にndarray型に変換されて、計算される。
             //また、sum_lossは静的次元なので、epoch_lossを動的次元から静的次元に変換して足せるようにする。
 
-            let epoch_loss: Array1<f32> = (&loss.data() * (t_batch.len() as f32))
+            let epoch_loss: Array1<f32> = (&loss.data() * (y_batch.len() as f32))
                 .into_dimensionality()
                 .unwrap();
 
             sum_loss = &sum_loss + &epoch_loss;
+            sum_acc = sum_acc + acc * (y_batch.len() as f32);
         }
 
         let average_loss = &sum_loss / (data_size as f32);
+        let average_acc = sum_acc / (data_size as f32);
 
-        println!("epoch = {:?}, loss = {:?}", epoch + 1, average_loss);
+        println!(
+            "epoch = {:?}, train_loss = {:?}, accuracy = {}",
+            epoch + 1,
+            average_loss,
+            average_acc
+        );
+
+        //推論
+        config::set_grad_false();
+
+        let mut indices: Vec<usize> = (0..data_size).collect();
+        let mut rng = thread_rng();
+        indices.shuffle(&mut rng);
+        let mut sum_loss = array![0.0f32];
+        let mut sum_acc = array![0.0f32];
+
+        for chunk_indices in indices.chunks(batch_size) {
+            let x_batch = x_test.select(Axis(0), chunk_indices).to_owned().rv();
+            let y_batch = y_test.select(Axis(0), chunk_indices).to_owned().rv();
+
+            //println!("x_batch = {:?}, t_batch = {:?}", x_batch, t_batch);
+
+            let y = model.call(&x_batch);
+            let mut loss = F::softmax_cross_entropy_simple(&y, &y_batch);
+            let acc = accuracy(
+                y.data().into_dimensionality().unwrap().view(),
+                y_batch.data().into_dimensionality().unwrap().view(),
+            );
+
+            let epoch_loss: Array1<f32> = (&loss.data() * (y_batch.len() as f32))
+                .into_dimensionality()
+                .unwrap();
+
+            sum_loss = &sum_loss + &epoch_loss;
+            sum_acc = sum_acc + acc * (y_batch.len() as f32);
+        }
+
+        let average_loss = &sum_loss / (data_size as f32);
+        let average_acc = sum_acc / (data_size as f32);
+
+        println!(
+            "epoch = {:?}, test_loss = {:?}, test_accuracy = {}",
+            epoch + 1,
+            average_loss,
+            average_acc
+        );
+
+        config::set_grad_true();
     }
     let end = Instant::now();
     let duration = end.duration_since(start);
     println!("処理時間{:?}", duration);
-} */
+}
 
 /*
 let root = BitMapBackend::new("plot.png", (640, 640)).into_drawing_area();

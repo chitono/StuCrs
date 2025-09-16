@@ -2145,7 +2145,7 @@ pub fn accuracy(y: ArrayView2<f32>, t: ArrayView2<f32>) -> f32 {
     let num_class = t.shape()[1];
     let argmax_vec: Vec<u32> = y
         .outer_iter()
-        .map(|row| row.argmax().unwrap() as u32)
+        .map(|row: ArrayBase<ViewRepr<&f32>, Dim<[usize; 1]>>| row.argmax().unwrap() as u32)
         .collect();
     let max_index = Array::from_vec(argmax_vec);
     let one_hot_y = to_one_hot(max_index.view(), num_class);
