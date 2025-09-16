@@ -1,5 +1,8 @@
 use ndarray::*;
 use ndarray_stats::QuantileExt;
+use plotters::prelude::*;
+use rand::seq::SliceRandom;
+use rand::*;
 use std::array;
 use std::cell::RefCell;
 use std::f32::consts::PI;
@@ -8,15 +11,12 @@ use std::time::Instant;
 use stucrs::config;
 use stucrs::core_new::ArrayDToRcVariable;
 use stucrs::core_new::{F32ToRcVariable, RcVariable};
+use stucrs::dataloaders::DataLoader;
 use stucrs::datasets::*;
 use stucrs::functions_new::{self as F, accuracy, sum};
 use stucrs::layers::{self as L, Activation, Dense, Layer, Linear};
 use stucrs::models::{BaseModel, Model};
 use stucrs::optimizers::{Optimizer, SGD};
-
-use plotters::prelude::*;
-use rand::seq::SliceRandom;
-use rand::*;
 
 fn main() {
     let max_epoch = 300;
@@ -27,33 +27,29 @@ fn main() {
     let train_spiral = Spiral::new(true);
     let test_spiral = Spiral::new(true);
 
-    let x_train = train_spiral.data.view();
+    let x_train = train_spiral.data;
     let y_train = train_spiral.label.view();
     let y_train = to_one_hot(y_train, 3);
 
-    let x_test = test_spiral.data.view();
+    let x_test = test_spiral.data;
     let y_test = test_spiral.label.view();
     let y_test = to_one_hot(y_test, 3);
+
+    let train_loader = DataLoader::new(x_train.into_dyn(), y_train.into_dyn(), batch_size, true);
+    let test_loader = DataLoader::new(x_test.into_dyn(), y_test.into_dyn(), batch_size, true);
 
     let mut model = BaseModel::new();
     model.stack(L::Dense::new(10, true, None, Activation::Sigmoid));
     model.stack(L::Linear::new(3, true, None));
-
     let data_size = x_train.shape()[0];
     let mut optimizer = SGD::new(lr);
     optimizer.setup(&model);
     let start = Instant::now();
     for epoch in 0..max_epoch {
-        let mut indices: Vec<usize> = (0..data_size).collect();
-        let mut rng = thread_rng();
-        indices.shuffle(&mut rng);
         let mut sum_loss = array![0.0f32];
-        let mut sum_acc = array![0.0f32];
+        let mut sum_acc = 0.0f32;
 
-        for chunk_indices in indices.chunks(batch_size) {
-            let x_batch = x_train.select(Axis(0), chunk_indices).to_owned().rv();
-            let y_batch = y_train.select(Axis(0), chunk_indices).to_owned().rv();
-
+        for (x_batch, y_batch) in train_loader {
             //println!("x_batch = {:?}, t_batch = {:?}", x_batch, t_batch);
 
             let y = model.call(&x_batch);
