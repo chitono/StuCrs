@@ -18,6 +18,24 @@ use stucrs::layers::{self as L, Activation, Dense, Layer, Linear};
 use stucrs::models::{BaseModel, Model};
 use stucrs::optimizers::{Optimizer, SGD};
 
+
+
+
+fn main() {
+    let mnist = MNIST::new();
+    let x_train = mnist.train_img;
+    let y_train = mnist.train_label;
+    let x_test =mnist.test_img;
+    let y_test = mnist.test_label;
+
+    let image_num = 0;
+
+    println!("{:#.1?}\n",x_train.slice(s![image_num, .., ..]));
+
+
+}
+
+/* 
 fn main() {
     let max_epoch = 300;
     let lr = 1.0;
@@ -131,7 +149,7 @@ fn main() {
     let duration = end.duration_since(start);
     println!("処理時間{:?}", duration);
 }
-
+*/
 /*
 let root = BitMapBackend::new("plot.png", (640, 640)).into_drawing_area();
     root.fill(&WHITE)?;
