@@ -34,20 +34,22 @@ fn main() {
     let x_test = test_spiral.data;
     let y_test = test_spiral.label.view();
     let y_test = to_one_hot(y_test, 3);
-
-    let train_loader = DataLoader::new(x_train.into_dyn(), y_train.into_dyn(), batch_size, true);
-    let test_loader = DataLoader::new(x_test.into_dyn(), y_test.into_dyn(), batch_size, true);
-
+    let data_size = x_train.shape()[0];
+    
     let mut model = BaseModel::new();
     model.stack(L::Dense::new(10, true, None, Activation::Sigmoid));
     model.stack(L::Linear::new(3, true, None));
-    let data_size = x_train.shape()[0];
+    
     let mut optimizer = SGD::new(lr);
     optimizer.setup(&model);
     let start = Instant::now();
     for epoch in 0..max_epoch {
         let mut sum_loss = array![0.0f32];
         let mut sum_acc = 0.0f32;
+
+        let train_loader = DataLoader::new(x_train.clone().into_dyn(), y_train.clone().into_dyn(), batch_size, true);
+        let test_loader = DataLoader::new(x_test.clone().into_dyn(), y_test.clone().into_dyn(), batch_size, true);
+
 
         for (x_batch, y_batch) in train_loader {
             //println!("x_batch = {:?}, t_batch = {:?}", x_batch, t_batch);

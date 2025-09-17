@@ -4,6 +4,8 @@ use rand::seq::{index, SliceRandom};
 
 use crate::core_new::{ArrayDToRcVariable, RcVariable};
 
+
+#[derive(Clone)]
 pub struct DataLoader {
     x_data_set: ArrayD<f32>,
     y_data_set: ArrayD<f32>,
