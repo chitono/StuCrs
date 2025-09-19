@@ -15,7 +15,7 @@ use ndarray::prelude::*;
 
 
 pub trait Dataset {
-    fn get_item(&self, index: u32) -> ArrayViewD<f32>;
+    fn get_item(&self, index: i32) -> ArrayViewD<f32>;
     fn len(&self) -> usize;
     fn data_setup(&mut self);
 }
@@ -28,7 +28,7 @@ pub struct Spiral {
 
 impl Dataset for Spiral {
     fn data_setup(&mut self) {}
-    fn get_item(&self, index: u32) -> ArrayViewD<f32> {
+    fn get_item(&self, index: i32) -> ArrayViewD<f32> {
         self.data.view().into_dyn()
     }
     fn len(&self) -> usize {
@@ -89,7 +89,7 @@ fn get_spiral_data(train: bool) -> (Array2<f32>, Array1<u32>) {
 
 
 
-
+#[derive(Clone)]
 pub struct MNIST {
     pub train_img: Array3<f32>,
     pub train_label: Array2<f32>,
@@ -100,8 +100,8 @@ pub struct MNIST {
 
 impl Dataset for MNIST {
     fn data_setup(&mut self) {}
-    fn get_item(&self, index: u32) -> ArrayViewD<f32> {
-        self.train_img.view().into_dyn()
+    fn get_item(&self, index: i32) -> ArrayViewD<f32> {
+        self.train_img.slice(s![index,..,..]).into_dyn()
     }
     fn len(&self) -> usize {
         self.train_img.shape()[0]
