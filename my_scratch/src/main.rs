@@ -23,25 +23,48 @@ use stucrs::optimizers::{Optimizer, SGD};
 
 fn main() {
     let mnist = MNIST::new();
-    let x_train = mnist.train_img;
-    let y_train = mnist.train_label;
-    let x_test =mnist.test_img;
-    let y_test = mnist.test_label;
+    let x_train = &mnist.train_img;
+    let y_train = &mnist.train_label;
+    let x_test =&mnist.test_img;
+    let y_test = &mnist.test_label;
 
     let image_num = 0;
 
-    println!("{:#.1?}\n",x_train.slice(s![image_num, .., ..]));
+    println!("{:#.1?}\n",mnist.get_item(image_num));
+
+    println!("{:?}",x_train.shape());
+
+    println!("{:?}",x_test.shape());
+
+    let flatten_x_train = x_train.to_shape((50000,28*28)).unwrap();
+
+    let flatten_y_train=y_train.to_shape((10000,28*28)).unwrap();
+
+    println!("faltten = {:?}",flatten_x_train.shape());
 
 
-}
 
-/* 
-fn main() {
-    let max_epoch = 300;
+
+
+
+
+    let max_epoch = 5;
     let lr = 1.0;
-    let batch_size = 30;
+    let batch_size = 100;
+    let hidden_size=1000;
+
+
+
+
+
+
+
+
+
+    
     // 3x4の2次元行列を作成
     // `mut`キーワードで可変にする
+    /* 
     let train_spiral = Spiral::new(true);
     let test_spiral = Spiral::new(true);
 
@@ -52,6 +75,7 @@ fn main() {
     let x_test = test_spiral.data;
     let y_test = test_spiral.label.view();
     let y_test = to_one_hot(y_test, 3);
+    */
     let data_size = x_train.shape()[0];
     
     let mut model = BaseModel::new();
@@ -149,7 +173,7 @@ fn main() {
     let duration = end.duration_since(start);
     println!("処理時間{:?}", duration);
 }
-*/
+
 /*
 let root = BitMapBackend::new("plot.png", (640, 640)).into_drawing_area();
     root.fill(&WHITE)?;
