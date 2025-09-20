@@ -17,7 +17,7 @@ use std::vec;
 
 use crate::config::{get_grad_status, id_generator};
 use crate::core_new::*;
-use crate::datasets::to_one_hot;
+use crate::datasets::arr1d_to_one_hot;
 
 //static NEXT_ID: AtomicU32 = AtomicU32::new(1);
 
@@ -2148,7 +2148,7 @@ pub fn accuracy(y: ArrayView2<f32>, t: ArrayView2<f32>) -> f32 {
         .map(|row: ArrayBase<ViewRepr<&f32>, Dim<[usize; 1]>>| row.argmax().unwrap() as u32)
         .collect();
     let max_index = Array::from_vec(argmax_vec);
-    let one_hot_y = to_one_hot(max_index.view(), num_class);
+    let one_hot_y = arr1d_to_one_hot(max_index.view(), num_class);
 
     assert_eq!(one_hot_y.shape(), t.shape());
 

@@ -188,10 +188,22 @@ pub fn double_matrix_shuffle_rows_immutable(
     (new_arr1.to_owned(), new_arr2.to_owned())
 }
 
-pub fn to_one_hot(data: ArrayView1<u32>, num_class: usize) -> Array2<f32> {
+pub fn arr1d_to_one_hot(data: ArrayView1<u32>, num_class: usize) -> Array2<f32> {
     let mut init_matrix = Array2::zeros((data.len(), num_class));
     for i in 0..data.len() {
         let data_t = data[i];
+        init_matrix[[i, data_t as usize]] = 1.0;
+    }
+    init_matrix
+}
+
+pub fn arr2d_to_one_hot(data: ArrayView2<u32>, num_class: usize) -> Array2<f32> {
+    if data.shape()[1] != 1 {
+        panic!("one_hotベクトルにしたい教師データの列数が1ではありません");
+    }
+    let mut init_matrix = Array2::zeros((data.shape()[0], num_class));
+    for i in 0..data.shape()[0] {
+        let data_t = data[[i, 0]];
         init_matrix[[i, data_t as usize]] = 1.0;
     }
     init_matrix
