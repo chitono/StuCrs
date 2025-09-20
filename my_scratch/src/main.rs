@@ -1,3 +1,4 @@
+use image::{GrayImage, Luma};
 use ndarray::*;
 use ndarray_stats::QuantileExt;
 use plotters::prelude::*;
@@ -18,53 +19,48 @@ use stucrs::layers::{self as L, Activation, Dense, Layer, Linear};
 use stucrs::models::{BaseModel, Model};
 use stucrs::optimizers::{Optimizer, SGD};
 
-
-
-
 fn main() {
     let mnist = MNIST::new();
     let x_train = &mnist.train_img;
     let y_train = &mnist.train_label;
-    let x_test =&mnist.test_img;
+    let x_test = &mnist.test_img;
     let y_test = &mnist.test_label;
 
     let image_num = 0;
 
-    println!("{:#.1?}\n",mnist.get_item(image_num));
+    println!("{:#.1?}\n", mnist.get_item(image_num));
 
-    println!("{:?}",x_train.shape());
+    let flat_data_u8: Vec<u8> = mnist
+        .get_item(image_num)
+        .iter()
+        .copied()
+        .map(|pixel| (pixel * 256.0) as u8)
+        .collect();
 
-    println!("{:?}",x_test.shape());
+    let img = GrayImage::from_raw(28, 28, flat_data_u8).expect("画像を出力できませんでした。");
+    img.save("mnist_first_img.png").unwrap();
 
-    let flatten_x_train = x_train.to_shape((50000,28*28)).unwrap();
+    println!("{:?}", x_train.shape());
 
-    let flatten_y_train=y_train.to_shape((10000,28*28)).unwrap();
+    println!("{:?}", x_test.shape());
 
-    println!("faltten = {:?}",flatten_x_train.shape());
+    let flatten_x_train = x_train.to_shape((50000, 28 * 28)).unwrap();
 
+    let flatten_x_test = x_test.to_shape((10000, 28 * 28)).unwrap();
 
+    println!("faltten = {:?}", flatten_x_train.shape());
+    println!("faltten = {:?}", flatten_x_test.shape());
 
-
-
-
+    /*
 
     let max_epoch = 5;
     let lr = 1.0;
     let batch_size = 100;
-    let hidden_size=1000;
+    let hidden_size = 1000;
 
-
-
-
-
-
-
-
-
-    
     // 3x4の2次元行列を作成
     // `mut`キーワードで可変にする
-    /* 
+    /*
     let train_spiral = Spiral::new(true);
     let test_spiral = Spiral::new(true);
 
@@ -77,11 +73,11 @@ fn main() {
     let y_test = to_one_hot(y_test, 3);
     */
     let data_size = x_train.shape()[0];
-    
+
     let mut model = BaseModel::new();
     model.stack(L::Dense::new(10, true, None, Activation::Sigmoid));
     model.stack(L::Linear::new(3, true, None));
-    
+
     let mut optimizer = SGD::new(lr);
     optimizer.setup(&model);
     let start = Instant::now();
@@ -89,9 +85,18 @@ fn main() {
         let mut sum_loss = array![0.0f32];
         let mut sum_acc = 0.0f32;
 
-        let train_loader = DataLoader::new(x_train.clone().into_dyn(), y_train.clone().into_dyn(), batch_size, true);
-        let test_loader = DataLoader::new(x_test.clone().into_dyn(), y_test.clone().into_dyn(), batch_size, true);
-
+        let train_loader = DataLoader::new(
+            x_train.clone().into_dyn(),
+            y_train.clone().into_dyn(),
+            batch_size,
+            true,
+        );
+        let test_loader = DataLoader::new(
+            x_test.clone().into_dyn(),
+            y_test.clone().into_dyn(),
+            batch_size,
+            true,
+        );
 
         for (x_batch, y_batch) in train_loader {
             //println!("x_batch = {:?}, t_batch = {:?}", x_batch, t_batch);
@@ -171,7 +176,7 @@ fn main() {
     }
     let end = Instant::now();
     let duration = end.duration_since(start);
-    println!("処理時間{:?}", duration);
+    println!("処理時間{:?}", duration); */
 }
 
 /*

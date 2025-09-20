@@ -12,8 +12,6 @@ use mnist::*;
 
 use ndarray::prelude::*;
 
-
-
 pub trait Dataset {
     fn get_item(&self, index: i32) -> ArrayViewD<f32>;
     fn len(&self) -> usize;
@@ -87,21 +85,18 @@ fn get_spiral_data(train: bool) -> (Array2<f32>, Array1<u32>) {
     double_matrix_shuffle_rows_immutable(x.view(), t.view())
 }
 
-
-
 #[derive(Clone)]
 pub struct MNIST {
     pub train_img: Array3<f32>,
     pub train_label: Array2<f32>,
     pub test_img: Array3<f32>,
     pub test_label: Array2<f32>,
-
 }
 
 impl Dataset for MNIST {
     fn data_setup(&mut self) {}
     fn get_item(&self, index: i32) -> ArrayViewD<f32> {
-        self.train_img.slice(s![index,..,..]).into_dyn()
+        self.train_img.slice(s![index, .., ..]).into_dyn()
     }
     fn len(&self) -> usize {
         self.train_img.shape()[0]
@@ -110,61 +105,54 @@ impl Dataset for MNIST {
 
 impl MNIST {
     pub fn new() -> Self {
-        let (train_img,train_label,test_img,test_label) = get_mnist_data();
+        let (train_img, train_label, test_img, test_label) = get_mnist_data();
         let mnist = Self {
             train_img: train_img,
-            train_label:train_label,
-            test_img:test_img,
-            test_label:test_label
+            train_label: train_label,
+            test_img: test_img,
+            test_label: test_label,
         };
         mnist
     }
 }
 
-fn get_mnist_data() -> (Array3<f32>, Array2<f32>,Array3<f32>,Array2<f32>) {
-
+fn get_mnist_data() -> (Array3<f32>, Array2<f32>, Array3<f32>, Array2<f32>) {
     // Deconstruct the returned Mnist struct.
-   let Mnist {
-       trn_img,
-       trn_lbl,
-       tst_img,
-       tst_lbl,
-       ..
-   } = MnistBuilder::new()
-       .label_format_digit()
-       .training_set_length(50_000)
-       .validation_set_length(10_000)
-       .test_set_length(10_000)
-       .finalize();
+    let Mnist {
+        trn_img,
+        trn_lbl,
+        tst_img,
+        tst_lbl,
+        ..
+    } = MnistBuilder::new()
+        .label_format_digit()
+        .training_set_length(50_000)
+        .validation_set_length(10_000)
+        .test_set_length(10_000)
+        .finalize();
 
-   let image_num = 0;
-   // Can use an Array2 or Array3 here (Array3 for visualization)
-   let train_data = Array3::from_shape_vec((50_000, 28, 28), trn_img)
-       .expect("Error converting images to Array3 struct")
-       .map(|x| *x as f32 / 256.0);
-   //println!("{:#.1?}\n",train_data.slice(s![image_num, .., ..]));
+    let image_num = 0;
+    // Can use an Array2 or Array3 here (Array3 for visualization)
+    let train_data = Array3::from_shape_vec((50_000, 28, 28), trn_img)
+        .expect("Error converting images to Array3 struct")
+        .map(|x| *x as f32 / 256.0);
+    //println!("{:#.1?}\n",train_data.slice(s![image_num, .., ..]));
 
-   // Convert the returned Mnist struct to Array2 format
-   let train_labels: Array2<f32> = Array2::from_shape_vec((50_000, 1), trn_lbl)
-       .expect("Error converting training labels to Array2 struct")
-       .map(|x| *x as f32);
-   //println!("The first digit is a {:?}",train_labels.slice(s![image_num, ..]) );
+    // Convert the returned Mnist struct to Array2 format
+    let train_labels: Array2<f32> = Array2::from_shape_vec((50_000, 1), trn_lbl)
+        .expect("Error converting training labels to Array2 struct")
+        .map(|x| *x as f32);
+    //println!("The first digit is a {:?}",train_labels.slice(s![image_num, ..]) );
 
-   let test_data = Array3::from_shape_vec((10_000, 28, 28), tst_img)
-       .expect("Error converting images to Array3 struct")
-       .map(|x| *x as f32 / 256.);
+    let test_data = Array3::from_shape_vec((10_000, 28, 28), tst_img)
+        .expect("Error converting images to Array3 struct")
+        .map(|x| *x as f32 / 256.);
 
-   let test_labels: Array2<f32> = Array2::from_shape_vec((10_000, 1), tst_lbl)
-       .expect("Error converting testing labels to Array2 struct")
-       .map(|x| *x as f32);
-   (train_data,train_labels,test_data,test_labels)
-    
-    
-    
+    let test_labels: Array2<f32> = Array2::from_shape_vec((10_000, 1), tst_lbl)
+        .expect("Error converting testing labels to Array2 struct")
+        .map(|x| *x as f32);
+    (train_data, train_labels, test_data, test_labels)
 }
-
-
-
 
 //一つ2次元の行列と一次元の行列の対となる行が同じ位置に来るようにシャッフルして新しい二つの行列を返す
 pub fn double_matrix_shuffle_rows_immutable(
@@ -208,4 +196,3 @@ pub fn to_one_hot(data: ArrayView1<u32>, num_class: usize) -> Array2<f32> {
     }
     init_matrix
 }
-
