@@ -21,42 +21,33 @@ use stucrs::optimizers::{Optimizer, SGD};
 
 fn main() {
     let mnist = MNIST::new();
-    let x_train = &mnist.train_img;
-    let y_train = &mnist.train_label;
-    let x_test = &mnist.test_img;
-    let y_test = &mnist.test_label;
+    let x_train = mnist.train_img.view();
+    let y_train = mnist.train_label.view();
+    let x_test = mnist.test_img.view();
+    let y_test = mnist.test_label.view();
 
     let image_num = 0;
 
-    println!("{:#.1?}\n", mnist.get_item(image_num));
+    //println!("{:#.1?}\n", mnist.get_item(image_num));
 
-    let flat_data_u8: Vec<u8> = mnist
-        .get_item(image_num)
-        .iter()
-        .copied()
-        .map(|pixel| (pixel * 256.0) as u8)
-        .collect();
+    //println!("{:?}", x_train.shape());
 
-    let img = GrayImage::from_raw(28, 28, flat_data_u8).expect("画像を出力できませんでした。");
-    img.save("mnist_first_img.png").unwrap();
+    //println!("{:?}", y_train.shape());
 
-    println!("{:?}", x_train.shape());
+    let x_train = x_train.to_shape((50000, 28 * 28)).unwrap();
+    let x_test = x_test.to_shape((10000, 28 * 28)).unwrap();
 
-    println!("{:?}", x_test.shape());
+    let y_train = arr2d_to_one_hot(y_train.mapv(|x| x as u32).view(), 10);
+    let y_test = arr2d_to_one_hot(y_test.mapv(|x| x as u32).view(), 10);
 
-    let flatten_x_train = x_train.to_shape((50000, 28 * 28)).unwrap();
+    //println!("faltten = {:?}", x_train.shape());
+    //println!("faltten = {:?}", x_test.shape());
 
-    let flatten_x_test = x_test.to_shape((10000, 28 * 28)).unwrap();
-
-    println!("faltten = {:?}", flatten_x_train.shape());
-    println!("faltten = {:?}", flatten_x_test.shape());
-
-    /*
+    //println!("y_train = {:?}", y_train);
 
     let max_epoch = 5;
-    let lr = 1.0;
+    let lr = 0.01;
     let batch_size = 100;
-    let hidden_size = 1000;
 
     // 3x4の2次元行列を作成
     // `mut`キーワードで可変にする
@@ -72,19 +63,26 @@ fn main() {
     let y_test = test_spiral.label.view();
     let y_test = to_one_hot(y_test, 3);
     */
+
     let data_size = x_train.shape()[0];
+    println!("data_size={}", data_size);
 
     let mut model = BaseModel::new();
-    model.stack(L::Dense::new(10, true, None, Activation::Sigmoid));
-    model.stack(L::Linear::new(3, true, None));
+    model.stack(L::Dense::new(1000, true, None, Activation::Sigmoid));
+    model.stack(L::Linear::new(10, true, None));
 
     let mut optimizer = SGD::new(lr);
     optimizer.setup(&model);
     let start = Instant::now();
     for epoch in 0..max_epoch {
+        let mut indices: Vec<usize> = (0..data_size).collect();
+        let mut rng = thread_rng();
+        indices.shuffle(&mut rng);
+
         let mut sum_loss = array![0.0f32];
         let mut sum_acc = 0.0f32;
 
+        /*
         let train_loader = DataLoader::new(
             x_train.clone().into_dyn(),
             y_train.clone().into_dyn(),
@@ -96,12 +94,17 @@ fn main() {
             y_test.clone().into_dyn(),
             batch_size,
             true,
-        );
+        ); */
 
-        for (x_batch, y_batch) in train_loader {
+        for chunk_indices in indices.chunks(batch_size) {
+            let x_batch = x_train.select(Axis(0), chunk_indices).to_owned().rv();
+            let y_batch = y_train.select(Axis(0), chunk_indices).to_owned().rv();
+
+            //for (x_batch, y_batch) in train_loader {
             //println!("x_batch = {:?}, t_batch = {:?}", x_batch, t_batch);
 
             let y = model.call(&x_batch);
+
             let mut loss = F::softmax_cross_entropy_simple(&y, &y_batch);
             let acc = accuracy(
                 y.data().into_dimensionality().unwrap().view(),
@@ -134,10 +137,11 @@ fn main() {
 
         //推論
         config::set_grad_false();
-
-        let mut indices: Vec<usize> = (0..data_size).collect();
+        let test_data_size = x_test.shape()[0];
+        let mut indices: Vec<usize> = (0..test_data_size).collect();
         let mut rng = thread_rng();
         indices.shuffle(&mut rng);
+
         let mut sum_loss = array![0.0f32];
         let mut sum_acc = array![0.0f32];
 
@@ -148,7 +152,7 @@ fn main() {
             //println!("x_batch = {:?}, t_batch = {:?}", x_batch, t_batch);
 
             let y = model.call(&x_batch);
-            let mut loss = F::softmax_cross_entropy_simple(&y, &y_batch);
+            let loss = F::softmax_cross_entropy_simple(&y, &y_batch);
             let acc = accuracy(
                 y.data().into_dimensionality().unwrap().view(),
                 y_batch.data().into_dimensionality().unwrap().view(),
@@ -162,8 +166,8 @@ fn main() {
             sum_acc = sum_acc + acc * (y_batch.len() as f32);
         }
 
-        let average_loss = &sum_loss / (data_size as f32);
-        let average_acc = sum_acc / (data_size as f32);
+        let average_loss = &sum_loss / (test_data_size as f32);
+        let average_acc = sum_acc / (test_data_size as f32);
 
         println!(
             "epoch = {:?}, test_loss = {:?}, test_accuracy = {}",
@@ -176,7 +180,7 @@ fn main() {
     }
     let end = Instant::now();
     let duration = end.duration_since(start);
-    println!("処理時間{:?}", duration); */
+    println!("処理時間{:?}", duration);
 }
 
 /*
