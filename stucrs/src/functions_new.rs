@@ -1946,28 +1946,6 @@ pub fn mean_squared_error(x0: &RcVariable, x1: &RcVariable) -> RcVariable {
     y
 }
 
-/*
-fn add_at_1d(mut x: ArrayViewMut1<f32>, indices: &[usize], y: ArrayViewMut1<f32>) {
-    Zip::from(indices).and(b).for_each(|&idx, b_data| {
-        if let Some(a_data) = a.get_mut(idx) {
-            *a_data += *b_data;
-        }
-    });
-} */
-
-/*
-fn add_at_2d(mut a: ArrayViewMut2<f32>, indices: (&[usize], &[usize]), b: ArrayViewMut2<f32>) {
-    let (row_indices, col_indices) = indices;
-    Zip::from(row_indices)
-        .and(col_indices)
-        .and(b.to_shape(b.len()))
-        .for_each(|&row, &col, b_data| {
-            if let Some(a_data) = a.get_mut((row, col)) {
-                *a_data += *b_data;
-            }
-        });
-} */
-
 pub fn linear_simple(x: &RcVariable, w: &RcVariable, b: &Option<RcVariable>) -> RcVariable {
     let t = matmul(&x, &w);
 
@@ -1986,6 +1964,111 @@ pub fn sigmoid_simple(x: &RcVariable) -> RcVariable {
     let mainasu_x = -x.clone();
     let y = 1.0f32.rv() / (1.0f32.rv() + exp(&mainasu_x));
     y
+}
+
+#[derive(Debug, Clone)]
+pub struct Relu {
+    inputs: [Option<RcVariable>; 2],
+    output: Option<Weak<RefCell<Variable>>>,
+    generation: i32,
+    id: usize,
+}
+
+impl Function for Relu {
+    fn call(&mut self, inputs: &[Option<RcVariable>; 2]) -> RcVariable {
+        if let None = &inputs[0] {
+            panic!("Reluは一変数関数です。input[0]がNoneです")
+        }
+        if let Some(_variable) = &inputs[1] {
+            panic!("Reluは一変数関数です。input[1]がNoneではある必要があります")
+        }
+
+        let xs_data = [Some(inputs[0].as_ref().unwrap().clone()), None];
+
+        // inputのvariableからdataを取り出す
+
+        let ys_data = self.forward(&xs_data);
+
+        let output = ys_data.clone();
+
+        //ここから下の処理はbackwardするときだけ必要。
+
+        if get_grad_status() == true {
+            //　inputsを覚える
+            self.inputs = inputs.clone();
+
+            self.generation = inputs[0].as_ref().unwrap().generation();
+
+            //  outputを弱参照(downgrade)で覚える
+            self.output = Some(output.downgrade());
+
+            let self_f: Rc<RefCell<dyn Function>> = Rc::new(RefCell::new(self.clone()));
+
+            //outputに自分をcreatorとして覚えさせる　不変長　配列2
+            output.0.borrow_mut().set_creator(self_f.clone());
+        }
+        output
+    }
+
+    fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
+        let x = xs[0].as_ref().unwrap();
+        let y_data = x.data().mapv(|x| if x > 0.0 { x } else { 0.0 });
+
+        y_data.rv()
+    }
+
+    fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
+        let x = self.inputs[0].as_ref().unwrap();
+        //xが0以上なら微分の値は1で、0以下なら0になる。
+        let gx = x.data().mapv(|x| if x > 0.0 { 1.0 } else { 0.0 }).rv() * gy.clone();
+        let gxs = [Some(gx), None];
+
+        gxs
+    }
+
+    fn get_inputs(&self) -> [Option<RcVariable>; 2] {
+        self.inputs.clone()
+    }
+
+    fn get_output(&self) -> RcVariable {
+        let output;
+        output = self
+            .output
+            .as_ref()
+            .unwrap()
+            .upgrade()
+            .as_ref()
+            .unwrap()
+            .clone();
+
+        RcVariable(output)
+    }
+
+    fn get_generation(&self) -> i32 {
+        self.generation
+    }
+    fn get_id(&self) -> usize {
+        self.id
+    }
+}
+impl Relu {
+    fn new() -> Rc<RefCell<Self>> {
+        Rc::new(RefCell::new(Self {
+            inputs: [None, None],
+            output: None,
+            generation: 0,
+            id: id_generator(),
+        }))
+    }
+}
+
+pub fn relu(x: &RcVariable) -> RcVariable {
+    let y = relu_f(&[Some(x.clone()), None]);
+    y
+}
+
+fn relu_f(xs: &[Option<RcVariable>; 2]) -> RcVariable {
+    Relu::new().borrow_mut().call(&xs)
 }
 
 pub fn softmax_simple(x: &RcVariable) -> RcVariable {
