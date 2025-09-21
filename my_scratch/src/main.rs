@@ -1,21 +1,21 @@
-use image::{GrayImage, Luma};
+//use image::{GrayImage, Luma};
 use ndarray::*;
-use ndarray_stats::QuantileExt;
-use plotters::prelude::*;
+//use ndarray_stats::QuantileExt;
+//use plotters::prelude::*;
 use rand::seq::SliceRandom;
 use rand::*;
-use std::array;
-use std::cell::RefCell;
-use std::f32::consts::PI;
-use std::rc::Rc;
+//use std::array;
+//use std::cell::RefCell;
+//use std::f32::consts::PI;
+//use std::rc::Rc;
 use std::time::Instant;
 use stucrs::config;
 use stucrs::core_new::ArrayDToRcVariable;
-use stucrs::core_new::{F32ToRcVariable, RcVariable};
-use stucrs::dataloaders::DataLoader;
+//use stucrs::core_new::{F32ToRcVariable, RcVariable};
+//use stucrs::dataloaders::DataLoader;
 use stucrs::datasets::*;
-use stucrs::functions_new::{self as F, accuracy, sum};
-use stucrs::layers::{self as L, Activation, Dense, Layer, Linear};
+use stucrs::functions_new::{self as F, accuracy};
+use stucrs::layers::{self as L, Activation};
 use stucrs::models::{BaseModel, Model};
 use stucrs::optimizers::{Optimizer, SGD};
 
@@ -26,7 +26,7 @@ fn main() {
     let x_test = mnist.test_img.view();
     let y_test = mnist.test_label.view();
 
-    let image_num = 0;
+    //let image_num = 0;
 
     //println!("{:#.1?}\n", mnist.get_item(image_num));
 
@@ -68,7 +68,7 @@ fn main() {
     println!("data_size={}", data_size);
 
     let mut model = BaseModel::new();
-    model.stack(L::Dense::new(1000, true, None, Activation::Sigmoid));
+    model.stack(L::Dense::new(1000, true, None, Activation::Relu));
     model.stack(L::Linear::new(10, true, None));
 
     let mut optimizer = SGD::new(lr);
