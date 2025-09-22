@@ -17,7 +17,7 @@
 
 ## 研究にあたって
 本研究は下の著書『ゼロから作るDeep Learning③フレームワーク編』をもとにして実装しています。著者である斎藤康毅氏に著書の考えや表現の使用を許可していただいたことに感謝を申し上げるとともに、この著書オリジナルのフレームワークDeZeroも研究の参考として利用させていただいています。
-<p><img width="350" height="134" alt="Image" src="https://github.com/user-attachments/assets/6c0ddf88-3371-40aa-a131-075947068e1b" />
+<p><img width="280" height="134" alt="Image" src="https://github.com/user-attachments/assets/6c0ddf88-3371-40aa-a131-075947068e1b" />
 
 
 ## ドキュメント
