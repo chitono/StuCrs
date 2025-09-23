@@ -1,19 +1,17 @@
 use ndarray::*;
 use rand;
-use rand::seq::{index, SliceRandom};
+use rand::seq::SliceRandom;
 
 use crate::core_new::{ArrayDToRcVariable, RcVariable};
-
 
 #[derive(Clone)]
 pub struct DataLoader {
     x_data_set: ArrayD<f32>,
     y_data_set: ArrayD<f32>,
     batch_size: usize,
-    data_size: usize,
+
     index: Vec<usize>,
     current_count: usize,
-    shuffle: bool,
 }
 
 impl Iterator for DataLoader {
@@ -72,10 +70,9 @@ impl DataLoader {
             x_data_set: x_data_set,
             y_data_set: y_data_set,
             batch_size: batch_size,
-            data_size: data_size,
+
             index: index,
             current_count: 0,
-            shuffle: shuffle,
         }
     }
 }
