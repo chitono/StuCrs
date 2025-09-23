@@ -2,6 +2,27 @@ use cudarc::cublas::{self, CudaBlas, Gemm, GemmConfig, Gemv, GemvConfig};
 use cudarc::driver::{CudaDevice, DriverError, LaunchAsync, LaunchConfig};
 use cudarc::nvrtc::compile_ptx;
 
+use tensor_frame::{Backend, Tensor, TensorOps};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let a = Tensor::zeros(vec![4096, 4096])?;
+    let b = Tensor::zeros(vec![4096, 4096])?;
+    let d = a.matmul(&b);
+
+    let f = Tensor::from_vec(vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])?;
+
+    let e = Tensor::from_vec(vec![10.0f32, 40.0, 20.0, 50.0, 30.0, 60.0], vec![3, 2])?;
+
+    //let c = (a * b)?;
+
+    let u = f.matmul(&e)?;
+
+    println!("u = {:?}", u.to_vec());
+
+    Ok(())
+}
+
+/*
 fn main() -> Result<(), DriverError> {
     let start = std::time::Instant::now();
 
@@ -36,6 +57,7 @@ fn main() -> Result<(), DriverError> {
     println!("Found {:?} in {:?}", c_host, start.elapsed());
     Ok(())
 }
+*/
 
 /*fn main() {
     let cuda_env;
