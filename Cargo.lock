@@ -287,8 +287,9 @@ checksum = "460fbee9c2c2f33933d720630a6a0bac33ba7053db5344fac858d4b8952d77d5"
 name = "cuda_test"
 version = "0.1.0"
 dependencies = [
- "cudarc",
+ "cudarc 0.11.9",
  "ndarray 0.15.6",
+ "tensor_frame",
 ]
 
 [[package]]
@@ -296,6 +297,15 @@ name = "cudarc"
 version = "0.11.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a5bd4d1eee570c3b2ac64ed114125517dd1e541d88dd28fc259f1de4dba8d60"
+dependencies = [
+ "libloading",
+]
+
+[[package]]
+name = "cudarc"
+version = "0.16.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17200eb07e7d85a243aa1bf4569a7aa998385ba98d14833973a817a63cc86e92"
 dependencies = [
  "libloading",
 ]
@@ -856,6 +866,7 @@ dependencies = [
  "plotters",
  "rand",
  "stucrs",
+ "stucrs-gpu",
 ]
 
 [[package]]
@@ -1451,6 +1462,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "stucrs-gpu"
+version = "0.1.0"
+dependencies = [
+ "fxhash",
+ "mnist",
+ "ndarray 0.16.1",
+ "ndarray-rand",
+ "ndarray-stats",
+ "rand",
+ "rand_distr",
+]
+
+[[package]]
 name = "syn"
 version = "2.0.106"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1479,6 +1503,16 @@ name = "target-lexicon"
 version = "0.12.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61c41af27dd6d1e27b1b16b489db798443478cef1f06a660c96db617ba5de3b1"
+
+[[package]]
+name = "tensor_frame"
+version = "0.0.3-alpha"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6ba80b375baedcafcc2bcb630d1651543f4f6bc6bc687281b8f09013a683581"
+dependencies = [
+ "cudarc 0.16.6",
+ "once_cell",
+]
 
 [[package]]
 name = "test_lab"

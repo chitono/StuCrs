@@ -6,3 +6,9 @@ edition = "2024"
 [dependencies]
 cudarc={ version = "0.11.9", features = ["cuda-version-from-build-system","cublas"]}
 ndarray = "0.15"
+
+[dependencies.tensor_frame]
+version = "0.0.3-alpha"
+default-features = false
+features = ["cuda"]
+
