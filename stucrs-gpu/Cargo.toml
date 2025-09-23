@@ -1,0 +1,13 @@
+[package]
+name = "stucrs-gpu"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ndarray = "0.16.0"
+ndarray-stats = "0.6.0"
+rand = "0.8"
+rand_distr = "0.4"
+ndarray-rand = "0.15.0"
+fxhash = "0.2.1"
+mnist = "0.6.0"
