@@ -1777,6 +1777,7 @@ pub fn array_matmul(x_array: &ArrayViewD<f32>, w_array: &ArrayViewD<f32>) -> Arr
         (1, 1) => {
             let x = x_array.clone().into_dimensionality::<Ix1>().unwrap();
             let w = w_array.clone().into_dimensionality::<Ix1>().unwrap();
+
             let y = x.dot(&w);
             ArrayD::from_elem(ndarray::IxDyn(&[]), y) // スカラーとして返す
         }

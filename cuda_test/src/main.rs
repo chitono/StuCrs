@@ -1,20 +1,80 @@
 use cudarc::cublas::{self, CudaBlas, Gemm, GemmConfig, Gemv, GemvConfig};
 use cudarc::driver::{CudaDevice, DriverError, LaunchAsync, LaunchConfig};
 use cudarc::nvrtc::compile_ptx;
-use ndarray::{Array, Array2, ArrayD, ArrayViewMut, ArrayViewMut2, array};
 
-fn main() {
-    let Vec = vec![1, 2, 3, 4, 5, 6, 7, 8];
+fn main() -> Result<(), DriverError> {
+    let start = std::time::Instant::now();
 
-    let mut a = Array::from_shape_vec((2, 4), Vec).unwrap();
+    let kernel_file_path = "src/cuda_kernel.cu";
+    let ptx_src = std::fs::read_to_string(kernel_file_path).unwrap();
 
-    mut_arr(a.view_mut());
-    println!("{:?}", a);
+    let ptx = compile_ptx(ptx_src).unwrap();
+    println!("Compilation succeeded in {:?}", start.elapsed());
+
+    let dev = CudaDevice::new(0)?;
+
+    println!("Built in {:?}", start.elapsed());
+
+    dev.load_ptx(ptx, "kernel", &["mul_kernel"])?;
+    let f = dev.get_func("kernel", "mul_kernel").unwrap();
+    println!("Loaded in {:?}", start.elapsed());
+
+    let a_host = [1.0f32, 2.0, 3.0, 4.0];
+    let b_host = [1.0f32, 2.0, 3.0, 4.0];
+    let mut c_host = [0.0f32; 4];
+
+    let a_dev = dev.htod_sync_copy(&a_host)?;
+    let b_dev = dev.htod_sync_copy(&b_host)?;
+    let mut c_dev = dev.htod_sync_copy(&c_host)?;
+
+    println!("Copied in {:?}", start.elapsed());
+
+    let cfg = LaunchConfig::for_num_elems(4);
+    unsafe { f.launch(cfg, (&a_dev, &b_dev, &mut c_dev, 4i32)) }?;
+
+    dev.dtoh_sync_copy_into(&c_dev, &mut c_host)?;
+    println!("Found {:?} in {:?}", c_host, start.elapsed());
+    Ok(())
 }
 
-fn mut_arr(mut av: ArrayViewMut2<i32>) {
-    av[[0, 0]] = 0;
-}
+/*fn main() {
+    let cuda_env;
+    let module;
+    unsafe {
+        cuda_env = CudaEnv::new(0, 0).unwrap();
+        module = CudaModule::default().unwrap();
+    }
+
+    let m1 = matrix![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]];
+    let m2 = matrix![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]];
+
+    let m3;
+    unsafe {
+        m3 = dot(&m1, &m2, &cuda_env, &module).unwrap();
+        let a = m3.shape();
+    }
+
+    assert_eq!(m3[0], [22.0, 28.0]);
+    assert_eq!(m3[1], [49.0, 64.0]);
+
+
+
+    let m4;
+    unsafe {
+        m4 = add_scalar(&m3, 10.0, &cuda_env).unwrap();
+    }
+
+    assert_eq!(m4[0], [32.0, 38.0]);
+    assert_eq!(m4[1], [59.0, 74.0]);
+
+    let m5;
+    unsafe {
+        m5 = sub_matrices(&m4, &m3, &cuda_env).unwrap();
+    }
+
+    assert_eq!(m5[0], [10.0, 10.0]);
+    assert_eq!(m5[1], [10.0, 10.0]);
+} */
 
 /*
 

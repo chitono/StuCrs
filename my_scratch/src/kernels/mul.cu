@@ -6,5 +6,4 @@ extern "C" __global__ void mul(const float* A, const float* B, float* C, int num
         C[idx] = A[idx] * B[idx];
     }
 
-    
 }
