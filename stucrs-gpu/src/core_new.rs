@@ -3,12 +3,13 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::fmt::Debug;
 
-use ndarray::{array, ArrayBase, ArrayD, ArrayViewD, Dimension, IxDyn, OwnedRepr};
 use std::rc::{Rc, Weak};
 use std::vec;
 
 use crate::config::{get_grad_status, id_generator, set_grad_false, set_grad_true};
 use crate::functions_new::*;
+
+use tensor_frame::{Shape, Tensor, TensorOps};
 
 /*
 
@@ -148,7 +149,7 @@ fn main() {
 
 #[derive(Debug, Clone)]
 pub struct Variable {
-    pub data: ArrayD<f32>,
+    pub data: Tensor,
     grad: Option<RcVariable>,
     creator: Option<Rc<RefCell<dyn Function>>>,
     pub name: Option<String>,
@@ -156,7 +157,7 @@ pub struct Variable {
     pub id: usize,
 }
 impl Variable {
-    pub fn new_rc(data: ArrayD<f32>) -> Rc<RefCell<Self>> {
+    pub fn new_rc(data: Tensor) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Variable {
             data: data,
             grad: None,
@@ -221,7 +222,7 @@ impl Variable {
             let y_grad: Option<RcVariable>;
 
             if last_variable {
-                y_grad = Some(ArrayD::<f32>::ones(self.data.shape()).rv());
+                y_grad = Some(Tensor::ones(self.data.shape().dims()).unwrap().rv());
 
                 last_variable = false;
             } else {
@@ -342,8 +343,8 @@ impl Variable {
 pub struct RcVariable(pub Rc<RefCell<Variable>>);
 
 impl RcVariable {
-    pub fn new(data: ArrayViewD<f32>) -> Self {
-        RcVariable(Variable::new_rc(data.to_owned()))
+    pub fn new(data: Tensor) -> Self {
+        RcVariable(Variable::new_rc(data))
     }
 
     pub fn backward(&mut self, double_grad: bool) {
@@ -354,8 +355,8 @@ impl RcVariable {
         self.0.borrow_mut().clear_grad_backward();
     }
 
-    pub fn data(&self) -> ArrayD<f32> {
-        self.0.borrow().data.clone()
+    pub fn data(&self) -> Tensor {
+        self.0.borrow().data.to_owned()
     }
 
     pub fn grad(&self) -> Option<RcVariable> {
@@ -367,7 +368,8 @@ impl RcVariable {
     }
 
     pub fn len(&self) -> u32 {
-        self.data().shape()[0] as u32
+        let a = self.data().shape();
+        self.data().shape().dims()[0] as u32
     }
 
     pub fn id(&self) -> usize {
@@ -392,7 +394,7 @@ impl RcVariable {
         y
     }
 
-    pub fn reshape(&self, shape: IxDyn) -> RcVariable {
+    pub fn reshape(&self, shape: &Shape) -> RcVariable {
         let y = reshape(self, shape);
         y
     }
@@ -407,6 +409,8 @@ impl RcVariable {
         y
     }
 }
+
+/*
 
 #[derive(Debug, Clone)]
 pub struct Parameter(pub RcVariable);
@@ -472,7 +476,7 @@ impl Parameter {
         let y = sum(&self.0, axis);
         y
     }
-}
+} */
 
 pub trait Function: Debug {
     fn call(&mut self, input: &[Option<RcVariable>; 2]) -> RcVariable;
@@ -544,7 +548,7 @@ impl Function for AddF {
         let x1 = xs[1].as_ref().unwrap();
         let y_data = x0.data() + x1.data();
 
-        y_data.rv()
+        y_data.unwrap().rv()
     }
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
@@ -554,8 +558,8 @@ impl Function for AddF {
         let x0 = self.inputs[0].as_ref().unwrap();
         let x1 = self.inputs[1].as_ref().unwrap();
 
-        let x0_shape = IxDyn(x0.data().shape());
-        let x1_shape = IxDyn(x1.data().shape());
+        let x0_shape = x0.data().shape();
+        let x1_shape = x1.data().shape();
 
         if x0_shape != x1_shape {
             gx0 = sum_to(&gx0, x0_shape);
@@ -1166,13 +1170,13 @@ pub fn pow(xs: &[Option<RcVariable>; 2], c: f32) -> RcVariable {
 //演算子のオーバーロード
 
 //array型からRcVariable型を生成
-pub trait ArrayDToRcVariable {
+pub trait TensorToRcVariable {
     fn rv(&self) -> RcVariable;
 }
 //arrayは任意の次元に対応
-impl<D: Dimension> ArrayDToRcVariable for ArrayBase<OwnedRepr<f32>, D> {
+impl TensorToRcVariable for Tensor {
     fn rv(&self) -> RcVariable {
-        RcVariable::new(self.view().into_dyn())
+        RcVariable::new(self.to_owned())
     }
 }
 
@@ -1184,8 +1188,8 @@ pub trait F32ToRcVariable {
 //f32からarray型に変換し、rv()でRcVariableを生成
 impl F32ToRcVariable for f32 {
     fn rv(&self) -> RcVariable {
-        let array = array![*self as f32];
-        array.rv()
+        let tensor = Tensor::from_vec(vec![*self], vec![1, 1]).unwrap();
+        tensor.rv()
     }
 }
 
