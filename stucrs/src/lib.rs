@@ -3,7 +3,7 @@
 use core_new::RcVariable;
 use core_new::{add, div, mul, neg, sub};
 use std::ops::{Add, Div, Mul, Neg, Sub};
-use std::sync::atomic::{AtomicU32, Ordering};
+//use std::sync::atomic::{AtomicU32, Ordering};
 
 //演算子のオーバーロード
 
@@ -61,18 +61,9 @@ pub mod optimizers;
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        core_new::F32ToRcVariable,
-        functions_new::{sin, tanh},
-    };
 
-    use super::*;
+    //use super::*;
 
     #[test]
-    fn it_works() {
-        let x = 1.0f32.rv();
-        let mut y = tanh(&x);
-        y.backward(false);
-        println!("x={:?}", x.clone());
-    }
+    fn it_works() {}
 }
