@@ -1,12 +1,8 @@
-use crate::core_new::ArrayDToRcVariable;
+use crate::core_new::RcVariable;
 use crate::core_new::Variable;
-use crate::core_new::{F32ToRcVariable, RcVariable};
-use crate::layers::{self, Layer};
-use crate::optimizers::SGD;
-use fxhash::FxHashMap;
-use ndarray::*;
-use rand::seq::SliceRandom;
-use rand::*;
+use crate::layers::Layer;
+//use crate::optimizers::SGD;
+
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
