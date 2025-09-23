@@ -2,24 +2,87 @@ use cudarc::cublas::{self, CudaBlas, Gemm, GemmConfig, Gemv, GemvConfig};
 use cudarc::driver::{CudaDevice, DriverError, LaunchAsync, LaunchConfig};
 use cudarc::nvrtc::compile_ptx;
 
-use tensor_frame::{Backend, Tensor, TensorOps};
+use tensor_frame::{Backend, Shape, Tensor, TensorOps};
+
+use std::collections::HashSet;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let a = Tensor::zeros(vec![4096, 4096])?;
-    let b = Tensor::zeros(vec![4096, 4096])?;
-    let d = a.matmul(&b);
-
     let f = Tensor::from_vec(vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])?;
-
-    let e = Tensor::from_vec(vec![10.0f32, 40.0, 20.0, 50.0, 30.0, 60.0], vec![3, 2])?;
 
     //let c = (a * b)?;
 
-    let u = f.matmul(&e)?;
+    let g = array_sum_to(&f, Shape::new(vec![2, 1]).unwrap());
 
-    println!("u = {:?}", u.to_vec());
+    println!("g = {:?}", g.to_vec());
 
     Ok(())
+}
+
+fn arr_broadcast_to(x: &Tensor, shape: Shape) -> Tensor {
+    if !Shape::can_broadcast_to(x.shape(), &shape) {
+        panic!("ブロードキャストできる形状ではありません。")
+    }
+
+    let result_size = shape.numel();
+    let mut result = vec![0.0; result_size];
+
+    let current_dims = x.shape().dims();
+    let new_dims = shape.dims();
+
+    let dim_offset = new_dims.len() - current_dims.len();
+
+    let x_data = x.to_vec().unwrap();
+
+    for (i, result_val) in result.iter_mut().enumerate().take(result_size) {
+        let mut from_idx = 0;
+        let mut temp_i = i;
+
+        for (dim_idx, &to_dim) in new_dims.iter().enumerate().rev() {
+            let coord = temp_i % to_dim;
+            temp_i /= to_dim;
+
+            if dim_idx >= dim_offset {
+                let from_dim_idx = dim_idx - dim_offset;
+                let from_dim = current_dims[from_dim_idx];
+
+                if from_dim == 1 {
+                } else {
+                    let mut stride = 1;
+                    for from_dim in current_dims.iter().skip(from_dim_idx + 1) {
+                        stride *= from_dim;
+                    }
+                    from_idx += coord * stride;
+                }
+            }
+        }
+
+        *result_val = x_data[from_idx];
+    }
+
+    Tensor::from_vec(result, shape).unwrap()
+}
+
+fn array_sum_to(x_array: &Tensor, shape: Shape) -> Tensor {
+    let x_shape = x_array.shape().dims();
+
+    let mut axes_to_sum = HashSet::new();
+
+    for i in 0..x_shape.len() {
+        if i >= shape.ndim() || x_shape[i] != shape.dims()[i] {
+            axes_to_sum.insert(i);
+        }
+    }
+
+    let mut y = x_array.to_owned();
+
+    let mut sorted_axes: Vec<_> = axes_to_sum.into_iter().collect();
+    sorted_axes.sort_unstable();
+
+    for &axis in sorted_axes.iter().rev() {
+        y = y.sum(Some(axis)).unwrap().unsqueeze(axis).unwrap();
+    }
+
+    y
 }
 
 /*

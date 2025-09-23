@@ -1204,7 +1204,7 @@ impl Function for Transpose {
 
     fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
         let x = xs[0].as_ref().unwrap();
-        let y_data = x.data().t().to_owned();
+        let y_data = x.data().transpose().unwrap();
 
         y_data.rv()
     }
@@ -1264,7 +1264,7 @@ pub fn transpose(x: &RcVariable) -> RcVariable {
 struct Sum {
     inputs: [Option<RcVariable>; 2],
     output: Option<Weak<RefCell<Variable>>>,
-    axis: Option<u16>,
+    axis: Option<usize>,
     generation: i32,
     id: usize,
 }
@@ -1315,14 +1315,9 @@ impl Function for Sum {
             if axis_data != 0 && axis_data != 1 {
                 panic!("axisは0か1の値のみ指定できます")
             }
-
-            y_data = x
-                .data()
-                .sum_axis(Axis(axis_data as usize))
-                .insert_axis(Axis(axis_data as usize));
+            y_data = x.data().sum(axis).unwrap().unsqueeze(axis_data).unwrap();
         } else {
-            let scalar_y = x.data().sum();
-            y_data = array![scalar_y].into_dyn();
+            y_data = x.data().sum(None).unwrap();
         }
 
         y_data.rv()
@@ -1330,7 +1325,7 @@ impl Function for Sum {
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
         let x = self.inputs[0].as_ref().unwrap();
-        let x_shape = IxDyn(x.data().shape());
+        let x_shape = x.data().shape().clone();
         let gx = broadcast_to(gy, x_shape);
         let gxs = [Some(gx), None];
 
@@ -1363,7 +1358,7 @@ impl Function for Sum {
     }
 }
 impl Sum {
-    fn new(axis: Option<u16>) -> Rc<RefCell<Self>> {
+    fn new(axis: Option<usize>) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             output: None,
@@ -1392,11 +1387,11 @@ fn array_sum(x_array: &ArrayViewD<f32>, axis: Option<u16>) -> ArrayD<f32> {
     y
 }
 
-fn sum_f(xs: &[Option<RcVariable>; 2], axis: Option<u16>) -> RcVariable {
+fn sum_f(xs: &[Option<RcVariable>; 2], axis: Option<usize>) -> RcVariable {
     Sum::new(axis).borrow_mut().call(&xs)
 }
 
-pub fn sum(x: &RcVariable, axis: Option<u16>) -> RcVariable {
+pub fn sum(x: &RcVariable, axis: Option<usize>) -> RcVariable {
     let y = sum_f(&[Some(x.clone()), None], axis);
     y
 }
@@ -1405,7 +1400,7 @@ pub fn sum(x: &RcVariable, axis: Option<u16>) -> RcVariable {
 struct BroadcastTo {
     inputs: [Option<RcVariable>; 2],
     output: Option<Weak<RefCell<Variable>>>,
-    shape: IxDyn,
+    shape: Shape,
     generation: i32,
     id: usize,
 }
@@ -1449,18 +1444,18 @@ impl Function for BroadcastTo {
     fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
         let x = xs[0].as_ref().unwrap();
 
-        let y_shape = self.shape.clone();
+        let y_shape = &self.shape;
 
         // 実際の形状を `IxDynImpl` からスライスとして抽出
 
-        let y_data = x.data().broadcast(y_shape).unwrap().mapv(|x| x.clone());
+        let y_data = arr_broadcast_to(&x.data(), y_shape.clone());
 
         y_data.rv()
     }
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
         let x = self.inputs[0].as_ref().unwrap();
-        let x_shape = IxDyn(x.data().shape());
+        let x_shape = x.data().shape().clone();
 
         let gx = sum_to(gy, x_shape);
         let gxs = [Some(gx), None];
@@ -1494,7 +1489,7 @@ impl Function for BroadcastTo {
     }
 }
 impl BroadcastTo {
-    fn new(shape: IxDyn) -> Rc<RefCell<Self>> {
+    fn new(shape: Shape) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             output: None,
@@ -1505,11 +1500,53 @@ impl BroadcastTo {
     }
 }
 
-fn broadcast_to_f(xs: &[Option<RcVariable>; 2], shape: IxDyn) -> RcVariable {
+pub fn arr_broadcast_to(x_array: &Tensor, shape: Shape) -> Tensor {
+    if !Shape::can_broadcast_to(x_array.shape(), &shape) {
+        panic!("ブロードキャストできる形状ではありません。")
+    }
+
+    let result_size = shape.numel();
+    let mut result = vec![0.0; result_size];
+
+    let current_dims = x_array.shape().dims();
+    let new_dims = shape.dims();
+
+    let dim_offset = new_dims.len() - current_dims.len();
+
+    for (i, result_val) in result.iter_mut().enumerate().take(result_size) {
+        let mut from_idx = 0;
+        let mut temp_i = i;
+
+        for (dim_idx, &to_dim) in new_dims.iter().enumerate().rev() {
+            let coord = temp_i % to_dim;
+            temp_i /= to_dim;
+
+            if dim_idx >= dim_offset {
+                let from_dim_idx = dim_idx - dim_offset;
+                let from_dim = current_dims[from_dim_idx];
+
+                if from_dim == 1 {
+                } else {
+                    let mut stride = 1;
+                    for from_dim in current_dims.iter().skip(from_dim_idx + 1) {
+                        stride *= from_dim;
+                    }
+                    from_idx += coord * stride;
+                }
+            }
+        }
+
+        *result_val = x_array.to_vec().unwrap()[from_idx];
+    }
+
+    Tensor::from_vec(result, shape).unwrap()
+}
+
+fn broadcast_to_f(xs: &[Option<RcVariable>; 2], shape: Shape) -> RcVariable {
     BroadcastTo::new(shape).borrow_mut().call(&xs)
 }
 
-pub fn broadcast_to(x: &RcVariable, shape: IxDyn) -> RcVariable {
+pub fn broadcast_to(x: &RcVariable, shape: Shape) -> RcVariable {
     let y = broadcast_to_f(&[Some(x.clone()), None], shape);
     y
 }
@@ -1518,7 +1555,7 @@ pub fn broadcast_to(x: &RcVariable, shape: IxDyn) -> RcVariable {
 struct SumTo {
     inputs: [Option<RcVariable>; 2],
     output: Option<Weak<RefCell<Variable>>>,
-    shape: IxDyn,
+    shape: Shape,
     generation: i32,
     id: usize,
 }
@@ -1561,8 +1598,8 @@ impl Function for SumTo {
 
     fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
         let x = xs[0].as_ref().unwrap();
-        let y_shape = self.shape.clone();
-        let y_data = array_sum_to(&x.data().view(), y_shape);
+        let y_shape = &self.shape;
+        let y_data = array_sum_to(&x.data(), y_shape.clone());
 
         y_data.rv()
     }
@@ -1570,7 +1607,7 @@ impl Function for SumTo {
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
         let x = self.inputs[0].as_ref().unwrap();
 
-        let x_shape = IxDyn(x.data().shape());
+        let x_shape = x.data().shape().clone();
 
         let gx = broadcast_to(gy, x_shape);
         let gxs = [Some(gx), None];
@@ -1604,7 +1641,7 @@ impl Function for SumTo {
     }
 }
 impl SumTo {
-    fn new(shape: IxDyn) -> Rc<RefCell<Self>> {
+    fn new(shape: Shape) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             output: None,
@@ -1615,40 +1652,37 @@ impl SumTo {
     }
 }
 
-fn array_sum_to(x_array: &ArrayViewD<f32>, shape: IxDyn) -> ArrayD<f32> {
-    let x_shape = x_array.shape();
+fn array_sum_to(x_array: &Tensor, shape: Shape) -> Tensor {
+    let x_shape = x_array.shape().dims();
 
     let mut axes_to_sum = HashSet::new();
 
-    // 合計する軸を特定する
     for i in 0..x_shape.len() {
-        if i >= shape.ndim() || x_shape[i] != shape[i] {
+        if i >= shape.ndim() || x_shape[i] != shape.dims()[i] {
             axes_to_sum.insert(i);
         }
     }
 
     let mut y = x_array.to_owned();
 
-    // HashSetの要素をVecに収集し、ソートして逆順にイテレーションする
     let mut sorted_axes: Vec<_> = axes_to_sum.into_iter().collect();
     sorted_axes.sort_unstable();
 
-    // 特定した軸を合計する
     for &axis in sorted_axes.iter().rev() {
-        y = y.sum_axis(Axis(axis)).insert_axis(Axis(axis));
+        y = y.sum(Some(axis)).unwrap().unsqueeze(axis).unwrap();
     }
 
     y
 }
 
-fn sum_to_f(xs: &[Option<RcVariable>; 2], shape: IxDyn) -> RcVariable {
+fn sum_to_f(xs: &[Option<RcVariable>; 2], shape: Shape) -> RcVariable {
     SumTo::new(shape).borrow_mut().call(&xs)
 }
 
-pub fn sum_to(x: &RcVariable, shape: IxDyn) -> RcVariable {
+pub fn sum_to(x: &RcVariable, shape: Shape) -> RcVariable {
     let y;
-    let x_shape = IxDyn(x.data().shape());
-    if x_shape == shape {
+    let x_array = x.data();
+    if x_array.shape() == &shape {
         y = x.clone();
     } else {
         y = sum_to_f(&[Some(x.clone()), None], shape);

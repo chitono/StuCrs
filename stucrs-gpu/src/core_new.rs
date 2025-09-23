@@ -394,7 +394,7 @@ impl RcVariable {
         y
     }
 
-    pub fn reshape(&self, shape: &Shape) -> RcVariable {
+    pub fn reshape(&self, shape: Shape) -> RcVariable {
         let y = reshape(self, shape);
         y
     }
