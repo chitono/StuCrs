@@ -45,9 +45,9 @@ url<>
 - [ndarray-0.16.0](https://docs.rs/ndarray/0.16.0/ndarray/index.html)
 
 
-NVIDIAのGPUで実行できる機能も提供しています。その場合はstucrs-gpuをダウンロードし、また下記のcudarcクレートを使用します。
+NVIDIAのGPUで実行できる機能も提供しています。その場合はstucrs-gpuをダウンロードし、また下記のtensor_frameクレートを使用します。
 
-- [cudarc](https://docs.rs/cudarc/0.11.9/cudarc/index.html) （オプション）
+- [tensor_frame](https://docs.rs/tensor_frame/latest/tensor_frame/index.html) （オプション）
 
 
 ## 実行方法
