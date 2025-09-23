@@ -1,22 +1,12 @@
-use std::any::type_name_of_val;
 use std::cell::RefCell;
 //use std::clone;
 use std::collections::HashSet;
 use std::fmt::Debug;
-//use std::io::SeekFrom;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Mutex;
-//use std::future;
-//use std::hash::Hash;
-//use std::process::Output;
-use ndarray::{array, Array, ArrayBase, ArrayD, ArrayViewD, Dimension, IxDyn, OwnedRepr};
+
+use ndarray::{array, ArrayBase, ArrayD, ArrayViewD, Dimension, IxDyn, OwnedRepr};
 use std::rc::{Rc, Weak};
 use std::vec;
-
-//use std::thread;
-//use std::time::Duration;
-
-//use std::ops::{Add, Div, Mul, Neg, Sub};
 
 use crate::config::{get_grad_status, id_generator, set_grad_false, set_grad_true};
 use crate::functions_new::*;
