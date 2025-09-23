@@ -3,14 +3,14 @@ use crate::core_new::ArrayDToRcVariable;
 use crate::core_new::{RcVariable, Variable};
 use crate::functions_new as F;
 use fxhash::FxHashMap;
-use ndarray::{array, Array, ArrayBase, Dim, IxDyn, OwnedRepr};
-use ndarray_rand::rand_distr::{Normal, StandardNormal, Uniform};
+use ndarray::{Array, ArrayBase, Dim, OwnedRepr};
+use ndarray_rand::rand_distr::StandardNormal;
 use ndarray_rand::RandomExt;
 use std::cell::RefCell;
-use std::collections::HashMap;
+
 use std::fmt::Debug;
 
-use std::rc::{Rc, Weak};
+use std::rc::Weak;
 
 pub trait Layer: Debug {
     fn set_params(&mut self, param: &RcVariable);
@@ -289,6 +289,7 @@ impl Dense {
 
         let y = match self.activation {
             Activation::Sigmoid => F::sigmoid_simple(&t),
+            Activation::Relu => F::relu(&t),
             Activation::Tanh => F::tanh(&t),
         };
 
@@ -351,6 +352,6 @@ impl Dense {
 #[derive(Debug, Clone)]
 pub enum Activation {
     Sigmoid,
-
+    Relu,
     Tanh,
 }
