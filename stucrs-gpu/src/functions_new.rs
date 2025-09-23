@@ -19,6 +19,8 @@ use crate::config::{get_grad_status, id_generator};
 use crate::core_new::*;
 use crate::datasets::arr1d_to_one_hot;
 
+use tensor_frame::{Shape, Tensor, TensorOps};
+
 //static NEXT_ID: AtomicU32 = AtomicU32::new(1);
 
 /*
@@ -1052,7 +1054,7 @@ fn log_f(xs: &[Option<RcVariable>; 2], base: Option<f32>) -> RcVariable {
 struct Reshape {
     inputs: [Option<RcVariable>; 2],
     output: Option<Weak<RefCell<Variable>>>,
-    shape: IxDyn,
+    shape: Shape,
     generation: i32,
     id: usize,
 }
@@ -1095,15 +1097,15 @@ impl Function for Reshape {
 
     fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
         let x = xs[0].as_ref().unwrap();
-        let y_shape = self.shape.clone();
-        let y_data = x.data().to_shape(y_shape).unwrap().to_owned();
+        let y_shape = self.shape.ndim();
+        let y_data = x.data().reshape(vec![y_shape]).unwrap();
 
         y_data.rv()
     }
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
         let x = self.inputs[0].as_ref().unwrap();
-        let x_shape = IxDyn(x.data().shape());
+        let x_shape = x.data().shape().clone();
         let gx = reshape(gy, x_shape);
         let gxs = [Some(gx), None];
 
@@ -1136,22 +1138,22 @@ impl Function for Reshape {
     }
 }
 impl Reshape {
-    fn new(shape: IxDyn) -> Rc<RefCell<Self>> {
+    fn new(shape: Shape) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self {
             inputs: [None, None],
             output: None,
-            shape: shape,
+            shape: shape.clone(),
             generation: 0,
             id: id_generator(),
         }))
     }
 }
 
-fn reshape_f(xs: &[Option<RcVariable>; 2], shape: IxDyn) -> RcVariable {
+fn reshape_f(xs: &[Option<RcVariable>; 2], shape: Shape) -> RcVariable {
     Reshape::new(shape).borrow_mut().call(&xs)
 }
 
-pub fn reshape(x: &RcVariable, shape: IxDyn) -> RcVariable {
+pub fn reshape(x: &RcVariable, shape: Shape) -> RcVariable {
     let y = reshape_f(&[Some(x.clone()), None], shape);
     y
 }
