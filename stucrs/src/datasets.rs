@@ -1,46 +1,46 @@
-use ndarray::{
-    array, s, Array, Array1, Array2, ArrayD, ArrayView1, ArrayView2, ArrayViewD, ArrayViewMut1,
-    Axis, IxDyn,
-};
-use ndarray_rand::RandomExt;
+use ndarray::{array, Array1, Array2, ArrayView1, ArrayView2, Axis};
+
 use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
-use rand_distr::Normal;
-use rand_distr::{Distribution, StandardNormal};
+
+use rand_distr::StandardNormal;
 
 use mnist::*;
 
 use ndarray::prelude::*;
 
 pub trait Dataset {
+    /*
     fn get_item(&self, index: i32) -> ArrayViewD<f32>;
+    */
     fn len(&self) -> usize;
     fn data_setup(&mut self);
 }
 
 pub struct Spiral {
-    train: bool,
     pub data: Array2<f32>,
     pub label: Array1<u32>,
 }
 
 impl Dataset for Spiral {
     fn data_setup(&mut self) {}
+
+    /*
     fn get_item(&self, index: i32) -> ArrayViewD<f32> {
         self.data.view().into_dyn()
     }
+    */
     fn len(&self) -> usize {
         self.data.shape()[0]
     }
 }
 
 impl Spiral {
-    pub fn new(train: bool) -> Self {
-        let data_label = get_spiral_data(train);
+    pub fn new() -> Self {
+        let data_label = get_spiral_data();
         let data = data_label.0;
         let label = data_label.1;
         let spiral = Self {
-            train: train,
             data: data,
             label: label,
         };
@@ -48,7 +48,7 @@ impl Spiral {
     }
 }
 
-fn get_spiral_data(train: bool) -> (Array2<f32>, Array1<u32>) {
+fn get_spiral_data() -> (Array2<f32>, Array1<u32>) {
     let data_len = 100;
     let num_class = 3;
     let input_dim = 2;
@@ -95,9 +95,12 @@ pub struct MNIST {
 
 impl Dataset for MNIST {
     fn data_setup(&mut self) {}
+
+    /*
     fn get_item(&self, index: i32) -> ArrayViewD<f32> {
         self.train_img.slice(s![index, .., ..]).into_dyn()
     }
+    */
     fn len(&self) -> usize {
         self.train_img.shape()[0]
     }
@@ -131,7 +134,6 @@ fn get_mnist_data() -> (Array3<f32>, Array2<f32>, Array3<f32>, Array2<f32>) {
         .test_set_length(10_000)
         .finalize();
 
-    let image_num = 0;
     // Can use an Array2 or Array3 here (Array3 for visualization)
     let train_data = Array3::from_shape_vec((50_000, 28, 28), trn_img)
         .expect("Error converting images to Array3 struct")
