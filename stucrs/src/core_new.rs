@@ -2,7 +2,6 @@ use std::cell::RefCell;
 //use std::clone;
 use std::collections::HashSet;
 use std::fmt::Debug;
-use std::sync::Mutex;
 
 use ndarray::{array, ArrayBase, ArrayD, ArrayViewD, Dimension, IxDyn, OwnedRepr};
 use std::rc::{Rc, Weak};
@@ -10,23 +9,6 @@ use std::vec;
 
 use crate::config::{get_grad_status, id_generator, set_grad_false, set_grad_true};
 use crate::functions_new::*;
-
-static KEEP_GRAD: Mutex<bool> = Mutex::new(false);
-
-pub fn set_keep_grad_true() {
-    let mut flag = KEEP_GRAD.lock().unwrap();
-    *flag = true;
-}
-
-pub fn set_keep_grad_false() {
-    let mut flag = KEEP_GRAD.lock().unwrap();
-    *flag = false;
-}
-
-pub fn get_keep_grad_status() -> bool {
-    let flag = KEEP_GRAD.lock().unwrap();
-    *flag
-}
 
 /*
 
