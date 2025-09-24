@@ -1110,9 +1110,9 @@ impl Function for Pow {
     fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
         let c = self.c;
         let x = xs[0].as_ref().unwrap();
-        let y_data = x.data().mapv(|x| x.powf(c));
+        let y_data = x.data().pow(c);
 
-        y_data.rv()
+        y_data.unwrap().rv()
     }
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
