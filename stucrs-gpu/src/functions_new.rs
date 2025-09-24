@@ -1751,7 +1751,7 @@ impl Function for MatMul {
         let w_data = w.data();
 
         //match以降の場合分けを関数にしたい
-        let y_data = array_matmul(&x_data.view(), &w_data.view());
+        let y_data = x_data.matmul(&w_data).unwrap();
 
         y_data.rv()
     }
