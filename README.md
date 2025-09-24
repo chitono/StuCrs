@@ -17,7 +17,7 @@
 
 ## 研究にあたって
 本研究は下の著書『ゼロから作るDeep Learning③フレームワーク編』をもとにして実装しています。著者である斎藤康毅氏に著書の考えや表現の使用を許可していただいたことに感謝を申し上げるとともに、この著書オリジナルのフレームワークDeZeroも研究の参考として利用させていただいています。
-<p><img width="280" height="134" alt="Image" src="https://github.com/user-attachments/assets/6c0ddf88-3371-40aa-a131-075947068e1b" /> 
+<p><img width="280" height="134" alt="Image" src="https://github.com/user-attachments/assets/6c0ddf88-3371-40aa-a131-075947068e1b" /> &emsp;
   <img width="100" height="142" alt="Image" src="https://github.com/user-attachments/assets/d5d1ca74-79cb-4de3-b55c-537c705788f7" />
 
 
@@ -25,7 +25,7 @@
 
 
 開発した深層学習のフレームワーク「StuCrs」の実装までのコードの説明をこちらのドキュメントで見ることができます。　　　これを読んでぜひ一からRustでフレームワークを実装してみましょう！
-url<>
+url<https://docs.google.com/document/d/1jJL_ijYnqIFADSTfTqLcnNre754g24bE963L_r3hwus/edit?usp=sharing>
 
 
 ## ファイル構成
@@ -45,9 +45,9 @@ url<>
 - [ndarray-0.16.0](https://docs.rs/ndarray/0.16.0/ndarray/index.html)
 
 
-NVIDIAのGPUで実行できる機能も提供しています。その場合はstucrs-gpuをダウンロードし、また下記のcudarcクレートを使用します。
+NVIDIAのGPUで実行できる機能も提供しています。その場合はstucrs-gpuをダウンロードし、また下記のtensor_frameクレートを使用します。
 
-- [cudarc](https://docs.rs/cudarc/0.11.9/cudarc/index.html) （オプション）
+- [tensor_frame](https://docs.rs/tensor_frame/latest/tensor_frame/index.html) （オプション）
 
 
 ## 実行方法
