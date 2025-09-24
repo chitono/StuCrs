@@ -404,7 +404,7 @@ impl RcVariable {
         y
     }
 
-    pub fn sum(&self, axis: Option<u16>) -> RcVariable {
+    pub fn sum(&self, axis: Option<usize>) -> RcVariable {
         let y = sum(self, axis);
         y
     }
@@ -558,8 +558,8 @@ impl Function for AddF {
         let x0 = self.inputs[0].as_ref().unwrap();
         let x1 = self.inputs[1].as_ref().unwrap();
 
-        let x0_shape = x0.data().shape();
-        let x1_shape = x1.data().shape();
+        let x0_shape = x0.data().shape().clone();
+        let x1_shape = x1.data().shape().clone();
 
         if x0_shape != x1_shape {
             gx0 = sum_to(&gx0, x0_shape);
@@ -667,7 +667,7 @@ impl Function for MulF {
         let x1 = xs[1].as_ref().unwrap();
         let y_data = x0.data() * x1.data();
 
-        y_data.rv()
+        y_data.unwrap().rv()
     }
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
@@ -677,8 +677,8 @@ impl Function for MulF {
         let mut gx0 = x1.clone() * gy.clone();
         let mut gx1 = x0.clone() * gy.clone();
 
-        let x0_shape = IxDyn(x0.data().shape());
-        let x1_shape = IxDyn(x1.data().shape());
+        let x0_shape = x0.data().shape().clone();
+        let x1_shape = x1.data().shape().clone();
 
         if x0_shape != x1_shape {
             gx0 = sum_to(&gx0, x0_shape);
@@ -785,7 +785,7 @@ impl Function for SubF {
         let x1 = xs[1].as_ref().unwrap();
         let y_data = x0.data() - x1.data();
 
-        y_data.rv()
+        y_data.unwrap().rv()
     }
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
@@ -795,8 +795,8 @@ impl Function for SubF {
         let x0 = self.inputs[0].as_ref().unwrap();
         let x1 = self.inputs[1].as_ref().unwrap();
 
-        let x0_shape = IxDyn(x0.data().shape());
-        let x1_shape = IxDyn(x1.data().shape());
+        let x0_shape = x0.data().shape().clone();
+        let x1_shape = x1.data().shape().clone();
 
         if x0_shape != x1_shape {
             gx0 = sum_to(&gx0, x0_shape);
@@ -904,7 +904,7 @@ impl Function for DivF {
         let x1 = xs[1].as_ref().unwrap();
         let y_data = x0.data() / x1.data();
 
-        y_data.rv()
+        y_data.unwrap().rv()
     }
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
@@ -914,8 +914,8 @@ impl Function for DivF {
         let mut gx0 = gy.clone() / x1.clone();
         let mut gx1 = gy.clone() * (-x0.clone() / x1.clone().pow(2.0));
 
-        let x0_shape = IxDyn(x0.data().shape());
-        let x1_shape = IxDyn(x1.data().shape());
+        let x0_shape = x0.data().shape().clone();
+        let x1_shape = x1.data().shape().clone();
 
         if x0_shape != x1_shape {
             gx0 = sum_to(&gx0, x0_shape);
@@ -1012,9 +1012,9 @@ impl Function for NegF {
 
     fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
         let x = xs[0].as_ref().unwrap();
-        let y_data = -x.data();
+        let y_data = Tensor::zeros(x.data().shape().dims()).unwrap() - x.data();
 
-        y_data.rv()
+        y_data.unwrap().rv()
     }
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
