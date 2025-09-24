@@ -1915,10 +1915,10 @@ impl Function for MeanSquaredError {
         let x0 = xs[0].as_ref().unwrap();
         let x1 = xs[1].as_ref().unwrap();
 
-        let diff = &x0.data() - &x1.data();
-        let len = diff.len() as f32;
+        let diff = (x0.data() - x1.data()).unwrap();
+        let len = Tensor::from_vec(vec![diff.shape().dims()[0] as f32], vec![1]).unwrap();
 
-        let error_data = array_sum(&diff.mapv(|x| x.powf(2.0)).view(), None) / len;
+        let error_data = (diff.pow(2.0).unwrap().sum(None).unwrap() / len).unwrap();
 
         error_data.rv()
     }
@@ -1928,7 +1928,7 @@ impl Function for MeanSquaredError {
         let x1 = self.inputs[1].as_ref().unwrap();
 
         let diff = x0.clone() - x1.clone();
-        let diff_shape = IxDyn(diff.data().shape());
+        let diff_shape = diff.data().shape().clone();
         let gy = broadcast_to(&gy, diff_shape);
 
         let gx0 = gy.clone() * diff.clone() * (2.0.rv() / (diff.len() as f32).rv());
