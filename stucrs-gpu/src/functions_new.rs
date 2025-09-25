@@ -966,12 +966,14 @@ impl Function for Log {
         let y_data;
 
         //baseがeか他の値かで場合分け(eの場合、baseはNone)
-        if let Some(base_data) = base {
-            y_data = x.data().mapv(|x| x.log(base_data));
+        //だけどgpu版では底を指定することができないので、Some(値)のときはパニック。
+        if let Some(_base_data) = base {
+            panic!("GPU版ではlogの底を指定することはできません。")
+            //y_data = x.data().mapv(|x| x.log(base_data));
         } else {
-            y_data = x.data().mapv(|x| x.ln());
+            y_data = x.data().log();
         }
-        y_data.rv()
+        y_data.unwrap().rv()
     }
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
