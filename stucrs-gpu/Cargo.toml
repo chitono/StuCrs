@@ -3,6 +3,11 @@ name = "stucrs-gpu"
 version = "0.1.0"
 edition = "2021"
 
+
+
+
+
+
 [dependencies]
 ndarray = "0.16.0"
 ndarray-stats = "0.6.0"
@@ -12,7 +17,9 @@ ndarray-rand = "0.15.0"
 fxhash = "0.2.1"
 mnist = "0.6.0"
 
+
 [dependencies.tensor_frame]
-version = "0.0.3-alpha"
+git = "https://github.com/chitono/Tensor-Frame.git"
+branch = "main"
 default-features = false
 features = ["cuda"]
