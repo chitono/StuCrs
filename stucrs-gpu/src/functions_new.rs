@@ -224,9 +224,9 @@ impl Function for Square {
     fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
         let x = xs[0].as_ref().unwrap();
 
-        let y_data = x.data().mapv(|x| x.powf(2.0));
+        let y_data = x.data().pow(2.0);
 
-        y_data.rv()
+        y_data.unwrap().rv()
     }
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
@@ -331,9 +331,9 @@ impl Function for Exp {
 
     fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
         let x = xs[0].as_ref().unwrap();
-        let y_data = x.data().mapv(|x| x.exp());
+        let y_data = x.data().exp();
 
-        y_data.rv()
+        y_data.unwrap().rv()
     }
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
@@ -437,9 +437,9 @@ impl Function for Sin {
 
     fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
         let x = xs[0].as_ref().unwrap();
-        let y_data = x.data().mapv(|x| x.sin());
+        let y_data = x.data().sin();
 
-        y_data.rv()
+        y_data.unwrap().rv()
     }
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
@@ -542,9 +542,9 @@ impl Function for Cos {
 
     fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
         let x = xs[0].as_ref().unwrap();
-        let y_data = x.data().mapv(|x| x.cos());
+        let y_data = x.data().cos();
 
-        y_data.rv()
+        y_data.unwrap().rv()
     }
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
@@ -648,9 +648,9 @@ impl Function for Tanh {
 
     fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
         let x = xs[0].as_ref().unwrap();
-        let y_data = x.data().mapv(|x| x.tanh());
+        let y_data = x.data().tanh();
 
-        y_data.rv()
+        y_data.unwrap().rv()
     }
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
@@ -754,9 +754,9 @@ impl Function for Sinh {
 
     fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
         let x = xs[0].as_ref().unwrap();
-        let y_data = x.data().mapv(|x| x.sinh());
+        let y_data = x.data().sinh();
 
-        y_data.rv()
+        y_data.unwrap().rv()
     }
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
@@ -858,9 +858,9 @@ impl Function for Cosh {
 
     fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
         let x = xs[0].as_ref().unwrap();
-        let y_data = x.data().mapv(|x| x.cosh());
+        let y_data = x.data().cosh();
 
-        y_data.rv()
+        y_data.unwrap().rv()
     }
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
@@ -2049,7 +2049,7 @@ impl Function for Relu {
 
     fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
         let x = xs[0].as_ref().unwrap();
-        let y_data = x.data().mapv(|x| if x > 0.0 { x } else { 0.0 });
+        let y_data = x.data().relu().unwrap();
 
         y_data.rv()
     }
@@ -2057,6 +2057,7 @@ impl Function for Relu {
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
         let x = self.inputs[0].as_ref().unwrap();
         //xが0以上なら微分の値は1で、0以下なら0になる。
+
         let gx = x.data().mapv(|x| if x > 0.0 { 1.0 } else { 0.0 }).rv() * gy.clone();
         let gxs = [Some(gx), None];
 
@@ -2123,7 +2124,7 @@ pub fn softmax_cross_entropy_simple(x: &RcVariable, t: &RcVariable) -> RcVariabl
         panic!("交差エントロピー誤差でのxとtの形状が異なります。tがone-hotベクトルでない可能性があります。")
     }
 
-    let n = x.data().shape()[0] as f32;
+    let n = x.data().shape().dims()[0] as f32;
 
     let p = softmax_simple(&x);
 
