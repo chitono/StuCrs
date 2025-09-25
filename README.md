@@ -25,7 +25,7 @@
 
 
 開発した深層学習のフレームワーク「StuCrs」の実装までのコードの説明をこちらのドキュメントで見ることができます。　　　これを読んでぜひ一からRustでフレームワークを実装してみましょう！
-url<https://docs.google.com/document/d/1jJL_ijYnqIFADSTfTqLcnNre754g24bE963L_r3hwus/edit?usp=sharing>
+<https://docs.google.com/document/d/1jJL_ijYnqIFADSTfTqLcnNre754g24bE963L_r3hwus/edit?usp=sharing>
 
 
 ## ファイル構成
@@ -60,6 +60,9 @@ cargo run --release
 ```
 
 
+## 試験データ
+
+StuCrsを実際に実行して処理速度などを計測した試験データをこちらに公開しております。　<https://docs.google.com/spreadsheets/d/1Fkxn7yqLILJlHYeADVa_jJljFBYD5ZvIH0I7-EVTuFU/edit?usp=sharing>
 
 
 ## 最後に
