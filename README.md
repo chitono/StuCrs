@@ -34,7 +34,7 @@
 |:--        |:--                  |
 |[stucrs](/stucrs)       |StuCrs(CPU用)のソースコード|
 |[stucrs-gpu](/stucrs)    |StuCrs(GPU用)のソースコード|
-|[data](/cuda_test)     |StuCrsを用いて様々な実験した際のデータ|
+|[assets](/cuda_test)     |StuCrsを用いて様々な実験した際のデータや画像|
 
 
 
