@@ -1,17 +1,19 @@
 use crate::config::id_generator;
-use crate::core_new::ArrayDToRcVariable;
-use crate::core_new::{RcVariable, Variable};
+//use crate::core_new::ArrayDToRcVariable;
+use crate::core_new::{RcVariable, TensorToRcVariable, Variable};
 use crate::functions_new as F;
 use fxhash::FxHashMap;
-use ndarray::{Array, ArrayBase, Dim, OwnedRepr};
-use ndarray_rand::rand_distr::StandardNormal;
-use ndarray_rand::RandomExt;
+
 use std::cell::RefCell;
 
 use std::fmt::Debug;
 
 use std::rc::Weak;
 
+use tensor_frame::{Shape, Tensor, TensorOps};
+
+use rand::thread_rng;
+use rand_distr::{Distribution, StandardNormal};
 pub trait Layer: Debug {
     fn set_params(&mut self, param: &RcVariable);
 
@@ -102,12 +104,19 @@ impl Layer for Linear {
 impl Linear {
     fn forward(&mut self, x: &RcVariable) -> RcVariable {
         if let None = &self.w_id {
-            let i = x.data().shape()[1];
+            let i = x.data().shape().dims()[1];
             let o = self.out_size as usize;
             let i_f32 = i as f32;
 
-            let w_data: ArrayBase<OwnedRepr<f32>, Dim<[usize; 2]>> =
-                &Array::random((i, o), StandardNormal) * ((1.0f32 / i_f32).sqrt());
+            let mut rng = thread_rng();
+            let w_data_vec: Vec<f32> = (0..i * o)
+                .map(|_| {
+                    let sample: f32 = StandardNormal.sample(&mut rng);
+                    sample * ((1.0f32 / i_f32).sqrt())
+                })
+                .collect();
+
+            let w_data = Tensor::from_vec(w_data_vec, vec![i, o]).unwrap();
 
             let w = w_data.rv();
 
@@ -152,30 +161,29 @@ impl Linear {
 
             let i_f32 = in_size as f32;
 
-            let w_data: ArrayBase<OwnedRepr<f32>, Dim<[usize; 2]>> =
-                &Array::random((i, o), StandardNormal) * ((1.0f32 / i_f32).sqrt());
+            let mut rng = thread_rng();
+            let w_data_vec: Vec<f32> = (0..i * o)
+                .map(|_| {
+                    let sample: f32 = StandardNormal.sample(&mut rng);
+                    sample * ((1.0f32 / i_f32).sqrt())
+                })
+                .collect();
+
+            let w_data = Tensor::from_vec(w_data_vec, vec![i, o]).unwrap();
 
             let w = w_data.rv();
-
             linear.w_id = Some(w.id());
             linear.set_params(&w.clone());
         }
 
         if biased == true {
-            let b = Array::zeros(out_size as usize).rv();
+            let b = Tensor::zeros(vec![1, out_size as usize]).unwrap().rv();
+
             linear.b_id = Some(b.id());
             linear.set_params(&b.clone());
         }
 
         linear
-    }
-
-    pub fn update_params(&mut self, lr: f32) {
-        for (_id, param) in self.params.iter() {
-            let param_data = param.data();
-            let current_grad = param.grad().as_ref().unwrap().data();
-            param.0.borrow_mut().data = param_data - lr * current_grad;
-        }
     }
 }
 
@@ -260,12 +268,19 @@ impl Layer for Dense {
 impl Dense {
     fn forward(&mut self, x: &RcVariable) -> RcVariable {
         if let None = &self.w_id {
-            let i = x.data().shape()[1];
+            let i = x.data().shape().dims()[1];
             let o = self.out_size as usize;
             let i_f32 = i as f32;
 
-            let w_data: ArrayBase<OwnedRepr<f32>, Dim<[usize; 2]>> =
-                &Array::random((i, o), StandardNormal) * ((1.0f32 / i_f32).sqrt());
+            let mut rng = thread_rng();
+            let w_data_vec: Vec<f32> = (0..i * o)
+                .map(|_| {
+                    let sample: f32 = StandardNormal.sample(&mut rng);
+                    sample * ((1.0f32 / i_f32).sqrt())
+                })
+                .collect();
+
+            let w_data = Tensor::from_vec(w_data_vec, vec![i, o]).unwrap();
 
             let w = w_data.rv();
 
@@ -322,8 +337,15 @@ impl Dense {
 
             let i_f32 = in_size as f32;
 
-            let w_data: ArrayBase<OwnedRepr<f32>, Dim<[usize; 2]>> =
-                &Array::random((i, o), StandardNormal) * ((1.0f32 / i_f32).sqrt());
+            let mut rng = thread_rng();
+            let w_data_vec: Vec<f32> = (0..i * o)
+                .map(|_| {
+                    let sample: f32 = StandardNormal.sample(&mut rng);
+                    sample * ((1.0f32 / i_f32).sqrt())
+                })
+                .collect();
+
+            let w_data = Tensor::from_vec(w_data_vec, vec![i, o]).unwrap();
 
             let w = w_data.rv();
 
@@ -332,20 +354,12 @@ impl Dense {
         }
 
         if biased == true {
-            let b = Array::zeros(out_size as usize).rv();
+            let b = Tensor::zeros(vec![1, out_size as usize]).unwrap().rv();
             dense.b_id = Some(b.id());
             dense.set_params(&b.clone());
         }
 
         dense
-    }
-
-    pub fn update_params(&mut self, lr: f32) {
-        for (_id, param) in self.params.iter() {
-            let param_data = param.data();
-            let current_grad = param.grad().as_ref().unwrap().data();
-            param.0.borrow_mut().data = param_data - lr * current_grad;
-        }
     }
 }
 

@@ -1,16 +1,16 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use ndarray::ArrayD;
-
 use crate::core_new::RcVariable;
 use crate::layers::Layer;
 use crate::models::Model;
 
+use tensor_frame::{Shape, Tensor, TensorOps};
+
 pub trait Optimizer {
     fn setup(&mut self, target_model: &impl Model);
     fn update(&self);
-    fn update_param(&self, param: &RcVariable) -> ArrayD<f32>;
+    fn update_param(&self, param: &RcVariable) -> Tensor;
     fn set_hooks(&mut self);
 }
 
@@ -38,7 +38,7 @@ impl Optimizer for SGD {
             }
         }
     }
-    fn update_param(&self, param: &RcVariable) -> ArrayD<f32> {
+    fn update_param(&self, param: &RcVariable) -> Tensor {
         let current_param_data = param.data();
         let param_grad = param
             .grad()
@@ -46,8 +46,9 @@ impl Optimizer for SGD {
             .expect("SGDで更新中のパラメータにgradがありません")
             .data();
 
-        let new_param_data = current_param_data - self.lr * param_grad;
-        new_param_data
+        let new_param_data = (current_param_data
+            - (Tensor::from_vec(vec![self.lr], vec![1, 1]).unwrap() * param_grad).unwrap());
+        new_param_data.unwrap()
     }
     fn set_hooks(&mut self) {}
 }

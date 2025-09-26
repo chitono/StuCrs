@@ -368,7 +368,6 @@ impl RcVariable {
     }
 
     pub fn len(&self) -> u32 {
-        let a = self.data().shape();
         self.data().shape().dims()[0] as u32
     }
 
