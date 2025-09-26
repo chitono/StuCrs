@@ -2060,7 +2060,8 @@ impl Function for Relu {
         let x = self.inputs[0].as_ref().unwrap();
         //xが0以上なら微分の値は1で、0以下なら0になる。
 
-        let gx = x.data().mapv(|x| if x > 0.0 { 1.0 } else { 0.0 }).rv() * gy.clone();
+        let gx = x.data().mask_for_grad_relu().unwrap().rv() * gy.clone();
+
         let gxs = [Some(gx), None];
 
         gxs
@@ -2140,7 +2141,7 @@ pub fn softmax_cross_entropy_simple(x: &RcVariable, t: &RcVariable) -> RcVariabl
     y
 }
 
-//clamp
+//clamp この関数の微分は値の範囲が0から1の場合を想定しているので、それ以外の範囲ではbackwardを使用しないでください。
 
 #[derive(Debug, Clone)]
 pub struct Clamp {
@@ -2193,20 +2194,21 @@ impl Function for Clamp {
         let x_data = xs[0].as_ref().unwrap().data();
 
         //最大値をはじめに調整
-        let mut y_data = x_data.mapv(|x| if x > self.max { self.max } else { x });
+        let mut y_data = x_data.clamp_max(self.max).unwrap();
 
         //最小値を調整
-        y_data = y_data.mapv(|x| if x < self.min { self.min } else { x });
+        y_data = y_data.clamp_min(self.min).unwrap();
+
         y_data.rv()
     }
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
         let x = self.inputs[0].as_ref().unwrap();
 
-        let min_mask = x.data().mapv(|x| if x >= self.min { 1.0f32 } else { 0.0 });
-        let max_mask = x.data().mapv(|x| if x <= self.max { 1.0f32 } else { 0.0 });
+        let min_mask = x.data().max_for_clamp_grad().unwrap();
+        let max_mask = x.data().min_for_clamp_grad().unwrap();
 
-        let mask = (min_mask * max_mask).rv();
+        let mask = (min_mask * max_mask).unwrap().rv();
 
         let gx = gy.clone() * mask;
 
