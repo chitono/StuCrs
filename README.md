@@ -43,6 +43,9 @@
 本研究で必要とする外部クレートとバージョンは下記の通りです。
 
 - [ndarray-0.16.0](https://docs.rs/ndarray/0.16.0/ndarray/index.html)
+- [ndarray_stats-0.6.0](https://docs.rs/ndarray-stats/0.6.0/ndarray_stats/index.html)
+- [mnist-0.6.0](https://docs.rs/mnist/latest/mnist/index.html)
+- [ndarray-0.16.0](https://docs.rs/ndarray/0.16.0/ndarray/index.html)
 
 
 NVIDIAのGPUで実行できる機能も提供しています。その場合はstucrs-gpuをダウンロードし、また下記のtensor_frameクレートを使用します。
@@ -52,7 +55,7 @@ NVIDIAのGPUで実行できる機能も提供しています。その場合はst
 
 ## 実行方法
 
-フォルダーのstucrsをダウンロードしていただき、外部クレートとしてご利用ください。また、こちらのクレートはバグといった不具合の対応が不十分だと判断し、ライブラリクレートとしては公開しておりません。またオプションとして、NVIDIAのGPUで実行できる機能も提供しています。その場合はstucrs-gpuをダウンロードしてください。
+フォルダーのstucrsをダウンロードしていただき、外部クレートとしてご利用ください。また、こちらのクレートはバグといった不具合の対応が不十分だと判断し、ライブラリクレートとしては公開しておりません。またオプションとして、NVIDIAのGPUで実行できる機能も提供しています。その場合はstucrs-gpuをダウンロードしてください。(現在GPU版は一部不具合が発生しており、完全に対応している状態ではないため、使用は今しばらくお待ちください。)
 
 ## MNISTの学習の実装例
 ```
