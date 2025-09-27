@@ -44,18 +44,11 @@
 
 - [ndarray-0.16.0](https://docs.rs/ndarray/0.16.0/ndarray/index.html)
 - [ndarray_stats-0.6.0](https://docs.rs/ndarray-stats/0.6.0/ndarray_stats/index.html)
+- [ndarray-rand-0.15.0](https://docs.rs/ndarray-rand/latest/ndarray_rand/index.html)
 - [mnist-0.6.0](https://docs.rs/mnist/latest/mnist/index.html)
 - [rand-0.8](https://docs.rs/rand/latest/rand/index.html)
-- [ndarray-0.16.0](https://docs.rs/ndarray/0.16.0/ndarray/index.html)
-- [ndarray-0.16.0](https://docs.rs/ndarray/0.16.0/ndarray/index.html)
-- [ndarray-0.16.0](https://docs.rs/ndarray/0.16.0/ndarray/index.html)
-- ndarray = "0.16.0"
-ndarray-stats = "0.6.0"
-rand = "0.8"
-rand_distr = "0.4"
-ndarray-rand = "0.15.0"
-fxhash = "0.2.1"
-mnist = "0.6.0"
+- [rand_distr-0.4.0](https://docs.rs/rand_distr/0.4.0/rand_distr/index.html)
+- [fxhash-0.2.1](https://docs.rs/fxhash/latest/fxhash/index.html)
 
 
 NVIDIAのGPUで実行できる機能も提供しています。その場合はstucrs-gpuをダウンロードし、また下記のtensor_frameクレートを使用します。
