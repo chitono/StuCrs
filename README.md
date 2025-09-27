@@ -106,6 +106,7 @@ fn main() {
 
     let mut model = BaseModel::new();
     model.stack(L::Dense::new(1000, true, None, Activation::Relu));
+    model.stack(L::Dense::new(1000, true, None, Activation::Relu));
     model.stack(L::Linear::new(10, true, None));
 
     let mut optimizer = SGD::new(lr);
