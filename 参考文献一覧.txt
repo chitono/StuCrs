@@ -1,3 +1,12 @@
+「書籍一覧」
+「ゼロから作るDeep Learning３　フレームワーク編」 斎藤康毅　（2020）オライリージャパン
+「実践Rust入門［言語仕様から開発仕様まで］」keen、河野達也、小松礼人　（2019）技術評論社
+「pythonで動かして学ぶ！あたらしい深層学習の教科書：　機械学習の基本から深層学習まで」石川聡彦（2018）翔泳社
+
+
+
+
+「webサイト一覧」
 Rust における継承と合成　@shigunodo　<https://qiita.com/shigunodo/items/c235b43aa25d064daaf8>
 [Rust] ndarray入門　tictaqqn　<https://qiita.com/ttttkkkkk31525/items/b75574bbff52e6cd213a>
 Rust で HashSet を使って値の重複をチェックする　shota　<https://zenn.dev/collabostyle/articles/2295836292f092>
@@ -12,6 +21,7 @@ Rustでイテレータメソッドを使おう　@mwataame　<https://qiita.com/
 MNIST データセットをダウンロードしたい　kumazo　<https://zenn.dev/kumazo/articles/d635cca42727b7>
 ndarray クレートと NumPy の速度比較　@Surpris (Surpris)　<https://qiita.com/Surpris/items/ac64b129603e107b882c>
 RustでCUDA(Cublas)を使った行列計算を実装する　そゆっけ　<https://zenn.dev/soyukke/articles/ed71288396b7fc>
+
 
 
 
