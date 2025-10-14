@@ -231,7 +231,7 @@ impl Variable {
                 y_grad = y.0.borrow().grad.clone();
             }
 
-            let xs_grad = f_borrowed.backward(&y_grad.as_ref().unwrap());
+            let xs_grad = f_borrowed.backward(&y_grad.unwrap());
 
             // gradを置き換えまたは足していくので、Noneか判別
             let xs_0 = xs[0].as_ref().unwrap();
@@ -564,6 +564,9 @@ impl Function for AddF {
             gx0 = sum_to(&gx0, x0_shape);
             gx1 = sum_to(&gx1, x1_shape);
         }
+        {
+            println!("add__grad_y ={:?}", gx0.data().backend_type());
+        }
 
         let gxs = [Some(gx0), Some(gx1)];
 
@@ -683,7 +686,9 @@ impl Function for MulF {
             gx0 = sum_to(&gx0, x0_shape);
             gx1 = sum_to(&gx1, x1_shape);
         }
-
+        {
+            println!("mul__grad_y ={:?}", gx0.data().backend_type());
+        }
         let gxs = [Some(gx0), Some(gx1)];
         gxs
     }
@@ -801,6 +806,9 @@ impl Function for SubF {
             gx0 = sum_to(&gx0, x0_shape);
             gx1 = sum_to(&gx1, x1_shape);
         }
+        {
+            println!("sub__grad_y ={:?}", gx0.data().backend_type());
+        }
 
         let gxs = [Some(gx0), Some(gx1)];
 
@@ -911,6 +919,7 @@ impl Function for DivF {
         let x1 = self.inputs[1].as_ref().unwrap();
 
         let mut gx0 = gy.clone() / x1.clone();
+
         let mut gx1 = gy.clone() * (-x0.clone() / x1.clone().pow(2.0));
 
         let x0_shape = x0.data().shape().clone();
@@ -920,9 +929,12 @@ impl Function for DivF {
             gx0 = sum_to(&gx0, x0_shape);
             gx1 = sum_to(&gx1, x1_shape);
         }
+        {
+            println!("div__grad_y ={:?}", gx0.data().backend_type());
+        }
 
         let gxs = [Some(gx0), Some(gx1)];
-
+        println!("div_backward5");
         gxs
     }
 
@@ -1011,14 +1023,18 @@ impl Function for NegF {
 
     fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
         let x = xs[0].as_ref().unwrap();
-        let y_data = Tensor::zeros(x.data().shape().dims()).unwrap() - x.data();
+        let y_data = x.data().neg();
 
         y_data.unwrap().rv()
     }
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
-        let gxs = [Some(-gy.clone()), None];
+        let gx = -gy.clone();
 
+        {
+            println!("neg__grad_y ={:?}", gx.data().backend_type());
+        }
+        let gxs = [Some(gx), None];
         gxs
     }
 

@@ -337,10 +337,13 @@ impl Function for Exp {
     }
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
-        let mut gxs = [None, None];
         let x = self.inputs[0].as_ref().unwrap();
+        let gx = x.exp().clone() * gy.clone();
 
-        gxs[0] = Some(x.exp().clone() * gy.clone());
+        {
+            println!("exp__grad_y ={:?}", gx.data().backend_type());
+        }
+        let gxs = [Some(gx), None];
 
         gxs
     }
@@ -443,10 +446,14 @@ impl Function for Sin {
     }
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
-        let mut gxs = [None, None];
         let x = self.inputs[0].as_ref().unwrap();
+        let gx = cos(x) * gy.clone();
 
-        gxs[0] = Some(cos(x) * gy.clone());
+        {
+            println!("sin__grad_y ={:?}", gx.data().backend_type());
+        }
+
+        let gxs = [Some(gx), None];
 
         gxs
     }
@@ -551,6 +558,10 @@ impl Function for Cos {
         let x = self.inputs[0].as_ref().unwrap();
 
         let gx = -sin(x) * gy.clone();
+
+        {
+            println!("cos__grad_y ={:?}", gx.data().backend_type());
+        }
 
         let gxs = [Some(gx), None];
 
@@ -658,6 +669,10 @@ impl Function for Tanh {
 
         let gx = gy.clone() / cosh(x).pow(2.0);
 
+        {
+            println!("tanh__grad_y ={:?}", gx.data().backend_type());
+        }
+
         let gxs = [Some(gx), None];
 
         gxs
@@ -762,6 +777,10 @@ impl Function for Sinh {
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
         let x = self.inputs[0].as_ref().unwrap();
         let gx = cosh(x) * gy.clone();
+
+        {
+            println!("sinh__grad_y ={:?}", gx.data().backend_type());
+        }
         let gxs = [Some(gx), None];
 
         gxs
@@ -866,6 +885,10 @@ impl Function for Cosh {
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
         let x = self.inputs[0].as_ref().unwrap();
         let gx = sinh(x) * gy.clone();
+
+        {
+            println!("cosh__grad_y ={:?}", gx.data().backend_type());
+        }
         let gxs = [Some(gx), None];
         gxs
     }
@@ -973,6 +996,7 @@ impl Function for Log {
         } else {
             y_data = x.data().log();
         }
+
         y_data.unwrap().rv()
     }
 
@@ -987,6 +1011,10 @@ impl Function for Log {
             gx = 1.0.rv() / (x.clone() * base_data.ln().rv()) * gy.clone();
         } else {
             gx = (1.0.rv() / x.clone()) * gy.clone();
+        }
+
+        {
+            println!("log__grad_y ={:?}", gx.data().backend_type());
         }
         let gxs = [Some(gx), None];
         gxs
@@ -1109,6 +1137,10 @@ impl Function for Reshape {
         let x = self.inputs[0].as_ref().unwrap();
         let x_shape = x.data().shape().clone();
         let gx = reshape(gy, x_shape);
+
+        {
+            println!("reshape__grad_y ={:?}", gx.data().backend_type());
+        }
         let gxs = [Some(gx), None];
 
         gxs
@@ -1212,7 +1244,12 @@ impl Function for Transpose {
     }
 
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
-        let gxs = [Some(gy.t().to_owned()), None];
+        let gx = gy.t().to_owned();
+
+        {
+            println!("transpose__grad_y ={:?}", gx.data().backend_type());
+        }
+        let gxs = [Some(gx), None];
 
         gxs
     }
@@ -1328,7 +1365,12 @@ impl Function for Sum {
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
         let x = self.inputs[0].as_ref().unwrap();
         let x_shape = x.data().shape().clone();
+
         let gx = broadcast_to(gy, x_shape);
+
+        {
+            println!("sum__grad_y ={:?}", gx.data().backend_type());
+        }
         let gxs = [Some(gx), None];
 
         gxs
@@ -1449,8 +1491,10 @@ impl Function for BroadcastTo {
         let y_shape = &self.shape;
 
         // 実際の形状を `IxDynImpl` からスライスとして抽出
-
-        let y_data = arr_broadcast_to(&x.data(), y_shape.clone());
+        let y_data = x.data().broadcast_to(y_shape.clone()).unwrap();
+        {
+            println!("broadcast_y ={:?}", y_data.backend_type());
+        }
 
         y_data.rv()
     }
@@ -1460,6 +1504,11 @@ impl Function for BroadcastTo {
         let x_shape = x.data().shape().clone();
 
         let gx = sum_to(gy, x_shape);
+
+        {
+            println!("broadcast__grad_y ={:?}", gx.data().backend_type());
+        }
+
         let gxs = [Some(gx), None];
 
         gxs
@@ -1506,7 +1555,6 @@ pub fn arr_broadcast_to(x_array: &Tensor, shape: Shape) -> Tensor {
     if !Shape::can_broadcast_to(x_array.shape(), &shape) {
         panic!("ブロードキャストできる形状ではありません。")
     }
-
     let result_size = shape.numel();
     let mut result = vec![0.0; result_size];
 
@@ -1601,6 +1649,7 @@ impl Function for SumTo {
     fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
         let x = xs[0].as_ref().unwrap();
         let y_shape = &self.shape;
+
         let y_data = array_sum_to(&x.data(), y_shape.clone());
 
         y_data.rv()
@@ -1612,6 +1661,10 @@ impl Function for SumTo {
         let x_shape = x.data().shape().clone();
 
         let gx = broadcast_to(gy, x_shape);
+
+        {
+            println!("sum_to__grad_y ={:?}", gx.data().backend_type());
+        }
         let gxs = [Some(gx), None];
 
         gxs
@@ -1654,7 +1707,7 @@ impl SumTo {
     }
 }
 
-fn array_sum_to(x_array: &Tensor, shape: Shape) -> Tensor {
+pub fn array_sum_to(x_array: &Tensor, shape: Shape) -> Tensor {
     let x_shape = x_array.shape().dims();
 
     let mut axes_to_sum = HashSet::new();
@@ -1765,7 +1818,12 @@ impl Function for MatMul {
         let mut gxs = [None, None];
 
         let gx = matmul(gy, &w.t());
+
         let gw = matmul(&x.t(), gy);
+
+        {
+            println!("matmul__grad_y ={:?}", gx.data().backend_type());
+        }
 
         gxs[0] = Some(gx);
         gxs[1] = Some(gw);
@@ -1918,7 +1976,7 @@ impl Function for MeanSquaredError {
         let x1 = xs[1].as_ref().unwrap();
 
         let diff = (x0.data() - x1.data()).unwrap();
-        let len = Tensor::from_vec(vec![diff.shape().dims()[0] as f32], vec![1]).unwrap();
+        let len = Tensor::from_vec(vec![diff.shape().dims()[0] as f32], vec![1, 1]).unwrap();
 
         let error_data = (diff.pow(2.0).unwrap().sum(None).unwrap() / len).unwrap();
 
@@ -1935,6 +1993,10 @@ impl Function for MeanSquaredError {
 
         let gx0 = gy.clone() * diff.clone() * (2.0.rv() / (diff.len() as f32).rv());
         let gx1 = -gx0.clone();
+
+        {
+            println!("meansquarederror__grad_y ={:?}", gx0.data().backend_type());
+        }
         let gxs = [Some(gx0), Some(gx1)];
 
         gxs
@@ -1988,20 +2050,18 @@ pub fn mean_squared_error(x0: &RcVariable, x1: &RcVariable) -> RcVariable {
 pub fn linear_simple(x: &RcVariable, w: &RcVariable, b: &Option<RcVariable>) -> RcVariable {
     let t = matmul(&x, &w);
 
-    let y;
-
     if let Some(b_rc) = b {
-        y = t + b_rc.clone();
+        t + b_rc.clone()
     } else {
-        y = t;
+        t
     }
-
-    y
 }
 
 pub fn sigmoid_simple(x: &RcVariable) -> RcVariable {
     let mainasu_x = -x.clone();
+
     let y = 1.0f32.rv() / (1.0f32.rv() + exp(&mainasu_x));
+
     y
 }
 
@@ -2062,6 +2122,9 @@ impl Function for Relu {
 
         let gx = x.data().mask_for_grad_relu().unwrap().rv() * gy.clone();
 
+        {
+            println!("relu__grad_y ={:?}", gx.data().backend_type());
+        }
         let gxs = [Some(gx), None];
 
         gxs
@@ -2131,13 +2194,14 @@ pub fn softmax_cross_entropy_simple(x: &RcVariable, t: &RcVariable) -> RcVariabl
 
     let p = softmax_simple(&x);
 
-    let clamped_p = clamp(&p, 1.0e-15, 1.0);
+    //let clamped_p = clamp(&p, 1.0e-15, 1.0);
 
-    let log_p = log(&clamped_p, None);
+    let log_p = log(&p, None);
 
     let tlog_p = log_p * t.clone();
 
     let y = (-sum(&tlog_p, None)) / n.rv();
+    println!("logのdata = {}", y.data());
     y
 }
 
@@ -2211,6 +2275,10 @@ impl Function for Clamp {
         let mask = (min_mask * max_mask).unwrap().rv();
 
         let gx = gy.clone() * mask;
+
+        {
+            println!("clamp__grad_y ={:?}", gx.data().backend_type());
+        }
 
         let gxs = [Some(gx), None];
         gxs
