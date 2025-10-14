@@ -16,10 +16,10 @@ rand_distr = "0.4"
 ndarray-rand = "0.15.0"
 fxhash = "0.2.1"
 mnist = "0.6.0"
+cudarc={ version = "0.16.1", features = ["cuda-version-from-build-system"]}
 
 
 [dependencies.tensor_frame]
 git = "https://github.com/chitono/Tensor-Frame.git"
 branch = "main"
-default-features = false
 features = ["cuda"]
