@@ -21,163 +21,6 @@ use crate::datasets::arr1d_to_one_hot;
 
 use tensor_frame::{Shape, Tensor, TensorOps};
 
-//static NEXT_ID: AtomicU32 = AtomicU32::new(1);
-
-/*
-
-static KEEP_GRAD: Mutex<bool> = Mutex::new(false);
-
-fn set_keep_grad_true() {
-    let mut flag = KEEP_GRAD.lock().unwrap();
-    *flag = true;
-}
-
-fn set_keep_grad_false() {
-    let mut flag = KEEP_GRAD.lock().unwrap();
-    *flag = false;
-}
-
-fn get_keep_grad_status() -> bool {
-    let flag = KEEP_GRAD.lock().unwrap();
-    *flag
-} */
-
-/*
-
-fn sphere(x: &RcVariable, y: &RcVariable) -> RcVariable {
-    let z = x.clone().pow(2.0) + y.clone().pow(2.0);
-    z
-}
-
-fn matyas(x: &RcVariable, y: &RcVariable) -> RcVariable {
-    let z = 0.26.rv() * (x.pow(2.0) + y.pow(2.0)) - 0.48.rv() * x.clone() * y.clone();
-    z
-}
-
-fn goldstein(x: &RcVariable, y: &RcVariable) -> RcVariable {
-    let z = (1.0.rv()
-        + (x.clone() + y.clone() + 1.0.rv()).pow(2.0)
-            * (19.0.rv() - 14.0.rv() * x.clone() + 3.0.rv() * x.pow(2.0) - 14.0.rv() * y.clone()
-                + 6.0.rv() * x.clone() * y.clone()
-                + 3.0.rv() * y.pow(2.0)))
-        * (30.0.rv()
-            + (2.0.rv() * x.clone() - 3.0.rv() * y.clone()).pow(2.0)
-                * (18.0.rv() - 32.0.rv() * x.clone()
-                    + 12.0.rv() * x.clone().pow(2.0)
-                    + 48.0.rv() * y.clone()
-                    - 36.0.rv() * x.clone() * y.clone()
-                    + 27.0.rv() * y.pow(2.0)));
-    z
-}
-
-fn rosenbrock(x0: &RcVariable, x1: &RcVariable) -> RcVariable {
-    let y =
-        100.0.rv() * (x1.clone() - x0.clone().pow(2.0)).pow(2.0) + (x0.clone() - 1.0.rv()).pow(2.0);
-    y
-}
-
-fn f(x: &RcVariable) -> RcVariable {
-    let y = x.clone().pow(4.0) - 2.0.rv() * x.clone().pow(2.0);
-    y
-}
-
-fn gx2(x: &RcVariable) -> RcVariable {
-    let y = 12.0.rv() * x.clone().pow(2.0) - 4.0.rv();
-    y
-} */
-
-/*
-
-fn main() {
-    let start = Instant::now();
-
-    //set_grad_false();
-    set_keep_grad_true();
-
-    let iters = 10000;
-    for _i in 0..iters {
-        set_grad_true();
-        let  x0 = array![[1.0f32, 2.0, 3.0], [4.0, 5.0, 6.0]].rv();
-        //let x1 = array![[11.0f32, 12.0, 13.0], [14.0, 15.0, 16.0]].rv();
-        //let x2 = array![[11.0f32, 12.0, 13.0], [14.0, 15.0, 16.0]].rv();
-        //let  shape_array = [1,6];
-
-
-        // `&[usize; 2]`を`IxDyn`に変換
-        //let dyn_shape = IxDyn(&shape_array);
-        let mut y = exp(&(2.0.rv()*x0.clone()));
-        //println!("y_data = {:?}\n",y.0.borrow().data);
-
-        y.backward(false);
-
-
-        //println!("x_grad = {:?}\n",x0.0.borrow().grad.as_ref().unwrap().data());
-
-        //let mut gx = x0.grad().clone();
-        //println!("x0 = {:?}", x0.clone());
-
-
-        //gx.0.borrow_mut().data = Array::zeros(gx)
-        //x0.cleargrad();
-        //println!("x0 = {:?}", x0.clone());
-
-
-
-
-        //gx.as_mut().unwrap().backward(false);
-
-
-        //println!("{:?}", x0.grad().as_ref().unwrap().data());
-
-        //println!("x2_grad={:?}\n", x2.grad());
-    }
-    /*
-
-    let lr = 0.001;
-    let iters = 1000;
-
-
-
-
-
-
-    for i in 0..iters {
-
-
-
-        println!("{:?}, {:?}",x0.data() ,x1.data());
-
-
-        let mut y = rosenbrock(&x0, &x1);
-
-
-        x0.cleargrad();
-        x1.cleargrad();
-        y.backward();
-
-
-
-
-        let current_data_0 = x0.data();
-        let current_data_1 = x1.data();
-
-        let current_grad_0 =x0.grad().unwrap();
-        let current_grad_1 =x1.grad().unwrap();
-
-        x0.0.borrow_mut().data =current_data_0- lr*current_grad_0;
-        x1.0.borrow_mut().data = current_data_1- lr*current_grad_1;
-
-
-
-
-    }*/
-    //println!("(x0,x1)=({:?},{:?})", x0.0.borrow().data,x1.0.borrow().data);
-
-    let end = Instant::now();
-    let duration = end.duration_since(start);
-    println!("処理時間{:?}", duration / iters);
-} */
-
 #[derive(Debug, Clone)]
 pub struct Square {
     inputs: [Option<RcVariable>; 2],
@@ -340,9 +183,6 @@ impl Function for Exp {
         let x = self.inputs[0].as_ref().unwrap();
         let gx = x.exp().clone() * gy.clone();
 
-        {
-            println!("exp__grad_y ={:?}", gx.data().backend_type());
-        }
         let gxs = [Some(gx), None];
 
         gxs
@@ -448,10 +288,6 @@ impl Function for Sin {
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
         let x = self.inputs[0].as_ref().unwrap();
         let gx = cos(x) * gy.clone();
-
-        {
-            println!("sin__grad_y ={:?}", gx.data().backend_type());
-        }
 
         let gxs = [Some(gx), None];
 
@@ -559,10 +395,6 @@ impl Function for Cos {
 
         let gx = -sin(x) * gy.clone();
 
-        {
-            println!("cos__grad_y ={:?}", gx.data().backend_type());
-        }
-
         let gxs = [Some(gx), None];
 
         gxs
@@ -669,10 +501,6 @@ impl Function for Tanh {
 
         let gx = gy.clone() / cosh(x).pow(2.0);
 
-        {
-            println!("tanh__grad_y ={:?}", gx.data().backend_type());
-        }
-
         let gxs = [Some(gx), None];
 
         gxs
@@ -778,9 +606,6 @@ impl Function for Sinh {
         let x = self.inputs[0].as_ref().unwrap();
         let gx = cosh(x) * gy.clone();
 
-        {
-            println!("sinh__grad_y ={:?}", gx.data().backend_type());
-        }
         let gxs = [Some(gx), None];
 
         gxs
@@ -886,9 +711,6 @@ impl Function for Cosh {
         let x = self.inputs[0].as_ref().unwrap();
         let gx = sinh(x) * gy.clone();
 
-        {
-            println!("cosh__grad_y ={:?}", gx.data().backend_type());
-        }
         let gxs = [Some(gx), None];
         gxs
     }
@@ -1013,9 +835,6 @@ impl Function for Log {
             gx = (1.0.rv() / x.clone()) * gy.clone();
         }
 
-        {
-            println!("log__grad_y ={:?}", gx.data().backend_type());
-        }
         let gxs = [Some(gx), None];
         gxs
     }
@@ -1127,8 +946,8 @@ impl Function for Reshape {
 
     fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
         let x = xs[0].as_ref().unwrap();
-        let y_shape = self.shape.ndim();
-        let y_data = x.data().reshape(vec![y_shape]).unwrap();
+        let y_shape = self.shape.dims();
+        let y_data = x.data().reshape(y_shape.to_vec()).unwrap();
 
         y_data.rv()
     }
@@ -1138,9 +957,6 @@ impl Function for Reshape {
         let x_shape = x.data().shape().clone();
         let gx = reshape(gy, x_shape);
 
-        {
-            println!("reshape__grad_y ={:?}", gx.data().backend_type());
-        }
         let gxs = [Some(gx), None];
 
         gxs
@@ -1246,9 +1062,6 @@ impl Function for Transpose {
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
         let gx = gy.t().to_owned();
 
-        {
-            println!("transpose__grad_y ={:?}", gx.data().backend_type());
-        }
         let gxs = [Some(gx), None];
 
         gxs
@@ -1368,9 +1181,6 @@ impl Function for Sum {
 
         let gx = broadcast_to(gy, x_shape);
 
-        {
-            println!("sum__grad_y ={:?}", gx.data().backend_type());
-        }
         let gxs = [Some(gx), None];
 
         gxs
@@ -1412,23 +1222,6 @@ impl Sum {
             id: id_generator(),
         }))
     }
-}
-
-fn array_sum(x_array: &ArrayViewD<f32>, axis: Option<u16>) -> ArrayD<f32> {
-    let y;
-
-    if let Some(axis_data) = axis {
-        if axis_data != 0 && axis_data != 1 {
-            panic!("axisは0か1の値のみ指定できます")
-        }
-
-        y = x_array.to_owned().sum_axis(Axis(axis_data as usize));
-    } else {
-        let scalar_y = x_array.to_owned().sum();
-        y = array![scalar_y].into_dyn();
-    }
-
-    y
 }
 
 fn sum_f(xs: &[Option<RcVariable>; 2], axis: Option<usize>) -> RcVariable {
@@ -1492,9 +1285,6 @@ impl Function for BroadcastTo {
 
         // 実際の形状を `IxDynImpl` からスライスとして抽出
         let y_data = x.data().broadcast_to(y_shape.clone()).unwrap();
-        {
-            println!("broadcast_y ={:?}", y_data.backend_type());
-        }
 
         y_data.rv()
     }
@@ -1504,10 +1294,6 @@ impl Function for BroadcastTo {
         let x_shape = x.data().shape().clone();
 
         let gx = sum_to(gy, x_shape);
-
-        {
-            println!("broadcast__grad_y ={:?}", gx.data().backend_type());
-        }
 
         let gxs = [Some(gx), None];
 
@@ -1662,9 +1448,6 @@ impl Function for SumTo {
 
         let gx = broadcast_to(gy, x_shape);
 
-        {
-            println!("sum_to__grad_y ={:?}", gx.data().backend_type());
-        }
         let gxs = [Some(gx), None];
 
         gxs
@@ -1821,13 +1604,9 @@ impl Function for MatMul {
 
         let gw = matmul(&x.t(), gy);
 
-        {
-            println!("matmul__grad_y ={:?}", gx.data().backend_type());
-        }
-
         gxs[0] = Some(gx);
         gxs[1] = Some(gw);
-        //println!("matmul_gx = {:?}\n", gxs.clone());
+
         gxs
     }
 
@@ -1994,9 +1773,6 @@ impl Function for MeanSquaredError {
         let gx0 = gy.clone() * diff.clone() * (2.0.rv() / (diff.len() as f32).rv());
         let gx1 = -gx0.clone();
 
-        {
-            println!("meansquarederror__grad_y ={:?}", gx0.data().backend_type());
-        }
         let gxs = [Some(gx0), Some(gx1)];
 
         gxs
@@ -2122,9 +1898,6 @@ impl Function for Relu {
 
         let gx = x.data().mask_for_grad_relu().unwrap().rv() * gy.clone();
 
-        {
-            println!("relu__grad_y ={:?}", gx.data().backend_type());
-        }
         let gxs = [Some(gx), None];
 
         gxs
@@ -2201,7 +1974,7 @@ pub fn softmax_cross_entropy_simple(x: &RcVariable, t: &RcVariable) -> RcVariabl
     let tlog_p = log_p * t.clone();
 
     let y = (-sum(&tlog_p, None)) / n.rv();
-    println!("logのdata = {}", y.data());
+
     y
 }
 
@@ -2275,10 +2048,6 @@ impl Function for Clamp {
         let mask = (min_mask * max_mask).unwrap().rv();
 
         let gx = gy.clone() * mask;
-
-        {
-            println!("clamp__grad_y ={:?}", gx.data().backend_type());
-        }
 
         let gxs = [Some(gx), None];
         gxs

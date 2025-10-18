@@ -11,142 +11,6 @@ use crate::functions_new::*;
 
 use tensor_frame::{Shape, Tensor, TensorOps};
 
-/*
-
-fn sphere(x: &RcVariable, y: &RcVariable) -> RcVariable {
-    let z = x.clone().pow(2.0) + y.clone().pow(2.0);
-    z
-}
-
-fn matyas(x: &RcVariable, y: &RcVariable) -> RcVariable {
-    let z = 0.26.rv() * (x.pow(2.0) + y.pow(2.0)) - 0.48.rv() * x.clone() * y.clone();
-    z
-}
-
-fn goldstein(x: &RcVariable, y: &RcVariable) -> RcVariable {
-    let z = (1.0.rv()
-        + (x.clone() + y.clone() + 1.0.rv()).pow(2.0)
-            * (19.0.rv() - 14.0.rv() * x.clone() + 3.0.rv() * x.pow(2.0) - 14.0.rv() * y.clone()
-                + 6.0.rv() * x.clone() * y.clone()
-                + 3.0.rv() * y.pow(2.0)))
-        * (30.0.rv()
-            + (2.0.rv() * x.clone() - 3.0.rv() * y.clone()).pow(2.0)
-                * (18.0.rv() - 32.0.rv() * x.clone()
-                    + 12.0.rv() * x.clone().pow(2.0)
-                    + 48.0.rv() * y.clone()
-                    - 36.0.rv() * x.clone() * y.clone()
-                    + 27.0.rv() * y.pow(2.0)));
-    z
-}
-
-fn rosenbrock(x0: &RcVariable, x1: &RcVariable) -> RcVariable {
-    let y =
-        100.0.rv() * (x1.clone() - x0.clone().pow(2.0)).pow(2.0) + (x0.clone() - 1.0.rv()).pow(2.0);
-    y
-}
-
-fn f(x: &RcVariable) -> RcVariable {
-    let y = x.clone().pow(4.0) - 2.0.rv() * x.clone().pow(2.0);
-    y
-}
-
-fn gx2(x: &RcVariable) -> RcVariable {
-    let y = 12.0.rv() * x.clone().pow(2.0) - 4.0.rv();
-    y
-} */
-
-/*
-
-fn main() {
-    let start = Instant::now();
-
-    //set_grad_false();
-    set_keep_grad_true();
-
-    let iters = 10000;
-    for _i in 0..iters {
-        set_grad_true();
-        let  x0 = array![[1.0f32, 2.0, 3.0], [4.0, 5.0, 6.0]].rv();
-        //let x1 = array![[11.0f32, 12.0, 13.0], [14.0, 15.0, 16.0]].rv();
-        //let x2 = array![[11.0f32, 12.0, 13.0], [14.0, 15.0, 16.0]].rv();
-        //let  shape_array = [1,6];
-
-
-        // `&[usize; 2]`を`IxDyn`に変換
-        //let dyn_shape = IxDyn(&shape_array);
-        let mut y = exp(&(2.0.rv()*x0.clone()));
-        //println!("y_data = {:?}\n",y.0.borrow().data);
-
-        y.backward(false);
-
-
-        //println!("x_grad = {:?}\n",x0.0.borrow().grad.as_ref().unwrap().data());
-
-        //let mut gx = x0.grad().clone();
-        //println!("x0 = {:?}", x0.clone());
-
-
-        //gx.0.borrow_mut().data = Array::zeros(gx)
-        //x0.cleargrad();
-        //println!("x0 = {:?}", x0.clone());
-
-
-
-
-        //gx.as_mut().unwrap().backward(false);
-
-
-        //println!("{:?}", x0.grad().as_ref().unwrap().data());
-
-        //println!("x2_grad={:?}\n", x2.grad());
-    }
-    /*
-
-    let lr = 0.001;
-    let iters = 1000;
-
-
-
-
-
-
-    for i in 0..iters {
-
-
-
-        println!("{:?}, {:?}",x0.data() ,x1.data());
-
-
-        let mut y = rosenbrock(&x0, &x1);
-
-
-        x0.cleargrad();
-        x1.cleargrad();
-        y.backward();
-
-
-
-
-        let current_data_0 = x0.data();
-        let current_data_1 = x1.data();
-
-        let current_grad_0 =x0.grad().unwrap();
-        let current_grad_1 =x1.grad().unwrap();
-
-        x0.0.borrow_mut().data =current_data_0- lr*current_grad_0;
-        x1.0.borrow_mut().data = current_data_1- lr*current_grad_1;
-
-
-
-
-    }*/
-    //println!("(x0,x1)=({:?},{:?})", x0.0.borrow().data,x1.0.borrow().data);
-
-    let end = Instant::now();
-    let duration = end.duration_since(start);
-    println!("処理時間{:?}", duration / iters);
-} */
-
 #[derive(Debug, Clone)]
 pub struct Variable {
     pub data: Tensor,
@@ -179,13 +43,6 @@ impl Variable {
 
         let mut seen_set = HashSet::new();
 
-        /*
-        if !seen_set.insert(user) {
-            println!("重複しています: {:?}", user);
-        } else {
-            println!("重複していません: {:?}", user);
-        } */
-
         fn add_func(
             funcs_list: &mut Vec<Rc<RefCell<dyn Function>>>,
             seen_set: &mut HashSet<usize>,
@@ -200,14 +57,12 @@ impl Variable {
                 });
             }
         }
-        //let first_grad = ArrayD::<f32>::ones(self.data.shape()).rv();
 
         //&selfで最初の変数はborrowされるので場合分け
         let mut last_variable = true;
         let current_grad_flag = get_grad_status();
 
         while let Some(f_rc) = funcs.pop() {
-            //println!("f = {:?}\n", get_struct_name(&f_rc.borrow()));
             let f_borrowed = f_rc.borrow();
             if double_grad == true {
                 set_grad_true();
@@ -564,9 +419,6 @@ impl Function for AddF {
             gx0 = sum_to(&gx0, x0_shape);
             gx1 = sum_to(&gx1, x1_shape);
         }
-        {
-            println!("add__grad_y ={:?}", gx0.data().backend_type());
-        }
 
         let gxs = [Some(gx0), Some(gx1)];
 
@@ -686,9 +538,7 @@ impl Function for MulF {
             gx0 = sum_to(&gx0, x0_shape);
             gx1 = sum_to(&gx1, x1_shape);
         }
-        {
-            println!("mul__grad_y ={:?}", gx0.data().backend_type());
-        }
+
         let gxs = [Some(gx0), Some(gx1)];
         gxs
     }
@@ -806,9 +656,6 @@ impl Function for SubF {
             gx0 = sum_to(&gx0, x0_shape);
             gx1 = sum_to(&gx1, x1_shape);
         }
-        {
-            println!("sub__grad_y ={:?}", gx0.data().backend_type());
-        }
 
         let gxs = [Some(gx0), Some(gx1)];
 
@@ -909,6 +756,7 @@ impl Function for DivF {
     fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
         let x0 = xs[0].as_ref().unwrap();
         let x1 = xs[1].as_ref().unwrap();
+
         let y_data = x0.data() / x1.data();
 
         y_data.unwrap().rv()
@@ -929,12 +777,9 @@ impl Function for DivF {
             gx0 = sum_to(&gx0, x0_shape);
             gx1 = sum_to(&gx1, x1_shape);
         }
-        {
-            println!("div__grad_y ={:?}", gx0.data().backend_type());
-        }
 
         let gxs = [Some(gx0), Some(gx1)];
-        println!("div_backward5");
+
         gxs
     }
 
@@ -1031,9 +876,6 @@ impl Function for NegF {
     fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
         let gx = -gy.clone();
 
-        {
-            println!("neg__grad_y ={:?}", gx.data().backend_type());
-        }
         let gxs = [Some(gx), None];
         gxs
     }
