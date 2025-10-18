@@ -64,6 +64,69 @@ mod tests {
 
     //use super::*;
 
+    use tensor_frame::{Shape, Tensor, TensorOps};
+
+    use crate::{
+        core_new::TensorToRcVariable,
+        functions_new::{sigmoid_simple, sum},
+    };
+
     #[test]
-    fn it_works() {}
+    fn sigmoid_test() {
+        // Create a 2x3 tensor: [[1, 2, 3], [4, 5, 6]]
+        let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![3, 2])
+            .unwrap()
+            .to_backend("CUDA")
+            .expect("cudaだめ");
+
+        let a = tensor.rv();
+        let mut b = sigmoid_simple(&a);
+
+        // Sum along axis 0 (columns): should give [5, 7, 9] with shape [3]
+
+        println!("b = {}", b.data());
+
+        b.backward(false);
+
+        println!("backward_result = {}", a.grad().unwrap().data());
+    }
+    #[test]
+    fn reshape_test() {
+        // Create a 2x3 tensor: [[1, 2, 3], [4, 5, 6]]
+        let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![3, 2])
+            .unwrap()
+            .to_backend("CUDA")
+            .expect("cudaだめ");
+
+        let a = tensor.rv();
+        let mut b = a.reshape(Shape::new(vec![1, 6]).unwrap());
+
+        // Sum along axis 0 (columns): should give [5, 7, 9] with shape [3]
+
+        println!("b = {}", b.data());
+
+        b.backward(false);
+
+        println!("backward_result = {}", a.grad().unwrap().data());
+    }
+
+    #[test]
+    fn sum_test() {
+        // Create a 2x3 tensor: [[1, 2, 3], [4, 5, 6]]
+        let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])
+            .unwrap()
+            .to_backend("CUDA")
+            .expect("cudaだめ");
+
+        let a = tensor.rv();
+        let mut b = sum(&a, Some(0));
+
+        // Sum along axis 0 (columns): should give [5, 7, 9] with shape [3]
+
+        println!("b = {}", b.data());
+
+        b.backward(false);
+
+        println!("backward_result = {}", a.grad().unwrap().data());
+    }
 }
