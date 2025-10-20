@@ -15,7 +15,7 @@ pub trait Optimizer {
 }
 
 pub struct SGD {
-    lr: f32,
+    lr: Tensor,
     layers: Option<Rc<RefCell<Vec<Box<dyn Layer + 'static>>>>>,
 }
 
@@ -46,8 +46,7 @@ impl Optimizer for SGD {
             .expect("SGDで更新中のパラメータにgradがありません")
             .data();
 
-        let new_param_data = (current_param_data
-            - (Tensor::from_vec(vec![self.lr], vec![1, 1]).unwrap() * param_grad).unwrap());
+        let new_param_data = current_param_data - (self.lr.clone() * param_grad).unwrap();
         new_param_data.unwrap()
     }
     fn set_hooks(&mut self) {}
@@ -56,7 +55,7 @@ impl Optimizer for SGD {
 impl SGD {
     pub fn new(lr: f32) -> Self {
         Self {
-            lr: lr,
+            lr: Tensor::from_vec(vec![lr], Shape::new(vec![1]).unwrap()).unwrap(),
             layers: None,
         }
     }
