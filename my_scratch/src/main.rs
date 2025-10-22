@@ -52,9 +52,9 @@ fn main() {
     //println!("faltten = {:?}", x_train.shape());
     //println!("faltten = {:?}", x_test.shape());
 
-    let max_epoch = 1;
+    let max_epoch = 5;
     let lr = 0.01;
-    let batch_size = 100;
+    let batch_size = 1000;
 
     // 3x4の2次元行列を作成
     // `mut`キーワードで可変にする
@@ -75,14 +75,15 @@ fn main() {
     println!("data_size={}", data_size);
 
     let mut model = BaseModel::new();
-    model.stack(L::Dense::new(1000, true, None, Activation::Sigmoid));
-    //model.stack(L::Dense::new(1000, true, None, Activation::Sigmoid));
+    model.stack(L::Dense::new(1000, true, None, Activation::Relu));
+    model.stack(L::Dense::new(1000, true, None, Activation::Relu));
     model.stack(L::Linear::new(10, true, None));
 
     let mut optimizer = SGD::new(lr);
     optimizer.setup(&model);
-    //let start = Instant::now();
+    let start = Instant::now();
     for epoch in 0..max_epoch {
+
         let mut indices: Vec<usize> = (0..data_size).collect();
         let mut rng = thread_rng();
         indices.shuffle(&mut rng);
@@ -108,25 +109,36 @@ fn main() {
         //println!("x_batch = {:?}, t_batch = {:?}", x_batch, t_batch);
 
         for chunk_indices in indices.chunks(batch_size) {
+            
             let batch_indices: Vec<u32> = chunk_indices.iter().map(|&x| x as u32).collect();
 
+            
             let x_batch = x_train.rows_slice(&batch_indices).unwrap().rv();
             let y_batch = y_train.rows_slice(&batch_indices).unwrap().rv();
 
+            
             let y = model.call(&x_batch);
+            
             //println!("y ={:?}", y.data().backend_type());
-
+            
             let mut loss = F::softmax_cross_entropy_simple(&y, &y_batch);
-            println!("loss ={}", loss.data());
+            
+            //println!("loss ={}", loss.data());
 
             /*
             let acc = accuracy(
                 y.data().into_dimensionality().unwrap().view(),
                 y_batch.data().into_dimensionality().unwrap().view(),
             ); */
-            model.cleargrad();
 
+            
+            model.cleargrad();
+            
+            
             loss.backward(false);
+        
+            
+            
             optimizer.update();
 
             //ここでt_batch.lenはu32からf32に変換、さらに暗黙的にndarray型に変換されて、計算される。
@@ -140,13 +152,16 @@ fn main() {
 
             //sum_loss =&sum_loss + println!("epoch = {:?}, train_loss = {}", epoch + 1, loss.data());
 
-            config::set_grad_true();
+            //config::set_grad_true();
+            
+
+                        
         }
         //let average_loss = &sum_loss / (data_size as f32);
     }
-    //let end = Instant::now();
-    //let duration = end.duration_since(start);
-    //println!("処理時間{:?}", duration);
+    let end = Instant::now();
+    let duration = end.duration_since(start);
+    println!("処理時間{:?}", duration);
 }
 
 /*
