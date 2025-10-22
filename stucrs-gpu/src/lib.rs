@@ -68,7 +68,7 @@ mod tests {
 
     use crate::{
         core_new::TensorToRcVariable,
-        functions_new::{sigmoid_simple, sum},
+        functions_new::{relu, sigmoid_simple, sum},
     };
 
     #[test]
@@ -120,6 +120,28 @@ mod tests {
 
         let a = tensor.rv();
         let mut b = sum(&a, Some(0));
+
+        // Sum along axis 0 (columns): should give [5, 7, 9] with shape [3]
+
+        println!("b = {}", b.data());
+
+        b.backward(false);
+
+        println!("backward_result = {}", a.grad().unwrap().data());
+    }
+
+
+
+    #[test]
+    fn relu_test() {
+        // Create a 2x3 tensor: [[1, 2, 3], [4, 5, 6]]
+        let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, -4.0, -5.0, 6.0], vec![2, 3])
+            .unwrap()
+            .to_backend("CUDA")
+            .expect("cudaだめ");
+
+        let a = tensor.rv();
+        let mut b = relu(&a);
 
         // Sum along axis 0 (columns): should give [5, 7, 9] with shape [3]
 

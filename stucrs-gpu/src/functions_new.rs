@@ -11,6 +11,7 @@ use ndarray::*;
 use ndarray_stats::QuantileExt;
 use std::rc::{Rc, Weak};
 use std::vec;
+use std::time::Instant;
 
 //use std::thread;
 //use std::time::Duration;
@@ -1896,7 +1897,9 @@ impl Function for Relu {
         let x = self.inputs[0].as_ref().unwrap();
         //xが0以上なら微分の値は1で、0以下なら0になる。
 
-        let gx = x.data().mask_for_grad_relu().unwrap().rv() * gy.clone();
+        let mask = x.data().max_mask(0.0f32).unwrap().rv();
+
+        let gx = gy.clone()*mask;
 
         let gxs = [Some(gx), None];
 
@@ -1949,23 +1952,33 @@ fn relu_f(xs: &[Option<RcVariable>; 2]) -> RcVariable {
 }
 
 pub fn softmax_simple(x: &RcVariable) -> RcVariable {
+    
     let exp_y = exp(&x);
-
+    
+    
     let sum_y = sum(&exp_y, Some(1));
-
-    let y = exp_y.clone() / sum_y.clone();
+    
+    
+    let y = exp_y / sum_y;
+    
     y
 }
 
 // ここで渡すtはone-hotベクトル状態の教師データ
 pub fn softmax_cross_entropy_simple(x: &RcVariable, t: &RcVariable) -> RcVariable {
+    
     if x.data().shape() != t.data().shape() {
         panic!("交差エントロピー誤差でのxとtの形状が異なります。tがone-hotベクトルでない可能性があります。")
     }
 
     let n = x.data().shape().dims()[0] as f32;
+    
 
+    
     let p = softmax_simple(&x);
+    
+
+    
 
     //let clamped_p = clamp(&p, 1.0e-15, 1.0);
 
