@@ -45,7 +45,6 @@ impl Optimizer for SGD {
             .as_ref()
             .expect("SGDで更新中のパラメータにgradがありません")
             .data();
-
         let new_param_data = current_param_data - (self.lr.clone() * param_grad).unwrap();
         new_param_data.unwrap()
     }
@@ -55,7 +54,7 @@ impl Optimizer for SGD {
 impl SGD {
     pub fn new(lr: f32) -> Self {
         Self {
-            lr: Tensor::from_vec(vec![lr], Shape::new(vec![1]).unwrap()).unwrap(),
+            lr: Tensor::from_vec(vec![lr], Shape::new(vec![1,1]).unwrap()).unwrap(),
             layers: None,
         }
     }
