@@ -62,8 +62,38 @@ pub mod optimizers;
 #[cfg(test)]
 mod tests {
 
-    //use super::*;
+    use ndarray::array;
+
+    use crate::config::set_test_flag_true;
+
+    use super::*;
 
     #[test]
-    fn it_works() {}
+    fn dropout_test() {
+
+        use crate::{
+        core_new::ArrayDToRcVariable,
+        functions_new::{dropout},
+        };
+        // Create a 2x3 tensor: [[1, 2, 3], [4, 5, 6]]
+    
+
+
+        let a = array![1.0,1.0,1.0,1.0,1.0].rv();
+
+        let b = dropout(&a, 0.5);
+
+        // Sum along axis 0 (columns): should give [5, 7, 9] with shape [3]
+
+        println!("b = {}", b.data());
+
+    
+
+        set_test_flag_true();
+
+        let c = dropout(&a, 0.5);
+
+        println!("c = {}", c.data());
+
+    }
 }

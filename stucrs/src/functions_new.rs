@@ -8,6 +8,8 @@ use std::fmt::Debug;
 //use std::hash::Hash;
 //use std::process::Output;
 use ndarray::*;
+use ndarray_rand::rand_distr::Standard;
+use ndarray_rand::RandomExt;
 use ndarray_stats::QuantileExt;
 use std::rc::{Rc, Weak};
 use std::vec;
@@ -15,7 +17,7 @@ use std::vec;
 //use std::thread;
 //use std::time::Duration;
 
-use crate::config::{get_grad_status, id_generator};
+use crate::config::{get_grad_status, get_test_flag_status, id_generator, TEST_FLAG};
 use crate::core_new::*;
 use crate::datasets::arr1d_to_one_hot;
 
@@ -2241,4 +2243,19 @@ pub fn accuracy(y: ArrayView2<f32>, t: ArrayView2<f32>) -> f32 {
     let accuracy = acc_matrix.sum() / data_size;
 
     accuracy
+}
+
+
+
+pub fn dropout(x: &RcVariable,ratio:f32) -> RcVariable {
+    if get_test_flag_status() == false {
+        let random_array: Array<f32,IxDyn>= Array::random(x.data().shape(),Standard );
+        let mask = random_array.mapv(|x|if x>ratio{1.0f32}else{0.0f32}).rv();
+        let scale = array![1.0f32-ratio].rv();
+        let y = x.clone()*mask/scale;
+        y
+
+    }else{
+        x.clone()
+    }
 }
