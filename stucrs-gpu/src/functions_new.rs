@@ -1,3 +1,4 @@
+use core::num;
 use std::cell::RefCell;
 //use std::clone;
 use std::collections::HashSet;
@@ -18,7 +19,7 @@ use std::time::Instant;
 
 use crate::config::{get_grad_status, id_generator};
 use crate::core_new::*;
-use crate::datasets::arr1d_to_one_hot;
+use crate::datasets::{arr1d_to_one_hot};
 
 use tensor_frame::{Shape, Tensor, TensorOps};
 
@@ -2112,24 +2113,40 @@ fn clamp_f(xs: &[Option<RcVariable>; 2], min: f32, max: f32) -> RcVariable {
     Clamp::new(min, max).borrow_mut().call(&xs)
 }
 
-pub fn accuracy(y: ArrayView2<f32>, t: ArrayView2<f32>) -> f32 {
+
+/// modelで出力された予測値yと教師データtとの正解率を計算する関数。
+/// y,tともに2次元の行列。
+/// tはone_hotベクトルで渡す。
+/// yとtの形状が一致していないとpanicを起こす。
+pub fn accuracy(y: &Tensor, t: Tensor) -> Tensor {
     if y.shape() != t.shape() {
         panic!("交差エントロピー誤差でのxとtの形状が異なります。tがone-hotベクトルでない可能性があります。")
     }
-    let data_size = y.shape()[0] as f32;
-    let num_class = t.shape()[1];
-    let argmax_vec: Vec<u32> = y
-        .outer_iter()
-        .map(|row: ArrayBase<ViewRepr<&f32>, Dim<[usize; 1]>>| row.argmax().unwrap() as u32)
-        .collect();
-    let max_index = Array::from_vec(argmax_vec);
-    let one_hot_y = arr1d_to_one_hot(max_index.view(), num_class);
+    let data_size = y.shape().dims()[0] as f32;
+    let num_class = t.shape().dims()[1];
+
+    // argmax_y_tensorの形状は(n,1)
+    let argmax_tensor = y.argmax_axis_2d(1).unwrap();
+    let one_hot_y = argmax_tensor.one_hot_encode(num_class).unwrap();                                                                   
 
     assert_eq!(one_hot_y.shape(), t.shape());
 
-    let acc_matrix = &one_hot_y * &t;
-
-    let accuracy = acc_matrix.sum() / data_size;
+    //二つの行列をかけることで正解数がわかる。
+    //　例
+    //  y_pred = [[0.0,0.0,1.0],
+    //            [0.0,1.0,0.0],
+    //            [1.0,0.0,0.0],]
+    // 
+    //    t  =   [[0.0,0.0,1.0],
+    //            [1.0,0.0,0.0],
+    //            [1.0,0.0,0.0],]
+    // 
+    // y_pred * t = [[0.0,0.0,1.0],　　　　2行目は1.0の位置が違うのでかけてすべてゼロ。
+    //            [0.0,0.0,0.0],
+    //            [1.0,0.0,0.0],]      行列を要素ごとにかけることで、正しい答えだった場合のみ1.0になり、その他はすべて0.0になる。
+    //                                 この行列の合計値sum関数で正解数がわかる。この場合、sumの値は2なので正解数は2。
+    let acc_matrix = (one_hot_y * t).unwrap();
+    let accuracy = (acc_matrix.sum(None).unwrap() / Tensor::from_vec(vec![data_size], Shape::new(vec![1,1]).unwrap()).unwrap()).unwrap();
 
     accuracy
 }
