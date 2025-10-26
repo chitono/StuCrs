@@ -68,7 +68,7 @@ mod tests {
 
     use crate::{
         core_new::TensorToRcVariable,
-        functions_new::{relu, sigmoid_simple, sum},
+        functions_new::{accuracy, relu, sigmoid_simple, sum},
     };
 
     #[test]
@@ -150,5 +150,23 @@ mod tests {
         b.backward(false);
 
         println!("backward_result = {}", a.grad().unwrap().data());
+    }
+
+
+    #[test]
+    fn accuracy_test() {
+        // Create a 2x3 tensor: [[1, 2, 3], [4, 5, 6]]
+        let tensor_y = Tensor::from_vec(vec![0.2, 0.8, 0.7, 0.3, 0.4, 0.6], vec![3, 2])
+            .unwrap()
+            .to_backend("CUDA")
+            .expect("cudaだめ");
+
+        let tensor_t = Tensor::from_vec(vec![0.0,1.0,0.0,1.0,0.0,1.0],Shape::new(vec![3,2]).unwrap()).unwrap();
+        let  acc = accuracy(&tensor_y, tensor_t);
+
+        // Sum along axis 0 (columns): should give [5, 7, 9] with shape [3]
+
+        println!("acc = {}", acc);
+
     }
 }
