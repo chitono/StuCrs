@@ -53,11 +53,11 @@ pub mod core_new;
 pub mod config;
 pub mod dataloaders;
 pub mod datasets;
+pub mod functions_cnn;
 pub mod functions_new;
 pub mod layers;
 pub mod models;
 pub mod optimizers;
-//pub mod functions_hdv;
 
 #[cfg(test)]
 mod tests {
@@ -70,16 +70,10 @@ mod tests {
 
     #[test]
     fn dropout_test() {
-
-        use crate::{
-        core_new::ArrayDToRcVariable,
-        functions_new::{dropout},
-        };
+        use crate::{core_new::ArrayDToRcVariable, functions_new::dropout};
         // Create a 2x3 tensor: [[1, 2, 3], [4, 5, 6]]
-    
 
-
-        let a = array![1.0,1.0,1.0,1.0,1.0].rv();
+        let a = array![1.0, 1.0, 1.0, 1.0, 1.0].rv();
 
         let b = dropout(&a, 0.5);
 
@@ -87,13 +81,24 @@ mod tests {
 
         println!("b = {}", b.data());
 
-    
-
         set_test_flag_true();
 
         let c = dropout(&a, 0.5);
 
         println!("c = {}", c.data());
+    }
 
+    #[test]
+    fn get_conv_outsize_test() {
+        use crate::{core_new::ArrayDToRcVariable, functions_cnn::get_conv_outsize};
+
+        let input_size = (4, 4);
+        let kernel_size = (3, 3);
+        let stride_size = (1, 1);
+        let pad_size = (1, 1);
+
+        let output_size = get_conv_outsize(input_size, kernel_size, stride_size, pad_size);
+
+        assert_eq!(output_size, (4, 4));
     }
 }
