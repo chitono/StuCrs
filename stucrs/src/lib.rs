@@ -62,9 +62,9 @@ pub mod optimizers;
 #[cfg(test)]
 mod tests {
 
-    use ndarray::array;
+    use ndarray::{array, Array4};
 
-    use crate::config::set_test_flag_true;
+    use crate::{config::set_test_flag_true, functions_cnn::conv2d_array};
 
     use super::*;
 
@@ -100,5 +100,50 @@ mod tests {
         let output_size = get_conv_outsize(input_size, kernel_size, stride_size, pad_size);
 
         assert_eq!(output_size, (4, 4));
+    }
+
+    #[test]
+    fn dim_test() {
+        use crate::{core_new::ArrayDToRcVariable, functions_cnn::get_conv_outsize};
+
+        let input = array![[[[1, 2, 3], [4, 5, 6], [7, 8, 9]]]];
+        let input_2 = array![[[[1.0f32, 2.0], [3.0, 4.0]], [[10.0, 20.0], [30.0, 40.0]]]];
+
+        assert_eq!(input.ndim(), 4);
+        assert_eq!(input_2.ndim(), 4);
+
+        //let output = conv2d_array(input, weight, stride_size, pad_size)
+
+        //assert_eq!(output_size, (4, 4));
+    }
+
+    #[test]
+    fn conv2d_array_1ch_test() {
+        use crate::{core_new::ArrayDToRcVariable, functions_cnn::get_conv_outsize};
+
+        let input = array![[[[1.0f32, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]]];
+        let kernel = array![[[[1.0f32, 1.0, 1.0], [0.0, 0.0, 0.0], [-1.0, -1.0, -1.0]]]];
+
+        let stride_size = (1, 1);
+        let pad_size = (1, 1);
+
+        let output = conv2d_array(input.view(), kernel.view(), stride_size, pad_size);
+        println!("{:?}", output);
+
+        //assert_eq!(output_size, (4, 4));
+    }
+
+    #[test]
+    fn conv2d_array_2ch_test() {
+        use crate::{core_new::ArrayDToRcVariable, functions_cnn::get_conv_outsize};
+
+        let input = array![[[[1.0f32, 2.0], [3.0, 4.0]], [[10.0, 20.0], [30.0, 40.0]]]];
+        let kernel = array![[[[1.0f32, 0.0], [0.0, 1.0]], [[0.0, 1.0], [1.0, 0.0]]]];
+
+        let stride_size = (1, 1);
+        let pad_size = (0, 0);
+
+        let output = conv2d_array(input.view(), kernel.view(), stride_size, pad_size);
+        println!("{:?}", output); //55.0
     }
 }
