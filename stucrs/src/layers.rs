@@ -350,6 +350,158 @@ impl Dense {
 }
 
 #[derive(Debug, Clone)]
+pub struct Conv2d {
+    input: Option<Weak<RefCell<Variable>>>,
+    output: Option<Weak<RefCell<Variable>>>,
+    out_channels: usize,
+    kernel_size: (usize, usize),
+    stride_size: (usize, usize),
+    pad_size: (usize, usize),
+    w_id: Option<usize>,
+    b_id: Option<usize>,
+    params: FxHashMap<usize, RcVariable>,
+    generation: i32,
+    id: usize,
+}
+
+impl Layer for Conv2d {
+    fn set_params(&mut self, param: &RcVariable) {
+        self.params.insert(param.id(), param.clone());
+    }
+    fn get_input(&self) -> RcVariable {
+        let input = self
+            .input
+            .as_ref()
+            .unwrap()
+            .upgrade()
+            .as_ref()
+            .unwrap()
+            .clone();
+        RcVariable(input)
+    }
+
+    fn get_output(&self) -> RcVariable {
+        let output;
+        output = self
+            .output
+            .as_ref()
+            .unwrap()
+            .upgrade()
+            .as_ref()
+            .unwrap()
+            .clone();
+
+        RcVariable(output)
+    }
+
+    fn call(&mut self, input: &RcVariable) -> RcVariable {
+        // inputのvariableからdataを取り出す
+
+        let output = self.forward(input);
+
+        //ここから下の処理はbackwardするときだけ必要。
+
+        //　inputを弱参照で覚える
+        self.input = Some(input.downgrade());
+
+        //  outputを弱参照(downgrade)で覚える
+        self.output = Some(output.downgrade());
+
+        output
+    }
+
+    fn get_generation(&self) -> i32 {
+        self.generation
+    }
+    fn get_id(&self) -> usize {
+        self.id
+    }
+    fn params(&mut self) -> &mut FxHashMap<usize, RcVariable> {
+        &mut self.params
+    }
+
+    fn cleargrad(&mut self) {
+        for (_id, param) in self.params.iter_mut() {
+            param.cleargrad();
+        }
+    }
+}
+
+impl Conv2d {
+    fn forward(&mut self, x: &RcVariable) -> RcVariable {
+        if let None = &self.w_id {
+            let c = x.data().shape()[1];
+            let oc = self.out_channels;
+            let (kh, kw) = self.kernel_size;
+
+            let scale = (1.0f32 / ((c * kh * kw) as f32)).sqrt();
+
+            let w_data: ArrayBase<OwnedRepr<f32>, Dim<[usize; 4]>> =
+                &Array::random((oc, c, kh, kw), StandardNormal) * scale;
+
+            let w = w_data.rv();
+
+            self.w_id = Some(w.id());
+            self.set_params(&w.clone());
+        }
+
+        // フィールドでパラメータのidを保持しているので、idでパラメータを呼び出す
+        let w_id = self.w_id.unwrap();
+        let w = self.params.get(&w_id).unwrap();
+
+        //bはoption型なので、場合分け
+        let b;
+        if let Some(b_id_data) = self.b_id {
+            b = self.params.get(&b_id_data).cloned();
+        } else {
+            b = None;
+        }
+
+        let y = F::linear_simple(&x, &w, &b);
+
+        y
+    }
+
+    pub fn new(
+        out_channels: usize,
+        kernel_size: (usize, usize),
+        stride_size: (usize, usize),
+        pad_size: (usize, usize),
+        biased: bool,
+    ) -> Self {
+        let mut linear = Self {
+            input: None,
+            output: None,
+            out_channels: out_channels,
+            kernel_size: kernel_size,
+            stride_size: stride_size,
+            pad_size: pad_size,
+            w_id: None,
+            b_id: None,
+            params: FxHashMap::default(),
+            generation: 0,
+            id: id_generator(),
+        };
+
+        if biased == true {
+            let b = Array::zeros(out_channels as usize).rv();
+            linear.b_id = Some(b.id());
+            linear.set_params(&b.clone());
+        }
+
+        linear
+    }
+
+    pub fn update_params(&mut self, lr: f32) {
+        for (_id, param) in self.params.iter() {
+            let param_data = param.data();
+            let current_grad = param.grad().as_ref().unwrap().data();
+            param.0.borrow_mut().data = param_data - lr * current_grad;
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Activation {
     Sigmoid,
     Relu,
