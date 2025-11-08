@@ -1,12 +1,13 @@
+use core::f32;
 use std::cell::RefCell;
 //use std::clone;
 use std::collections::HashSet;
 use std::fmt::Debug;
 
 use ndarray::{
-    array, s, Array, Array1, Array3, Array4, ArrayBase, ArrayD, ArrayView4, ArrayViewD, Dimension,
-    IxDyn, OwnedRepr, Shape,
+    Array, Array1, Array2, Array3, Array4, ArrayBase, ArrayD, ArrayView4, ArrayViewD, Dimension, IxDyn, OwnedRepr, Shape, array, s,Dim,ViewRepr
 };
+use ndarray_stats::QuantileExt;
 use std::rc::{Rc, Weak};
 use std::{usize, vec};
 
@@ -113,6 +114,7 @@ pub fn conv2d_array(
 
     let mut out4d = Array4::<f32>::zeros((n, oc, oh, ow));
 
+    //(N,OC,OH*OW) -> (N,OC,OH,OW)に変換
     for b in 0..n {
         for co in 0..oc {
             for idx in 0..(oh * ow) {
@@ -123,4 +125,112 @@ pub fn conv2d_array(
         }
     }
     out4d.into_dyn()
+}
+
+pub fn max_pool2d(
+    input: ArrayView4<f32>,
+    kernel_size: (usize, usize),
+    stride_size: (usize, usize),
+    pad_size: (usize,usize),
+) -> ArrayD<f32> {
+    let input_shape=input.shape();
+    let n = input_shape[0]; 
+    let c = input_shape[1]; 
+    let h = input_shape[2]; 
+    let w = input_shape[3];
+    let (kh,kw)=kernel_size;
+    let (stride_h,stride_w)=stride_size;
+    let (pad_h,pad_w)=pad_size;
+
+    let (oh,ow)=get_conv_outsize((h,w), kernel_size,stride_size,pad_size);
+    println!("oh = {:?},ow = {}, c = {}",oh,ow,c);
+    let cols = im2col(input, kernel_size, stride_size, pad_size);
+    println!("cols1 shape = {:?}",cols.shape());
+    let cols = cols.permuted_axes([0,2,1]);
+    println!("cols2 shape = {:?}",cols.shape());
+     println!("kh= {:?},kw = {},",kh,kw);
+    let cols = cols.to_owned().into_shape_clone((n,c*oh*ow,kh*kw)).unwrap();
+    let mut out =Array3::<f32>::zeros((n,c*oh*ow,kh*kw));
+    for b in 0..n {
+        let rows = cols.slice(s![b,..,..]);
+        let max: Array1<f32> = rows
+        .outer_iter()
+        .map(|row: ArrayBase<ViewRepr<&f32>, Dim<[usize; 1]>>| row.max().unwrap().clone())
+        .collect();
+        
+        out.slice_mut(s![b,..,..]).assign(&max);
+
+    }
+    
+    let  max_cols = out.into_shape_with_order((n,oh,ow,c)).unwrap();
+    let output = max_cols.permuted_axes([0,3,1,2]);
+    
+    output.into_dyn()
+
+
+}
+
+
+
+fn im2col(input: ArrayView4<f32>,kernel_size: (usize, usize),stride_size: (usize, usize),pad_size: (usize, usize)) -> Array3<f32> {
+    let input_shape = input.shape();
+
+    // inputから形状のデータを取り出す。
+    let n = input_shape[0]; //バッチ数
+    let c = input_shape[1]; //チャンネル数
+    let h = input_shape[2]; //縦
+    let w = input_shape[3]; //横
+    
+    let (kh,kw)=kernel_size;
+    let (stride_h,stride_w)= stride_size;
+    let (pad_h,pad_w)=pad_size;
+
+    let (oh,ow)=get_conv_outsize((h,w), (kh,kw),(stride_h,stride_w), (pad_h,pad_w));
+
+    let mut cols =Array3::<f32>::zeros((n,c*kh*kw,oh*ow));
+
+    for b in 0..n {
+        let img = input.slice(s![b, .., .., ..]);
+        let mut col = cols.slice_mut(s![b, .., ..]);
+        let mut col_idx = 0;
+
+        for y in 0..oh {
+            for x in 0..ow {
+                let y_start = y as isize * stride_h as isize - pad_h as isize;
+                let x_start = x as isize * stride_w as isize - pad_w as isize;
+
+                let mut patch = Vec::<f32>::with_capacity(c * kh * kw);
+
+                for c_idx in 0..c {
+                    for ky in 0..kh {
+                        for kx in 0..kw {
+                            let in_y = y_start + ky as isize;
+                            let in_x = x_start + kx as isize;
+
+                            // paddingしたところは0にする。
+                            let value = if in_y >= 0
+                                && (in_y as usize) < h
+                                && in_x >= 0
+                                && (in_x as usize) < w
+                            {
+                                img[(c_idx, in_y as usize, in_x as usize)]
+                            } else {
+                                0.0
+                            };
+                            patch.push(value);
+                        }
+                    }
+                }
+                for (i, v) in patch.into_iter().enumerate() {
+                    col[(i, col_idx)] = v;
+                }
+                col_idx += 1;
+            }
+        }
+    }
+    cols
+    
+
+
+
 }
