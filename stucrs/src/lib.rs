@@ -62,10 +62,13 @@ pub mod optimizers;
 #[cfg(test)]
 mod tests {
 
-    use ndarray::{Array, Array4, array};
+    use ndarray::{array, Array, Array4};
     use ndarray_stats::QuantileExt;
 
-    use crate::{config::set_test_flag_true, functions_cnn::{conv2d_array, max_pool2d}};
+    use crate::{
+        config::set_test_flag_true,
+        functions_cnn::{conv2d_array, max_pool2d},
+    };
 
     use super::*;
 
@@ -148,48 +151,57 @@ mod tests {
         println!("{:?}", output); //55.0
     }
 
-
-
-
-
     #[test]
     fn max_pool2d_array_1ch_test() {
         use crate::{core_new::ArrayDToRcVariable, functions_cnn::get_conv_outsize};
 
-        let input = array![[[[4.0f32, 1.0, 5.0,3.0], [7.0, 3.0, 2.0,3.0], [7.0, 2.0, 3.0,4.0],[1.0,5.0,3.0,9.0]]]];
-        let kernel_size = (2,2);
-        let stride_size = (2, 2);
+        let input = array![[[
+            [4.0f32, 1.0, 5.0, 3.0],
+            [7.0, 3.0, 2.0, 3.0],
+            [7.0, 2.0, 3.0, 4.0],
+            [1.0, 5.0, 3.0, 9.0]
+        ]]];
+        let kernel_size = (2, 2);
+        let stride_size = (1, 1);
         let pad_size = (0, 0);
 
         let output = max_pool2d(input.view(), kernel_size, stride_size, pad_size);
         println!("output = {:?}", output);
-
         //assert_eq!(output_size, (4, 4));
     }
 
     #[test]
     fn max_pool2d_array_2ch_test() {
         use crate::{core_new::ArrayDToRcVariable, functions_cnn::get_conv_outsize};
-
-        let input = array![[[[1.0f32, 2.0], [3.0, 4.0]], [[10.0, 20.0], [30.0, 40.0]]]];
-        
-
+        let input = array![[
+            [
+                [4.0f32, 1.0, 5.0, 3.0],
+                [7.0, 3.0, 2.0, 3.0],
+                [7.0, 2.0, 3.0, 4.0],
+                [1.0, 5.0, 3.0, 9.0]
+            ],
+            [
+                [4.0f32, 1.0, 5.0, 3.0],
+                [7.0, 3.0, 2.0, 3.0],
+                [7.0, 2.0, 3.0, 4.0],
+                [1.0, 5.0, 3.0, 9.0]
+            ]
+        ]];
+        let kernel_size = (2, 2);
         let stride_size = (1, 1);
         let pad_size = (0, 0);
 
-        //let output = conv2d_array(input.view(), kernel.view(), stride_size, pad_size);
-        //println!("{:?}", output); //55.0
+        let output = max_pool2d(input.view(), kernel_size, stride_size, pad_size);
+        println!("output = {:?}", output);
     }
-
-
 
     #[test]
     fn array_max_test() {
         use crate::{core_new::ArrayDToRcVariable, functions_cnn::get_conv_outsize};
-        use ndarray::Array1;
+        use ndarray::{s, Array1};
         let input = array![[1.0f32, 2.0], [3.0, 4.0], [10.0, 20.0], [30.0, 40.0]];
-        let output:Array1<f32> = input.outer_iter().map(|row|{row.max().unwrap().clone()}).collect();
-        
-        println!("{:?}", output); 
+        //let output:Array1<f32> = input.outer_iter().map(|row|{row.max().unwrap().clone()}).collect();
+        let output = input.slice(s![0, ..]);
+        println!("{:?}", output);
     }
 }

@@ -5,7 +5,8 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 
 use ndarray::{
-    Array, Array1, Array2, Array3, Array4, ArrayBase, ArrayD, ArrayView4, ArrayViewD, Dimension, IxDyn, OwnedRepr, Shape, array, s,Dim,ViewRepr
+    array, s, Array, Array1, Array2, Array3, Array4, ArrayBase, ArrayD, ArrayView4, ArrayViewD,
+    Dim, Dimension, IxDyn, OwnedRepr, Shape, ViewRepr,
 };
 use ndarray_stats::QuantileExt;
 use std::rc::{Rc, Weak};
@@ -131,48 +132,51 @@ pub fn max_pool2d(
     input: ArrayView4<f32>,
     kernel_size: (usize, usize),
     stride_size: (usize, usize),
-    pad_size: (usize,usize),
+    pad_size: (usize, usize),
 ) -> ArrayD<f32> {
-    let input_shape=input.shape();
-    let n = input_shape[0]; 
-    let c = input_shape[1]; 
-    let h = input_shape[2]; 
+    let input_shape = input.shape();
+    let n = input_shape[0];
+    let c = input_shape[1];
+    let h = input_shape[2];
     let w = input_shape[3];
-    let (kh,kw)=kernel_size;
-    let (stride_h,stride_w)=stride_size;
-    let (pad_h,pad_w)=pad_size;
+    let (kh, kw) = kernel_size;
+    let (stride_h, stride_w) = stride_size;
+    let (pad_h, pad_w) = pad_size;
 
-    let (oh,ow)=get_conv_outsize((h,w), kernel_size,stride_size,pad_size);
-    println!("oh = {:?},ow = {}, c = {}",oh,ow,c);
+    let (oh, ow) = get_conv_outsize((h, w), kernel_size, stride_size, pad_size);
+
     let cols = im2col(input, kernel_size, stride_size, pad_size);
-    println!("cols1 shape = {:?}",cols.shape());
-    let cols = cols.permuted_axes([0,2,1]);
-    println!("cols2 shape = {:?}",cols.shape());
-     println!("kh= {:?},kw = {},",kh,kw);
-    let cols = cols.to_owned().into_shape_clone((n,c*oh*ow,kh*kw)).unwrap();
-    let mut out =Array3::<f32>::zeros((n,c*oh*ow,kh*kw));
+
+    // (N,c*kh*kw,oh*ow) -> (N,oh*ow,c*kh*kw)
+    let cols = cols.permuted_axes([0, 2, 1]);
+
+    let cols = cols
+        .to_owned()
+        .into_shape_clone((n, c * oh * ow, kh * kw))
+        .unwrap();
+    let mut out = Array2::<f32>::zeros((n, c * oh * ow));
     for b in 0..n {
-        let rows = cols.slice(s![b,..,..]);
+        let rows = cols.slice(s![b, .., ..]);
         let max: Array1<f32> = rows
-        .outer_iter()
-        .map(|row: ArrayBase<ViewRepr<&f32>, Dim<[usize; 1]>>| row.max().unwrap().clone())
-        .collect();
-        
-        out.slice_mut(s![b,..,..]).assign(&max);
+            .outer_iter()
+            .map(|row: ArrayBase<ViewRepr<&f32>, Dim<[usize; 1]>>| row.max().unwrap().clone())
+            .collect();
 
+        out.slice_mut(s![b, ..]).assign(&max);
     }
-    
-    let  max_cols = out.into_shape_with_order((n,oh,ow,c)).unwrap();
-    let output = max_cols.permuted_axes([0,3,1,2]);
-    
+
+    let max_cols = out.into_shape_with_order((n, oh, ow, c)).unwrap();
+    let output = max_cols.permuted_axes([0, 3, 1, 2]);
+
     output.into_dyn()
-
-
 }
 
-
-
-fn im2col(input: ArrayView4<f32>,kernel_size: (usize, usize),stride_size: (usize, usize),pad_size: (usize, usize)) -> Array3<f32> {
+fn im2col(
+    input: ArrayView4<f32>,
+    kernel_size: (usize, usize),
+    stride_size: (usize, usize),
+    pad_size: (usize, usize),
+) -> Array3<f32> {
     let input_shape = input.shape();
 
     // inputから形状のデータを取り出す。
@@ -180,14 +184,14 @@ fn im2col(input: ArrayView4<f32>,kernel_size: (usize, usize),stride_size: (usize
     let c = input_shape[1]; //チャンネル数
     let h = input_shape[2]; //縦
     let w = input_shape[3]; //横
-    
-    let (kh,kw)=kernel_size;
-    let (stride_h,stride_w)= stride_size;
-    let (pad_h,pad_w)=pad_size;
 
-    let (oh,ow)=get_conv_outsize((h,w), (kh,kw),(stride_h,stride_w), (pad_h,pad_w));
+    let (kh, kw) = kernel_size;
+    let (stride_h, stride_w) = stride_size;
+    let (pad_h, pad_w) = pad_size;
 
-    let mut cols =Array3::<f32>::zeros((n,c*kh*kw,oh*ow));
+    let (oh, ow) = get_conv_outsize((h, w), (kh, kw), (stride_h, stride_w), (pad_h, pad_w));
+
+    let mut cols = Array3::<f32>::zeros((n, c * kh * kw, oh * ow));
 
     for b in 0..n {
         let img = input.slice(s![b, .., .., ..]);
@@ -229,8 +233,4 @@ fn im2col(input: ArrayView4<f32>,kernel_size: (usize, usize),stride_size: (usize
         }
     }
     cols
-    
-
-
-
 }
