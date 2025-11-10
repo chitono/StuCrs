@@ -196,6 +196,54 @@ mod tests {
     }
 
     #[test]
+    fn im2col_test() {
+        use crate::{core_new::ArrayDToRcVariable, functions_cnn::im2col};
+
+        let input = array![[[
+            [1.0f32, 2.0, 3.0, 4.0],
+            [5.0, 6.0, 7.0, 8.0],
+            [9.0, 10.0, 11.0, 12.0],
+            [13.0, 14.0, 15.0, 16.0]
+        ]]];
+        let kernel_size = (2, 2);
+        let stride_size = (1, 1);
+        let pad_size = (0, 0);
+
+        let output = im2col(input.view(), kernel_size, stride_size, pad_size);
+        println!("output = {:?}", output); //shape (1,4,9)
+    }
+
+    #[test]
+    fn col2im_test() {
+        use crate::{core_new::ArrayDToRcVariable, functions_cnn::col2im};
+
+        // im2col_testの出力。(output)
+        let input = array![[
+            [1.0, 2.0, 3.0, 5.0, 6.0, 7.0, 9.0, 10.0, 11.0],
+            [2.0, 3.0, 4.0, 6.0, 7.0, 8.0, 10.0, 11.0, 12.0],
+            [5.0, 6.0, 7.0, 9.0, 10.0, 11.0, 13.0, 14.0, 15.0],
+            [6.0, 7.0, 8.0, 10.0, 11.0, 12.0, 14.0, 15.0, 16.0]
+        ]];
+
+        let kernel_size = (2, 2);
+        let stride_size = (1, 1);
+        let pad_size = (0, 0);
+
+        let output = col2im(
+            input.view(),
+            [1, 1, 4, 4],
+            kernel_size,
+            stride_size,
+            pad_size,
+        );
+        println!("output = {:?}", output);
+        /*output = [[[[1.0, 4.0, 6.0, 4.0],
+        [10.0, 24.0, 28.0, 16.0],
+        [18.0, 40.0, 44.0, 24.0],
+        [13.0, 28.0, 30.0, 16.0]]]] */
+    }
+
+    #[test]
     fn array_max_test() {
         use crate::{core_new::ArrayDToRcVariable, functions_cnn::get_conv_outsize};
         use ndarray::{s, Array1};
