@@ -58,49 +58,9 @@ pub fn conv2d_array(
 
     let (oh, ow) = get_conv_outsize((h, w), (kh, kw), (stride_h, stride_w), (pad_h, pad_w));
 
-    //im2colの出力となる行列を初期化。
-    let mut cols = Array3::<f32>::zeros((n, c * kh * kw, oh * ow));
+    // im2col関数でcolsを出力。
+    let cols = im2col(input.view(), (kh, kw), stride_size, pad_size);
 
-    //im2colの処理
-    for b in 0..n {
-        let img = input.slice(s![b, .., .., ..]);
-        let mut col = cols.slice_mut(s![b, .., ..]);
-        let mut col_idx = 0;
-
-        for y in 0..oh {
-            for x in 0..ow {
-                let y_start = y as isize * stride_h as isize - pad_h as isize;
-                let x_start = x as isize * stride_w as isize - pad_w as isize;
-
-                let mut patch = Vec::<f32>::with_capacity(c * kh * kw);
-
-                for c_idx in 0..c {
-                    for ky in 0..kh {
-                        for kx in 0..kw {
-                            let in_y = y_start + ky as isize;
-                            let in_x = x_start + kx as isize;
-
-                            // paddingしたところは0にする。
-                            let value = if in_y >= 0
-                                && (in_y as usize) < h
-                                && in_x >= 0
-                                && (in_x as usize) < w
-                            {
-                                img[(c_idx, in_y as usize, in_x as usize)]
-                            } else {
-                                0.0
-                            };
-                            patch.push(value);
-                        }
-                    }
-                }
-                for (i, v) in patch.into_iter().enumerate() {
-                    col[(i, col_idx)] = v;
-                }
-                col_idx += 1;
-            }
-        }
-    }
     //weightを1列に展開し、並べて2次元の行列に変形させる。
     let weights_2d = weight.into_shape_with_order((oc, c * kh * kw)).unwrap();
 
@@ -130,12 +90,14 @@ pub fn conv2d_array(
     out4d.into_dyn()
 }
 
-pub fn conv2d_backward_array(
-    input: ArrayView4<f32>,
+/// inputにはConv2d_Function構造体のinputを渡す。
+pub fn conv2d_array_backward(
+    gy_array: ArrayView4<f32>,
     weight: ArrayView4<f32>,
+    input: ArrayView4<f32>,
     stride_size: (usize, usize),
     pad_size: (usize, usize),
-) -> ArrayD<f32> {
+) {
     let input_shape = input.shape();
     let weight_shape = weight.shape();
 
@@ -155,6 +117,12 @@ pub fn conv2d_backward_array(
     if c != c_wt {
         panic!("Conv2d: inputのチャンネル数とweightのチャンネル数が一致しません。");
     }
+
+    let mut gx_array = Array4::<f32>::zeros((n, c, h, w));
+    let mut gw_array = Array4::<f32>::zeros((oc, c, kh, kw));
+    let mut gb_array = Array1::<f32>::zeros(oc);
+
+    //let grad_out_3d = gy_array.into_shape_with_order((n, c, oh * ow));
 
     let (stride_h, stride_w) = stride_size;
     let (pad_h, pad_w) = pad_size;
@@ -228,7 +196,7 @@ pub fn conv2d_backward_array(
             }
         }
     }
-    out4d.into_dyn()
+    out4d.into_dyn();
 }
 
 pub fn max_pool2d(
