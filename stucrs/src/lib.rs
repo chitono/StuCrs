@@ -11,7 +11,7 @@ impl Add for RcVariable {
     type Output = RcVariable;
     fn add(self, rhs: RcVariable) -> Self::Output {
         // add_op関数はRc<RefCell<Variable>>を扱う
-        let add_y = add(&[Some(self.clone()), Some(rhs.clone())]);
+        let add_y = add(&[self.clone(), rhs.clone()]);
         add_y
     }
 }
@@ -19,7 +19,7 @@ impl Add for RcVariable {
 impl Mul for RcVariable {
     type Output = RcVariable;
     fn mul(self, rhs: RcVariable) -> Self::Output {
-        let mul_y = mul(&[Some(self.clone()), Some(rhs.clone())]);
+        let mul_y = mul(&[self.clone(), rhs.clone()]);
         mul_y
     }
 }
@@ -27,7 +27,7 @@ impl Mul for RcVariable {
 impl Sub for RcVariable {
     type Output = RcVariable;
     fn sub(self, rhs: RcVariable) -> Self::Output {
-        let sub_y = sub(&[Some(self.clone()), Some(rhs.clone())]);
+        let sub_y = sub(&[self.clone(), rhs.clone()]);
         sub_y
     }
 }
@@ -35,7 +35,7 @@ impl Sub for RcVariable {
 impl Div for RcVariable {
     type Output = RcVariable;
     fn div(self, rhs: RcVariable) -> Self::Output {
-        let div_y = div(&[Some(self.clone()), Some(rhs.clone())]);
+        let div_y = div(&[self.clone(), rhs.clone()]);
         div_y
     }
 }
@@ -43,7 +43,7 @@ impl Div for RcVariable {
 impl Neg for RcVariable {
     type Output = RcVariable;
     fn neg(self) -> Self::Output {
-        let neg_y = neg(&[Some(self.clone()), None]);
+        let neg_y = neg(&[self.clone()]);
         neg_y
     }
 }
@@ -55,9 +55,9 @@ pub mod dataloaders;
 pub mod datasets;
 pub mod functions_cnn;
 pub mod functions_new;
-pub mod layers;
-pub mod models;
-pub mod optimizers;
+//pub mod layers;
+//pub mod models;
+//pub mod optimizers;
 
 #[cfg(test)]
 mod tests {
@@ -73,23 +73,98 @@ mod tests {
     use super::*;
 
     #[test]
-    fn dropout_test() {
-        use crate::{core_new::ArrayDToRcVariable, functions_new::dropout};
+    fn add_test() {
+        use crate::core_new::ArrayDToRcVariable;
         // Create a 2x3 tensor: [[1, 2, 3], [4, 5, 6]]
 
         let a = array![1.0, 1.0, 1.0, 1.0, 1.0].rv();
 
-        let b = dropout(&a, 0.5);
+        let b = array![2.0, 2.0, 2.0, 2.0, 2.0].rv();
 
         // Sum along axis 0 (columns): should give [5, 7, 9] with shape [3]
 
-        println!("b = {}", b.data());
-
-        set_test_flag_true();
-
-        let c = dropout(&a, 0.5);
+        let mut c = a.clone() + b.clone();
 
         println!("c = {}", c.data());
+
+        c.backward(false);
+
+        println!("a_grad = {:?}", a.grad().unwrap().data());
+        println!("b_grad = {:?}", b.grad().unwrap().data());
+    }
+
+    #[test]
+    fn mul_test() {
+        use crate::core_new::ArrayDToRcVariable;
+
+        let a = array![3.0, 3.0, 3.0, 3.0, 3.0].rv();
+
+        let b = array![2.0, 2.0, 2.0, 2.0, 2.0].rv();
+
+        let c = array![1.0, 1.0, 1.0, 1.0, 1.0].rv();
+
+        let mut y = (a.clone() * b.clone()) + c.clone();
+
+        println!("c = {}", y.data()); // 7.0
+
+        y.backward(false);
+
+        println!("a_grad = {:?}", a.grad().unwrap().data()); // 2.0
+        println!("b_grad = {:?}", b.grad().unwrap().data()); // 3.0
+    }
+
+    #[test]
+    fn sub_test() {
+        use crate::core_new::ArrayDToRcVariable;
+
+        let a = array![3.0, 3.0, 3.0, 3.0, 3.0].rv();
+
+        let b = array![2.0, 2.0, 2.0, 2.0, 2.0].rv();
+
+        let c = array![1.0, 1.0, 1.0, 1.0, 1.0].rv();
+
+        let mut y = (a.clone() * b.clone()) - c.clone();
+
+        println!("y = {}", y.data());
+
+        y.backward(false);
+
+        println!("a_grad = {:?}", a.grad().unwrap().data());
+        println!("b_grad = {:?}", b.grad().unwrap().data());
+        println!("c_grad = {:?}", c.grad().unwrap().data());
+    }
+
+    #[test]
+    fn div_test() {
+        use crate::core_new::ArrayDToRcVariable;
+
+        let a = array![3.0, 3.0, 3.0, 3.0, 3.0].rv();
+
+        let b = array![2.0, 2.0, 2.0, 2.0, 2.0].rv();
+
+        let mut y = a.clone() / b.clone();
+
+        println!("y = {}", y.data()); // 1.5
+
+        y.backward(false);
+
+        println!("a_grad = {:?}", a.grad().unwrap().data()); // 0.5
+        println!("b_grad = {:?}", b.grad().unwrap().data()); // -0.75
+    }
+
+    #[test]
+    fn pow_test() {
+        use crate::core_new::ArrayDToRcVariable;
+
+        let a = array![3.0, 3.0, 3.0, 3.0, 3.0].rv();
+
+        let mut y = a.clone().pow(2.0);
+
+        println!("y = {}", y.data()); // 9.0
+
+        y.backward(false);
+
+        println!("a_grad = {:?}", a.grad().unwrap().data()); // 6.0
     }
 
     #[test]

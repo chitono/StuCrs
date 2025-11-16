@@ -119,6 +119,8 @@ impl Variable {
         }
     }
 
+    /*
+
     fn clear_grad_backward(&mut self) {
         let mut funcs: Vec<Rc<RefCell<dyn Function>>> =
             vec![Rc::clone(self.creator.as_ref().unwrap())];
@@ -179,7 +181,7 @@ impl Variable {
                 }
             }
         }
-    }
+    }*/
 
     fn cleargrad(&mut self) {
         self.grad = None;
@@ -198,9 +200,10 @@ impl RcVariable {
         self.0.borrow_mut().backward(double_grad);
     }
 
+    /*
     pub fn clear_grad_backward(&mut self) {
         self.0.borrow_mut().clear_grad_backward();
-    }
+    } */
 
     pub fn data(&self) -> ArrayD<f32> {
         self.0.borrow().data.clone()
@@ -231,9 +234,10 @@ impl RcVariable {
     }
 
     pub fn pow(&self, c: f32) -> RcVariable {
-        let y = pow(&[Some(self.clone()), None], c);
+        let y = pow(&[self.clone()], c);
         y
     }
+    /*
 
     pub fn exp(&self) -> RcVariable {
         let y = exp(&self);
@@ -253,7 +257,7 @@ impl RcVariable {
     pub fn sum(&self, axis: Option<u16>) -> RcVariable {
         let y = sum(self, axis);
         y
-    }
+    } */
 }
 
 pub trait Function: Debug {
@@ -296,7 +300,7 @@ impl Function for AddF {
 
             let self_f: Rc<RefCell<dyn Function>> = Rc::new(RefCell::new(self.clone()));
 
-            //outputsに自分をcreatorとして覚えさせる　不変長　配列2
+            //outputsに自分をcreatorとして覚えさせる
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
@@ -373,66 +377,48 @@ pub fn add(xs: &[RcVariable]) -> RcVariable {
 
 #[derive(Debug, Clone)]
 struct MulF {
-    inputs: [Option<RcVariable>; 2],
+    inputs: Vec<RcVariable>,
     output: Option<Weak<RefCell<Variable>>>,
     generation: i32,
     id: usize,
 }
 
 impl Function for MulF {
-    fn call(&mut self, inputs: &[Option<RcVariable>; 2]) -> RcVariable {
-        if let None = &inputs[0] {
-            panic!("Mulは二変数関数です。input[0]がNoneです")
-        }
-        if let None = &inputs[1] {
-            panic!("Mulは二変数関数です。input[1]がNoneです")
+    fn call(&mut self) -> RcVariable {
+        let inputs = &self.inputs;
+        if inputs.len() != 2 {
+            panic!("Mulは二変数関数です。inputsの個数が二つではありません。")
         }
 
-        let xs_data = [
-            Some(inputs[0].as_ref().unwrap().clone()),
-            Some(inputs[1].as_ref().unwrap().clone()),
-        ];
-
-        let ys_data = self.forward(&xs_data);
-
-        let output = ys_data.clone();
+        let output = self.forward(inputs);
 
         if get_grad_status() == true {
-            //　inputsを覚える
-            self.inputs = inputs.clone();
+            //inputsのgenerationで一番大きい値をFuncitonのgenerationとする
+            self.generation = inputs.iter().map(|input| input.generation()).max().unwrap();
 
-            let input_0_generation = inputs[0].as_ref().unwrap().generation();
-            let input_1_generation = inputs[1].as_ref().unwrap().generation();
-
-            //inputのgenerationで大きい値の方をFuncitonのgenerationとする
-            self.generation = match input_0_generation >= input_1_generation {
-                true => input_0_generation,
-                false => input_1_generation,
-            };
-
-            //  outputsを弱参照(downgrade)で覚える
+            //  outputを弱参照(downgrade)で覚える
             self.output = Some(output.downgrade());
 
             let self_f: Rc<RefCell<dyn Function>> = Rc::new(RefCell::new(self.clone()));
 
-            //outputsに自分をcreatorとして覚えさせる　不変長　配列2
+            //outputsに自分をcreatorとして覚えさせる
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
         output
     }
 
-    fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
-        let x0 = xs[0].as_ref().unwrap();
-        let x1 = xs[1].as_ref().unwrap();
+    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+        let x0 = &xs[0];
+        let x1 = &xs[1];
         let y_data = x0.data() * x1.data();
 
         y_data.rv()
     }
 
-    fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
-        let x0 = self.inputs[0].as_ref().unwrap();
-        let x1 = self.inputs[1].as_ref().unwrap();
+    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+        let x0 = &self.inputs[0];
+        let x1 = &self.inputs[1];
 
         let mut gx0 = x1.clone() * gy.clone();
         let mut gx1 = x0.clone() * gy.clone();
@@ -445,12 +431,12 @@ impl Function for MulF {
             gx1 = sum_to(&gx1, x1_shape);
         }
 
-        let gxs = [Some(gx0), Some(gx1)];
+        let gxs = vec![gx0, gx1];
         gxs
     }
 
-    fn get_inputs(&self) -> [Option<RcVariable>; 2] {
-        self.inputs.clone()
+    fn get_inputs(&self) -> &[RcVariable] {
+        &self.inputs
     }
 
     fn get_output(&self) -> RcVariable {
@@ -475,9 +461,9 @@ impl Function for MulF {
     }
 }
 impl MulF {
-    fn new() -> Rc<RefCell<Self>> {
+    fn new(inputs: &[RcVariable]) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self {
-            inputs: [None, None],
+            inputs: inputs.to_vec(),
             output: None,
             generation: 0,
             id: id_generator(),
@@ -485,75 +471,57 @@ impl MulF {
     }
 }
 
-pub fn mul(xs: &[Option<RcVariable>; 2]) -> RcVariable {
-    MulF::new().borrow_mut().call(&xs)
+pub fn mul(xs: &[RcVariable]) -> RcVariable {
+    MulF::new(xs).borrow_mut().call()
 }
 
 #[derive(Debug, Clone)]
 struct SubF {
-    inputs: [Option<RcVariable>; 2],
+    inputs: Vec<RcVariable>,
     output: Option<Weak<RefCell<Variable>>>,
     generation: i32,
     id: usize,
 }
 
 impl Function for SubF {
-    fn call(&mut self, inputs: &[Option<RcVariable>; 2]) -> RcVariable {
-        if let None = &inputs[0] {
-            panic!("Subは二変数関数です。input[0]がNoneです")
-        }
-        if let None = &inputs[1] {
-            panic!("Subは二変数関数です。input[1]がNoneです")
+    fn call(&mut self) -> RcVariable {
+        let inputs = &self.inputs;
+        if inputs.len() != 2 {
+            panic!("Subは二変数関数です。inputsの個数が二つではありません。")
         }
 
-        let xs_data = [
-            Some(inputs[0].as_ref().unwrap().clone()),
-            Some(inputs[1].as_ref().unwrap().clone()),
-        ];
-
-        let ys_data = self.forward(&xs_data);
-
-        let output = ys_data.clone();
+        let output = self.forward(inputs);
 
         if get_grad_status() == true {
-            //　inputsを覚える
-            self.inputs = inputs.clone();
+            //inputのgenerationで一番大きい値をFuncitonのgenerationとする
+            self.generation = inputs.iter().map(|input| input.generation()).max().unwrap();
 
-            let input_0_generation = inputs[0].as_ref().unwrap().generation();
-            let input_1_generation = inputs[1].as_ref().unwrap().generation();
-
-            //inputのgenerationで大きい値の方をFuncitonのgenerationとする
-            self.generation = match input_0_generation >= input_1_generation {
-                true => input_0_generation,
-                false => input_1_generation,
-            };
-
-            //  outputsを弱参照(downgrade)で覚える
+            //  outputを弱参照(downgrade)で覚える
             self.output = Some(output.downgrade());
 
             let self_f: Rc<RefCell<dyn Function>> = Rc::new(RefCell::new(self.clone()));
 
-            //outputsに自分をcreatorとして覚えさせる　不変長　配列2
+            //outputsに自分をcreatorとして覚えさせる
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
         output
     }
 
-    fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
-        let x0 = xs[0].as_ref().unwrap();
-        let x1 = xs[1].as_ref().unwrap();
+    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+        let x0 = &xs[0];
+        let x1 = &xs[1];
         let y_data = x0.data() - x1.data();
 
         y_data.rv()
     }
 
-    fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
+    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
         let mut gx0 = gy.clone();
         let mut gx1 = -gy.clone();
 
-        let x0 = self.inputs[0].as_ref().unwrap();
-        let x1 = self.inputs[1].as_ref().unwrap();
+        let x0 = &self.inputs[0];
+        let x1 = &self.inputs[1];
 
         let x0_shape = IxDyn(x0.data().shape());
         let x1_shape = IxDyn(x1.data().shape());
@@ -563,13 +531,13 @@ impl Function for SubF {
             gx1 = sum_to(&gx1, x1_shape);
         }
 
-        let gxs = [Some(gx0), Some(gx1)];
+        let gxs = vec![gx0, gx1];
 
         gxs
     }
 
-    fn get_inputs(&self) -> [Option<RcVariable>; 2] {
-        self.inputs.clone()
+    fn get_inputs(&self) -> &[RcVariable] {
+        &self.inputs
     }
 
     fn get_output(&self) -> RcVariable {
@@ -594,9 +562,9 @@ impl Function for SubF {
     }
 }
 impl SubF {
-    fn new() -> Rc<RefCell<Self>> {
+    fn new(inputs: &[RcVariable]) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self {
-            inputs: [None, None],
+            inputs: inputs.to_vec(),
             output: None,
             generation: 0,
             id: id_generator(),
@@ -604,75 +572,57 @@ impl SubF {
     }
 }
 
-pub fn sub(xs: &[Option<RcVariable>; 2]) -> RcVariable {
-    SubF::new().borrow_mut().call(&xs)
+pub fn sub(xs: &[RcVariable]) -> RcVariable {
+    SubF::new(xs).borrow_mut().call()
 }
 
 #[derive(Debug, Clone)]
 struct DivF {
-    inputs: [Option<RcVariable>; 2],
+    inputs: Vec<RcVariable>,
     output: Option<Weak<RefCell<Variable>>>,
     generation: i32,
     id: usize,
 }
 
 impl Function for DivF {
-    fn call(&mut self, inputs: &[Option<RcVariable>; 2]) -> RcVariable {
-        if let None = &inputs[0] {
-            panic!("Divは二変数関数です。input[0]がNoneです")
-        }
-        if let None = &inputs[1] {
-            panic!("Divは二変数関数です。input[1]がNoneです")
+    fn call(&mut self) -> RcVariable {
+        let inputs = &self.inputs;
+        if inputs.len() != 2 {
+            panic!("Divは二変数関数です。inputsの個数が二つではありません。")
         }
 
-        let xs_data = [
-            Some(inputs[0].as_ref().unwrap().clone()),
-            Some(inputs[1].as_ref().unwrap().clone()),
-        ];
-
-        let ys_data = self.forward(&xs_data);
-
-        let output = ys_data.clone();
+        let output = self.forward(inputs);
 
         if get_grad_status() == true {
-            //　inputsを覚える
-            self.inputs = inputs.clone();
+            //inputsのgenerationで一番大きい値をFuncitonのgenerationとする
+            self.generation = inputs.iter().map(|input| input.generation()).max().unwrap();
 
-            let input_0_generation = inputs[0].as_ref().unwrap().generation();
-            let input_1_generation = inputs[1].as_ref().unwrap().generation();
-
-            //inputのgenerationで大きい値の方をFuncitonのgenerationとする
-            self.generation = match input_0_generation >= input_1_generation {
-                true => input_0_generation,
-                false => input_1_generation,
-            };
-
-            //  outputsを弱参照(downgrade)で覚える
+            //  outputを弱参照(downgrade)で覚える
             self.output = Some(output.downgrade());
 
             let self_f: Rc<RefCell<dyn Function>> = Rc::new(RefCell::new(self.clone()));
 
-            //outputsに自分をcreatorとして覚えさせる　不変長　配列2
+            //outputsに自分をcreatorとして覚えさせる
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
         output
     }
 
-    fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
-        let x0 = xs[0].as_ref().unwrap();
-        let x1 = xs[1].as_ref().unwrap();
+    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+        let x0 = &xs[0];
+        let x1 = &xs[1];
         let y_data = x0.data() / x1.data();
 
         y_data.rv()
     }
 
-    fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
-        let x0 = self.inputs[0].as_ref().unwrap();
-        let x1 = self.inputs[1].as_ref().unwrap();
+    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+        let x0 = &self.inputs[0];
+        let x1 = &self.inputs[1];
 
         let mut gx0 = gy.clone() / x1.clone();
-        let mut gx1 = gy.clone() * (-x0.clone() / x1.clone().pow(2.0));
+        let mut gx1 = gy.clone() * (-x0.clone() / x1.pow(2.0));
 
         let x0_shape = IxDyn(x0.data().shape());
         let x1_shape = IxDyn(x1.data().shape());
@@ -682,13 +632,13 @@ impl Function for DivF {
             gx1 = sum_to(&gx1, x1_shape);
         }
 
-        let gxs = [Some(gx0), Some(gx1)];
+        let gxs = vec![gx0, gx1];
 
         gxs
     }
 
-    fn get_inputs(&self) -> [Option<RcVariable>; 2] {
-        self.inputs.clone()
+    fn get_inputs(&self) -> &[RcVariable] {
+        &self.inputs
     }
 
     fn get_output(&self) -> RcVariable {
@@ -713,9 +663,9 @@ impl Function for DivF {
     }
 }
 impl DivF {
-    fn new() -> Rc<RefCell<Self>> {
+    fn new(inputs: &[RcVariable]) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self {
-            inputs: [None, None],
+            inputs: inputs.to_vec(),
             output: None,
             generation: 0,
             id: id_generator(),
@@ -723,68 +673,58 @@ impl DivF {
     }
 }
 
-pub fn div(xs: &[Option<RcVariable>; 2]) -> RcVariable {
-    DivF::new().borrow_mut().call(&xs)
+pub fn div(xs: &[RcVariable]) -> RcVariable {
+    DivF::new(xs).borrow_mut().call()
 }
 
 #[derive(Debug, Clone)]
 struct NegF {
-    inputs: [Option<RcVariable>; 2],
+    inputs: Vec<RcVariable>,
     output: Option<Weak<RefCell<Variable>>>,
     generation: i32,
     id: usize,
 }
 
 impl Function for NegF {
-    fn call(&mut self, inputs: &[Option<RcVariable>; 2]) -> RcVariable {
-        if let None = &inputs[0] {
-            panic!("Negは一変数関数です。input[0]がNoneです")
-        }
-        if let Some(_variable) = &inputs[1] {
-            panic!("Negは一変数関数です。input[1]がNoneではある必要があります")
+    fn call(&mut self) -> RcVariable {
+        let inputs = &self.inputs;
+        if inputs.len() != 1 {
+            panic!("Negは一変数関数です。inputsの個数が一つではありません。")
         }
 
-        let xs_data = [Some(inputs[0].as_ref().unwrap().clone()), None];
-
-        // inputのvariableからdataを取り出す
-
-        let ys_data = self.forward(&xs_data);
-
-        let output = ys_data.clone();
-
-        //ここから下の処理はbackwardするときだけ必要。
+        let output = self.forward(inputs);
 
         if get_grad_status() == true {
-            //　inputsを覚える
-            self.inputs = inputs.clone();
-            self.generation = inputs[0].as_ref().unwrap().generation();
+            //inputのgenerationで一番大きい値をFuncitonのgenerationとする
+            self.generation = inputs.iter().map(|input| input.generation()).max().unwrap();
 
             //  outputを弱参照(downgrade)で覚える
             self.output = Some(output.downgrade());
 
             let self_f: Rc<RefCell<dyn Function>> = Rc::new(RefCell::new(self.clone()));
 
-            //outputに自分をcreatorとして覚えさせる　不変長　配列2
+            //outputsに自分をcreatorとして覚えさせる
             output.0.borrow_mut().set_creator(self_f.clone());
         }
+
         output
     }
 
-    fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
-        let x = xs[0].as_ref().unwrap();
+    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+        let x = &xs[0];
         let y_data = -x.data();
 
         y_data.rv()
     }
 
-    fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
-        let gxs = [Some(-gy.clone()), None];
+    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+        let gxs = vec![-gy.clone()];
 
         gxs
     }
 
-    fn get_inputs(&self) -> [Option<RcVariable>; 2] {
-        self.inputs.clone()
+    fn get_inputs(&self) -> &[RcVariable] {
+        &self.inputs
     }
 
     fn get_output(&self) -> RcVariable {
@@ -809,9 +749,9 @@ impl Function for NegF {
     }
 }
 impl NegF {
-    fn new() -> Rc<RefCell<Self>> {
+    fn new(inputs: &[RcVariable]) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self {
-            inputs: [None, None],
+            inputs: inputs.to_vec(),
             output: None,
             generation: 0,
             id: id_generator(),
@@ -819,13 +759,13 @@ impl NegF {
     }
 }
 
-pub fn neg(xs: &[Option<RcVariable>; 2]) -> RcVariable {
-    NegF::new().borrow_mut().call(&xs)
+pub fn neg(xs: &[RcVariable]) -> RcVariable {
+    NegF::new(xs).borrow_mut().call()
 }
 
 #[derive(Debug, Clone)]
 struct Pow {
-    inputs: [Option<RcVariable>; 2],
+    inputs: Vec<RcVariable>,
     output: Option<Weak<RefCell<Variable>>>,
     c: f32,
     generation: i32,
@@ -833,61 +773,50 @@ struct Pow {
 }
 
 impl Function for Pow {
-    fn call(&mut self, inputs: &[Option<RcVariable>; 2]) -> RcVariable {
-        if let None = &inputs[0] {
-            panic!("Powは一変数関数です。input[0]がNoneです")
-        }
-        if let Some(_variable) = &inputs[1] {
-            panic!("Powは一変数関数です。input[1]がNoneではある必要があります")
+    fn call(&mut self) -> RcVariable {
+        let inputs = &self.inputs;
+        if inputs.len() != 1 {
+            panic!("Powは一変数関数です。inputsの個数が一つではありません。")
         }
 
-        let xs_data = [Some(inputs[0].as_ref().unwrap().clone()), None];
-
-        // inputのvariableからdataを取り出す
-
-        let ys_data = self.forward(&xs_data);
-
-        let output = ys_data.clone();
-
-        //ここから下の処理はbackwardするときだけ必要。
+        let output = self.forward(inputs);
 
         if get_grad_status() == true {
-            //　inputsを覚える
-            self.inputs = inputs.clone();
-            self.generation = inputs[0].as_ref().unwrap().generation();
+            //inputsのgenerationで一番大きい値をFuncitonのgenerationとする
+            self.generation = inputs.iter().map(|input| input.generation()).max().unwrap();
 
             //  outputを弱参照(downgrade)で覚える
             self.output = Some(output.downgrade());
 
             let self_f: Rc<RefCell<dyn Function>> = Rc::new(RefCell::new(self.clone()));
 
-            //outputに自分をcreatorとして覚えさせる　不変長　配列2
+            //outputsに自分をcreatorとして覚えさせる
             output.0.borrow_mut().set_creator(self_f.clone());
         }
+
         output
     }
 
-    fn forward(&self, xs: &[Option<RcVariable>; 2]) -> RcVariable {
+    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
         let c = self.c;
-        let x = xs[0].as_ref().unwrap();
+        let x = &xs[0];
         let y_data = x.data().mapv(|x| x.powf(c));
 
         y_data.rv()
     }
 
-    fn backward(&self, gy: &RcVariable) -> [Option<RcVariable>; 2] {
-        let mut gxs = [None, None];
-        let x = self.inputs[0].as_ref().unwrap();
+    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+        let x = &self.inputs[0];
 
         let c = self.c;
-
-        gxs[0] = Some(c.rv() * x.pow(c - 1.0f32) * gy.clone());
+        let gx = c.rv() * x.pow(c - 1.0f32) * gy.clone();
+        let gxs = vec![gx];
 
         gxs
     }
 
-    fn get_inputs(&self) -> [Option<RcVariable>; 2] {
-        self.inputs.clone()
+    fn get_inputs(&self) -> &[RcVariable] {
+        &self.inputs
     }
 
     fn get_output(&self) -> RcVariable {
@@ -912,9 +841,9 @@ impl Function for Pow {
     }
 }
 impl Pow {
-    fn new(c: f32) -> Rc<RefCell<Self>> {
+    fn new(input: &[RcVariable], c: f32) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self {
-            inputs: [None, None],
+            inputs: input.to_vec(),
             output: None,
             c: c as f32,
             generation: 0,
@@ -923,8 +852,8 @@ impl Pow {
     }
 }
 
-pub fn pow(xs: &[Option<RcVariable>; 2], c: f32) -> RcVariable {
-    Pow::new(c).borrow_mut().call(&xs)
+pub fn pow(xs: &[RcVariable], c: f32) -> RcVariable {
+    Pow::new(xs, c).borrow_mut().call()
 }
 
 //演算子のオーバーロード
