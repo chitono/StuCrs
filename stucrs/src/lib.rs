@@ -55,19 +55,22 @@ pub mod dataloaders;
 pub mod datasets;
 pub mod functions_cnn;
 pub mod functions_new;
-//pub mod layers;
-//pub mod models;
-//pub mod optimizers;
+pub mod layers;
+pub mod models;
+pub mod optimizers;
 
 #[cfg(test)]
 mod tests {
 
-    use ndarray::{array, Array, Array4};
+    use std::mem::transmute;
+
+    use ndarray::{array, Array, Array4, Dim, IxDyn};
     use ndarray_stats::QuantileExt;
 
     use crate::{
         config::set_test_flag_true,
         functions_cnn::{conv2d_array, max_pool2d},
+        functions_new::{cos, exp, log, relu, reshape, sin, square, sum, tanh, transpose},
     };
 
     use super::*;
@@ -91,6 +94,24 @@ mod tests {
 
         println!("a_grad = {:?}", a.grad().unwrap().data());
         println!("b_grad = {:?}", b.grad().unwrap().data());
+    }
+
+    #[test]
+    fn add_with_broadcast_test() {
+        use crate::core_new::ArrayDToRcVariable;
+
+        let a = array![1.0, 1.0, 1.0, 1.0, 1.0].rv();
+
+        let b = array![2.0].rv();
+
+        let mut c = a.clone() + b.clone();
+
+        println!("c = {}", c.data()); // [3,3,3,3,3]
+
+        c.backward(false);
+
+        println!("a_grad = {:?}", a.grad().unwrap().data()); // [1.0,1.0,1.0,1.0,1.0]
+        println!("b_grad = {:?}", b.grad().unwrap().data()); // [5.0]
     }
 
     #[test]
@@ -165,6 +186,216 @@ mod tests {
         y.backward(false);
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); // 6.0
+    }
+
+    #[test]
+    fn square_test() {
+        use crate::core_new::ArrayDToRcVariable;
+
+        let a = array![3.0, 3.0, 3.0, 3.0, 3.0].rv();
+
+        let mut y = square(&a);
+
+        println!("y = {}", y.data()); // 9.0
+
+        y.backward(false);
+
+        println!("a_grad = {:?}", a.grad().unwrap().data()); // 6.0
+    }
+
+    #[test]
+    fn exp_test() {
+        use crate::core_new::ArrayDToRcVariable;
+
+        let a = array![3.0, 3.0, 3.0].rv();
+        let b = array![2.0, 2.0, 2.0].rv();
+
+        let mut y0 = exp(&a);
+        let mut y1 = b.clone().exp();
+
+        println!("y0= {}", y0.data()); // 20.0855...
+        println!("y1= {}", y1.data()); // 7.3890...
+
+        y0.backward(false);
+        y1.backward(false);
+
+        println!("a_grad = {:?}", a.grad().unwrap().data()); // 20.0855
+        println!("b_grad = {:?}", b.grad().unwrap().data()); // 7.3890
+    }
+
+    #[test]
+    fn sin_test() {
+        use crate::core_new::ArrayDToRcVariable;
+
+        let a = array![3.0, 3.0, 3.0].rv();
+
+        let mut y = sin(&a);
+
+        println!("y = {}", y.data()); // 0.1411
+
+        y.backward(false);
+
+        println!("a_grad = {:?}", a.grad().unwrap().data()); // -0.9899
+    }
+
+    #[test]
+    fn cos_test() {
+        use crate::core_new::ArrayDToRcVariable;
+
+        let a = array![3.0, 3.0, 3.0].rv();
+
+        let mut y = cos(&a);
+
+        println!("y = {}", y.data()); // -0.9899
+
+        y.backward(false);
+
+        println!("a_grad = {:?}", a.grad().unwrap().data()); // -0.1411
+    }
+
+    #[test]
+    fn tanh_test() {
+        use crate::core_new::ArrayDToRcVariable;
+
+        let a = array![3.0, 3.0, 3.0].rv();
+
+        let mut y = tanh(&a);
+
+        println!("y = {}", y.data()); // 0.9950...
+
+        y.backward(false);
+
+        println!("a_grad = {:?}", a.grad().unwrap().data()); // 9.866...e-3
+    }
+
+    #[test]
+    fn log_test() {
+        use crate::core_new::ArrayDToRcVariable;
+
+        let a = array![3.0, 3.0, 3.0].rv();
+        let b = array![3.0, 3.0, 3.0].rv();
+
+        let mut y0 = log(&a, None); //底がe
+        let mut y1 = log(&b, Some(2.0)); //底が2.0
+
+        println!("y0 = {}", y0.data()); // 1.098...
+        println!("y1 = {}", y1.data()); // 1.584...
+
+        y0.backward(false);
+        y1.backward(false);
+
+        println!("a_grad = {:?}", a.grad().unwrap().data()); // 0.3333...
+        println!("b_grad = {:?}", b.grad().unwrap().data()); // 0.4808...
+    }
+
+    #[test]
+    fn reshape_test() {
+        use crate::core_new::ArrayDToRcVariable;
+
+        let a = array![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]].rv();
+        let b = array![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]].rv();
+
+        let mut y0 = reshape(&a, Dim(IxDyn(&[1, 6])));
+
+        let mut y1 = b.reshape(Dim(IxDyn(&[1, 6])));
+
+        println!("y0 = {}", y0.data()); //[[1,2,3,4,5,6]] shape(1,6)
+        println!("y1 = {}", y1.data()); //[[1,2,3,4,5,6]] shape(1,6)
+
+        y0.backward(false);
+        y1.backward(false);
+        println!("a_grad = {:?}", a.grad().unwrap().data()); // [[1.0,1.0,1.0],[1.0,1.0,1.0]] shape(2,3)
+        println!("b_grad = {:?}", b.grad().unwrap().data()); // [[1.0,1.0,1.0],[1.0,1.0,1.0]] shape(2,3)
+    }
+
+    #[test]
+    fn transpose_test() {
+        use crate::core_new::ArrayDToRcVariable;
+
+        let a = array![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]].rv();
+        let b = array![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]].rv();
+
+        let mut y0 = transpose(&a);
+
+        let mut y1 = b.t();
+
+        println!("y0 = {}", y0.data()); //[[1,4],[2,5],[3,6]] shape(3,2)
+        println!("y1 = {}", y1.data()); //[[1,4],[2,5],[3,6]] shape(3,2)
+
+        y0.backward(false);
+        y1.backward(false);
+        println!("a_grad = {:?}", a.grad().unwrap().data()); // [[1.0,1.0,1.0],[1.0,1.0,1.0]] shape(2,3)
+        println!("b_grad = {:?}", b.grad().unwrap().data()); // [[1.0,1.0,1.0],[1.0,1.0,1.0]] shape(2,3)
+    }
+
+    #[test]
+    fn sum_test() {
+        use crate::core_new::ArrayDToRcVariable;
+
+        let a = array![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]].rv();
+        let b = array![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]].rv();
+        let c = array![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]].rv();
+
+        let mut y0 = sum(&a, None);
+        let mut y1 = sum(&b, Some(0));
+        let mut y2 = sum(&c, Some(1));
+
+        println!("y0 = {}", y0.data()); // 21.0
+        println!("y1 = {}", y1.data()); //
+        println!("y2 = {}", y2.data()); //
+
+        y0.backward(false);
+        y1.backward(false);
+        y2.backward(false);
+
+        println!("a_grad = {:?}", a.grad().unwrap().data()); //
+        println!("b_grad = {:?}", a.grad().unwrap().data()); //
+        println!("c_grad = {:?}", a.grad().unwrap().data()); //
+    }
+
+    #[test]
+    fn broadcast_to_test() {
+        use crate::core_new::ArrayDToRcVariable;
+
+        let a = array![3.0, 3.0, 3.0, 3.0, 3.0].rv();
+
+        let mut y = a.clone().pow(2.0);
+
+        println!("y = {}", y.data()); // 9.0
+
+        y.backward(false);
+
+        println!("a_grad = {:?}", a.grad().unwrap().data()); // 6.0
+    }
+
+    #[test]
+    fn sum_to_test() {
+        use crate::core_new::ArrayDToRcVariable;
+
+        let a = array![3.0, 3.0, 3.0, 3.0, 3.0].rv();
+
+        let mut y = a.clone().pow(2.0);
+
+        println!("y = {}", y.data()); // 9.0
+
+        y.backward(false);
+
+        println!("a_grad = {:?}", a.grad().unwrap().data()); // 6.0
+    }
+
+    #[test]
+    fn relu_test() {
+        use crate::core_new::ArrayDToRcVariable;
+
+        let a = array![0.0, -1.0, 3.0, 1.0, -4.0].rv();
+
+        let mut y = relu(&a);
+
+        println!("y = {}", y.data());
+
+        y.backward(false);
+
+        println!("a_grad = {:?}", a.grad().unwrap().data());
     }
 
     #[test]
