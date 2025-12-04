@@ -1509,7 +1509,7 @@ struct MatMul {
 impl Function for MatMul {
     fn call(&mut self) -> RcVariable {
         let inputs = &self.inputs;
-        if inputs.len() != 1 {
+        if inputs.len() != 2 {
             panic!("Matmulは二変数関数です。inputsの個数が二つではありません。")
         }
 
@@ -1893,8 +1893,8 @@ pub fn softmax_cross_entropy_simple(x: &RcVariable, t: &RcVariable) -> RcVariabl
     y
 }
 
-//clamp
-
+/// Clamp関数は入力値xを設定された値、min,maxに収める関数です。
+/// xがminより小さいならminを、maxより大きいならmaxを、min以上max以下ならxの値をそのまま返す。
 #[derive(Debug, Clone)]
 pub struct Clamp {
     inputs: Vec<RcVariable>,
@@ -1992,6 +1992,8 @@ impl Clamp {
     }
 }
 
+/// Clamp関数は入力値xを設定された値、min,maxに収める関数。
+/// xがminより小さいならminを、maxより大きいならmaxを、min以上max以下ならxの値をそのまま返す。
 pub fn clamp(x: &RcVariable, min: f32, max: f32) -> RcVariable {
     let y = clamp_f(&[x.clone()], min, max);
     y

@@ -70,7 +70,7 @@ mod tests {
     use crate::{
         config::set_test_flag_true,
         functions_cnn::{conv2d_array, max_pool2d},
-        functions_new::{cos, exp, log, relu, reshape, sin, square, sum, tanh, transpose},
+        functions_new::{cos, exp, log, matmul, relu, reshape, sin, square, sum, tanh, transpose},
     };
 
     use super::*;
@@ -381,6 +381,23 @@ mod tests {
         y.backward(false);
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); // 6.0
+    }
+
+    #[test]
+    fn matmul_test() {
+        use crate::core_new::ArrayDToRcVariable;
+
+        let a = array![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]].rv();
+
+        let b = array![[7.0, 8.0], [9.0, 10.0], [11.0, 12.0]].rv();
+
+        let mut y = matmul(&a, &b);
+
+        println!("y = {}", y.data()); // [[58,64],[139,154]]
+        y.backward(false);
+
+        println!("a_grad = {:?}", a.grad().unwrap().data());
+        println!("b_grad = {:?}", b.grad().unwrap().data());
     }
 
     #[test]
