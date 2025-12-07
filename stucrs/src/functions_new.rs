@@ -1135,6 +1135,112 @@ pub fn transpose(x: &RcVariable) -> RcVariable {
 }
 
 #[derive(Debug, Clone)]
+struct PermuteAxes {
+    inputs: Vec<RcVariable>,
+    output: Option<Weak<RefCell<Variable>>>,
+    axes: Vec<usize>,
+    generation: i32,
+    id: usize,
+}
+
+impl Function for PermuteAxes {
+    fn call(&mut self) -> RcVariable {
+        let inputs = &self.inputs;
+        if inputs.len() != 1 {
+            panic!("PermuteAxesは一変数関数です。inputsの個数が一つではありません。")
+        }
+
+        let output = self.forward(inputs);
+
+        if get_grad_status() == true {
+            //inputのgenerationで一番大きい値をFuncitonのgenerationとする
+            self.generation = inputs.iter().map(|input| input.generation()).max().unwrap();
+
+            //  outputを弱参照(downgrade)で覚える
+            self.output = Some(output.downgrade());
+
+            let self_f: Rc<RefCell<dyn Function>> = Rc::new(RefCell::new(self.clone()));
+
+            //outputsに自分をcreatorとして覚えさせる
+            output.0.borrow_mut().set_creator(self_f.clone());
+        }
+
+        output
+    }
+
+    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+        let x = &xs[0];
+        let axes = self.axes.clone();
+        println!("forwardの中のaxesは{:?}", axes);
+        let y_data = x.data().permuted_axes(axes);
+
+        y_data.rv()
+    }
+
+    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+        let axes_len = self.axes.len();
+        let new_axes: Vec<usize> = self
+            .axes
+            .clone()
+            .into_iter()
+            .map(|axis| axis % axes_len)
+            .collect();
+        let mut idx: Vec<usize> = (0..axes_len).collect();
+        idx.sort_by_key(|&i| new_axes[i]);
+        println!("backwardの中のidxは{:?}", idx);
+        let gx = permute_axes(gy, idx);
+        let gxs = vec![gx];
+
+        gxs
+    }
+
+    fn get_inputs(&self) -> &[RcVariable] {
+        &self.inputs
+    }
+
+    fn get_output(&self) -> RcVariable {
+        let output;
+        output = self
+            .output
+            .as_ref()
+            .unwrap()
+            .upgrade()
+            .as_ref()
+            .unwrap()
+            .clone();
+
+        RcVariable(output)
+    }
+
+    fn get_generation(&self) -> i32 {
+        self.generation
+    }
+    fn get_id(&self) -> usize {
+        self.id
+    }
+}
+impl PermuteAxes {
+    fn new(inputs: &[RcVariable], axes: Vec<usize>) -> Rc<RefCell<Self>> {
+        Rc::new(RefCell::new(Self {
+            inputs: inputs.to_vec(),
+            output: None,
+            axes: axes,
+            generation: 0,
+            id: id_generator(),
+        }))
+    }
+}
+
+fn permute_axes_f(xs: &[RcVariable], axes: Vec<usize>) -> RcVariable {
+    PermuteAxes::new(xs, axes).borrow_mut().call()
+}
+
+pub fn permute_axes(x: &RcVariable, axes: Vec<usize>) -> RcVariable {
+    let y = permute_axes_f(&[x.clone()], axes);
+    y
+}
+
+#[derive(Debug, Clone)]
 struct Sum {
     inputs: Vec<RcVariable>,
     output: Option<Weak<RefCell<Variable>>>,
@@ -1641,6 +1747,224 @@ fn matmul_f(xs: &[RcVariable]) -> RcVariable {
 
 pub fn matmul(x: &RcVariable, w: &RcVariable) -> RcVariable {
     let y = matmul_f(&[x.clone(), w.clone()]);
+    y
+}
+
+/// 軸を指定できるよう拡張する予定
+#[derive(Debug, Clone)]
+struct TensorDot {
+    inputs: Vec<RcVariable>,
+    output: Option<Weak<RefCell<Variable>>>,
+    generation: i32,
+    id: usize,
+}
+
+impl Function for TensorDot {
+    fn call(&mut self) -> RcVariable {
+        let inputs = &self.inputs;
+        if inputs.len() != 2 {
+            panic!("TensorDotは二変数関数です。inputsの個数が二つではありません。")
+        }
+
+        let output = self.forward(inputs);
+
+        if get_grad_status() == true {
+            //inputのgenerationで一番大きい値をFuncitonのgenerationとする
+            self.generation = inputs.iter().map(|input| input.generation()).max().unwrap();
+
+            //  outputを弱参照(downgrade)で覚える
+            self.output = Some(output.downgrade());
+
+            let self_f: Rc<RefCell<dyn Function>> = Rc::new(RefCell::new(self.clone()));
+
+            //outputsに自分をcreatorとして覚えさせる
+            output.0.borrow_mut().set_creator(self_f.clone());
+        }
+
+        output
+    }
+
+    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+        //xs[0]の方をX, xs[1]の方をWとする
+        let x = &xs[0];
+        let w = &xs[1];
+
+        let x_data = x.data();
+        let w_data = w.data();
+
+        //match以降の場合分けを関数にしたい
+        let y_data = array_tensordot(x_data.view(), w_data.view());
+
+        y_data.rv()
+    }
+
+    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+        let x = &self.inputs[0];
+        let w = &self.inputs[1];
+
+        let (gx, gw) = tensordot_backward(gy, x, w);
+        let gxs = vec![gx, gw];
+
+        gxs
+    }
+
+    fn get_inputs(&self) -> &[RcVariable] {
+        &self.inputs
+    }
+
+    fn get_output(&self) -> RcVariable {
+        let output;
+        output = self
+            .output
+            .as_ref()
+            .unwrap()
+            .upgrade()
+            .as_ref()
+            .unwrap()
+            .clone();
+
+        RcVariable(output)
+    }
+
+    fn get_generation(&self) -> i32 {
+        self.generation
+    }
+    fn get_id(&self) -> usize {
+        self.id
+    }
+}
+impl TensorDot {
+    fn new(inputs: &[RcVariable]) -> Rc<RefCell<Self>> {
+        Rc::new(RefCell::new(Self {
+            inputs: inputs.to_vec(),
+            output: None,
+            generation: 0,
+            id: id_generator(),
+        }))
+    }
+}
+
+fn array_tensordot(x_array: ArrayViewD<f32>, w_array: ArrayViewD<f32>) -> ArrayD<f32> {
+    let y = match (x_array.ndim(), w_array.ndim()) {
+        // 3D × 2D
+        //(N,k,l) ×　(l,m) -> (N,k,m)
+        (3, 2) => {
+            let x = x_array.clone().into_dimensionality::<Ix3>().unwrap();
+            let w = w_array.clone().into_dimensionality::<Ix2>().unwrap();
+            if x.shape()[2] != w.shape()[0] {
+                panic!("array_tensorの(3,2)での計算でxとwの次元が適合しません。")
+            }
+            let n = x.shape()[0];
+            let k = x.shape()[1];
+            let m = w.shape()[1];
+
+            let mut y = Array3::<f32>::zeros((n, k, m));
+            // xからバッチのように2次元の行列を取り出し、2次元の行列積
+            for b in 0..n {
+                let x_matrix = x.slice(s![b, .., ..]);
+                let result = x_matrix.dot(&w);
+                y.slice_mut(s![b, .., ..]).assign(&result);
+            }
+            y.into_dyn()
+        }
+
+        // 2D × 3D
+        //(k,l) ×　(N,l,m) -> (N,k,m)
+        (2, 3) => {
+            let x = x_array.clone().into_dimensionality::<Ix2>().unwrap();
+            let w = w_array.clone().into_dimensionality::<Ix3>().unwrap();
+
+            if x.shape()[2] != w.shape()[0] {
+                panic!("array_tensorの(2,3)での計算でxとwの次元が適合しません。")
+            }
+            let n = w.shape()[0];
+            let k = x.shape()[0];
+            let m = w.shape()[2];
+
+            let mut y = Array3::<f32>::zeros((n, k, m));
+            // xからバッチのように2次元の行列を取り出し、2次元の行列積
+            for b in 0..n {
+                let w_matrix = w.slice(s![b, .., ..]);
+                let result = x.dot(&w_matrix);
+                y.slice_mut(s![b, .., ..]).assign(&result);
+            }
+            y.into_dyn()
+        }
+
+        // 3D × 3D
+        (3, 3) => {
+            panic!("3次元と3次元の行列積は未実装。今後実装予定。");
+        }
+
+        _ => {
+            panic!("4次元以上または2次元以下の行列積は未実装。");
+        }
+    };
+
+    y
+}
+
+fn tensordot_backward(gy: &RcVariable, x: &RcVariable, w: &RcVariable) -> (RcVariable, RcVariable) {
+    let (gx, gw) = match (x.data().ndim(), w.data().ndim()) {
+        // 3D × 2D
+        //(N,k,l) ×　(l,m) -> (N,k,m)の場合
+        (3, 2) => {
+            let n = x.data().shape()[0];
+            let k = x.data().shape()[1];
+            let l = x.data().shape()[2];
+            let m = w.data().shape()[1];
+
+            let gx = tensordot(gy, &w.t());
+            let gw = matmul(
+                &x.reshape(IxDyn(&[n * k, l])).t(),
+                &gy.reshape(IxDyn(&[n * k, m])),
+            );
+
+            (gx, gw)
+        }
+
+        // 2D × 3D
+        //(k,l) ×　(N,l,m) -> (N,k,m)
+        (2, 3) => {
+            let k = x.data().shape()[0];
+            let l = x.data().shape()[1];
+            let n = w.data().shape()[0];
+            let m = w.data().shape()[2];
+
+            //(n,k,m) -> (k,n,m) -> (k,n*m)
+            let gy1 = permute_axes(&gy, vec![1, 0, 2]).reshape(IxDyn(&[k, n * m]));
+            //(n,l,m) -> (l,n,m) -> (l,n*m) -> (n*m,l)
+            let w1 = permute_axes(&w, vec![1, 0, 2])
+                .reshape(IxDyn(&[l, n * m]))
+                .t();
+            let gx = matmul(&gy1, &w1); //(k,n*m) @ (n*m,l) -> (k,l)
+
+            let gw = tensordot(&x.t(), gy); //(l,k) @' (n,k,m) -> (n,l,m)
+
+            (gx, gw)
+        }
+
+        // 3D × 3D
+        (3, 3) => {
+            panic!("3次元と3次元の行列積は未実装。今後実装予定。");
+        }
+
+        _ => {
+            panic!("4次元以上または2次元以下の行列積は未実装。");
+        }
+    };
+
+    (gx, gw)
+}
+
+fn tensordot_f(xs: &[RcVariable]) -> RcVariable {
+    TensorDot::new(xs).borrow_mut().call()
+}
+
+/// 2次元と3次元の行列積の関数
+/// (2D×3D), (3D×2D), (3D×3D)に対応
+pub fn tensordot(x: &RcVariable, w: &RcVariable) -> RcVariable {
+    let y = tensordot_f(&[x.clone(), w.clone()]);
     y
 }
 

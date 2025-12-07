@@ -70,7 +70,10 @@ mod tests {
     use crate::{
         config::set_test_flag_true,
         functions_cnn::{conv2d_array, max_pool2d},
-        functions_new::{cos, exp, log, matmul, relu, reshape, sin, square, sum, tanh, transpose},
+        functions_new::{
+            clamp, cos, exp, log, matmul, permute_axes, relu, reshape, sin, square, sum, tanh,
+            tensordot, transpose,
+        },
     };
 
     use super::*;
@@ -401,6 +404,54 @@ mod tests {
     }
 
     #[test]
+    fn tensordot_test() {
+        use crate::core_new::ArrayDToRcVariable;
+
+        let a = array![[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]].rv();
+        println!("a_shape = {:?}", a.data().shape()); //[1,2,3]
+
+        let b = array![[7.0, 8.0], [9.0, 10.0], [11.0, 12.0]].rv();
+        println!("b_shape = {:?}", b.data().shape()); //[3,2]
+
+        let mut y = tensordot(&a, &b);
+
+        println!("y = {:?}", y.data()); //[[[58.0, 64.0],[139.0, 154.0]]]
+        y.backward(false);
+
+        println!("a_grad = {:?}", a.grad().unwrap().data()); //[[[15.0, 19.0, 23.0],[15.0, 19.0, 23.0]]]
+        println!("b_grad = {:?}", b.grad().unwrap().data()); //[[5.0, 5.0],[7.0, 7.0],[9.0, 9.0]]
+    }
+
+    #[test]
+    fn permute_axes2d_test() {
+        use crate::core_new::ArrayDToRcVariable;
+
+        let a = array![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]].rv();
+
+        let mut y = permute_axes(&a, vec![1, 0]);
+
+        println!("y = {}", y.data());
+        y.backward(false);
+
+        println!("a_grad = {:?}", a.grad().unwrap().data());
+    }
+
+    #[test]
+    fn permute_axes3d_test() {
+        use crate::core_new::ArrayDToRcVariable;
+
+        let a = array![[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]].rv();
+        println!("a_shape = {:?}", a.data().shape()); //[1,2,3]
+
+        let mut y = permute_axes(&a, vec![1, 2, 0]);
+
+        println!("y = {:?}", y.data());
+        y.backward(false);
+
+        println!("a_grad = {:?}", a.grad().unwrap().data()); //[1,2,3] a_shapeと同じならok
+    }
+
+    #[test]
     fn relu_test() {
         use crate::core_new::ArrayDToRcVariable;
 
@@ -454,7 +505,7 @@ mod tests {
         let stride_size = (1, 1);
         let pad_size = (1, 1);
 
-        let output = conv2d_array(input.view(), kernel.view(), stride_size, pad_size);
+        let output = conv2d_array(input.view(), kernel.view(), None, stride_size, pad_size);
         println!("{:?}", output);
 
         //assert_eq!(output_size, (4, 4));
@@ -470,7 +521,7 @@ mod tests {
         let stride_size = (1, 1);
         let pad_size = (0, 0);
 
-        let output = conv2d_array(input.view(), kernel.view(), stride_size, pad_size);
+        let output = conv2d_array(input.view(), kernel.view(), None, stride_size, pad_size);
         println!("{:?}", output); //55.0
     }
 
