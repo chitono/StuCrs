@@ -237,7 +237,6 @@ impl RcVariable {
         let y = pow(&[self.clone()], c);
         y
     }
-    /*
 
     pub fn exp(&self) -> RcVariable {
         let y = exp(&self);
@@ -254,10 +253,15 @@ impl RcVariable {
         y
     }
 
+    pub fn permute_axes(&self, axes: Vec<usize>) -> RcVariable {
+        let y = permute_axes(self, axes);
+        y
+    }
+
     pub fn sum(&self, axis: Option<u16>) -> RcVariable {
         let y = sum(self, axis);
         y
-    } */
+    }
 }
 
 pub trait Function: Debug {
