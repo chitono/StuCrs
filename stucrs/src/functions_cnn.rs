@@ -4,15 +4,13 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::fmt::Debug;
 
-use ndarray::{
-    array, s, Array, Array1, Array2, Array3, Array4, ArrayBase, ArrayD, ArrayView3, ArrayView4,
-    ArrayViewD, Dim, Dimension, IxDyn, OwnedRepr, Shape, ViewRepr,
-};
+use ndarray::*;
 use ndarray_stats::QuantileExt;
 use std::rc::{Rc, Weak};
 use std::{usize, vec};
 
-use crate::config::{get_grad_status, id_generator, set_grad_false, set_grad_true};
+use crate::config::{get_grad_status, id_generator};
+use crate::core_new::{ArrayDToRcVariable, Function, RcVariable, Variable};
 use crate::functions_new::*;
 
 pub fn get_conv_outsize(
@@ -30,6 +28,7 @@ pub fn get_conv_outsize(
 pub fn conv2d_array(
     input: ArrayView4<f32>,
     weight: ArrayView4<f32>,
+    bias: Option<Array1<f32>>,
     stride_size: (usize, usize),
     pad_size: (usize, usize),
 ) -> ArrayD<f32> {
@@ -90,7 +89,7 @@ pub fn conv2d_array(
     out4d.into_dyn()
 }
 
-/// inputにはConv2d_Function構造体のinputを渡す。
+// inputにはConv2d_Function構造体のinputを渡す。
 pub fn conv2d_array_backward(
     gy_array: ArrayView4<f32>,
     weight: ArrayView4<f32>,
@@ -129,49 +128,12 @@ pub fn conv2d_array_backward(
 
     let (oh, ow) = get_conv_outsize((h, w), (kh, kw), (stride_h, stride_w), (pad_h, pad_w));
 
-    //im2colの出力となる行列を初期化。
-    let mut cols = Array3::<f32>::zeros((n, c * kh * kw, oh * ow));
+    let cols_grad = gy_array
+        .to_shape((n, oc, oh * ow))
+        .expect("conv2d_array_backwardのgy_gradの形状が正しくありません。");
 
-    //im2colの処理
-    for b in 0..n {
-        let img = input.slice(s![b, .., .., ..]);
-        let mut col = cols.slice_mut(s![b, .., ..]);
-        let mut col_idx = 0;
-
-        for y in 0..oh {
-            for x in 0..ow {
-                let y_start = y as isize * stride_h as isize - pad_h as isize;
-                let x_start = x as isize * stride_w as isize - pad_w as isize;
-
-                let mut patch = Vec::<f32>::with_capacity(c * kh * kw);
-
-                for c_idx in 0..c {
-                    for ky in 0..kh {
-                        for kx in 0..kw {
-                            let in_y = y_start + ky as isize;
-                            let in_x = x_start + kx as isize;
-
-                            // paddingしたところは0にする。
-                            let value = if in_y >= 0
-                                && (in_y as usize) < h
-                                && in_x >= 0
-                                && (in_x as usize) < w
-                            {
-                                img[(c_idx, in_y as usize, in_x as usize)]
-                            } else {
-                                0.0
-                            };
-                            patch.push(value);
-                        }
-                    }
-                }
-                for (i, v) in patch.into_iter().enumerate() {
-                    col[(i, col_idx)] = v;
-                }
-                col_idx += 1;
-            }
-        }
-    }
+    for b in 0..n {}
+    let cols = im2col(input.view(), (kh, kw), stride_size, pad_size);
     //weightを1列に展開し、並べて2次元の行列に変形させる。
     let weights_2d = weight.into_shape_with_order((oc, c * kh * kw)).unwrap();
 
@@ -242,7 +204,277 @@ pub fn max_pool2d(
     output.into_dyn()
 }
 
-/// imageからcolsに変換する関数。
+#[derive(Debug, Clone)]
+struct Im2col {
+    inputs: Vec<RcVariable>,
+    output: Option<Weak<RefCell<Variable>>>,
+    kernel_size: (usize, usize),
+    stride_size: (usize, usize),
+    pad_size: (usize, usize),
+    generation: i32,
+    id: usize,
+}
+
+impl Function for Im2col {
+    fn call(&mut self) -> RcVariable {
+        let inputs = &self.inputs;
+        if inputs.len() != 1 {
+            panic!("Im2colは一変数関数です。inputsの個数が一つではありません。")
+        }
+
+        let output = self.forward(inputs);
+
+        if get_grad_status() == true {
+            //inputのgenerationで一番大きい値をFuncitonのgenerationとする
+            self.generation = inputs.iter().map(|input| input.generation()).max().unwrap();
+
+            //  outputを弱参照(downgrade)で覚える
+            self.output = Some(output.downgrade());
+
+            let self_f: Rc<RefCell<dyn Function>> = Rc::new(RefCell::new(self.clone()));
+
+            //outputsに自分をcreatorとして覚えさせる
+            output.0.borrow_mut().set_creator(self_f.clone());
+        }
+
+        output
+    }
+
+    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+        let x = &xs[0];
+        //ここは後に動的のままim2colに渡す予定。
+        let x_data = x.data().into_dimensionality::<Ix4>().unwrap();
+
+        let y_data = im2col(
+            x_data.view(),
+            self.kernel_size,
+            self.stride_size,
+            self.pad_size,
+        );
+
+        y_data.rv()
+    }
+
+    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+        let x_data = &self.inputs[0].data();
+        let x_shape = x_data.shape();
+        let x_shape = x_shape
+            .try_into()
+            .expect("Im2colのxの次元が4ではありません。");
+
+        let gx = col2im_simple(
+            gy,
+            x_shape,
+            self.kernel_size,
+            self.stride_size,
+            self.pad_size,
+        );
+        let gxs = vec![gx];
+
+        gxs
+    }
+
+    fn get_inputs(&self) -> &[RcVariable] {
+        &self.inputs
+    }
+
+    fn get_output(&self) -> RcVariable {
+        let output;
+        output = self
+            .output
+            .as_ref()
+            .unwrap()
+            .upgrade()
+            .as_ref()
+            .unwrap()
+            .clone();
+
+        RcVariable(output)
+    }
+
+    fn get_generation(&self) -> i32 {
+        self.generation
+    }
+    fn get_id(&self) -> usize {
+        self.id
+    }
+}
+impl Im2col {
+    fn new(
+        inputs: &[RcVariable],
+        kernel_size: (usize, usize),
+        stride_size: (usize, usize),
+        pad_size: (usize, usize),
+    ) -> Rc<RefCell<Self>> {
+        Rc::new(RefCell::new(Self {
+            inputs: inputs.to_vec(),
+            output: None,
+            kernel_size: kernel_size,
+            stride_size: stride_size,
+            pad_size: pad_size,
+            generation: 0,
+            id: id_generator(),
+        }))
+    }
+}
+
+fn im2col_f(
+    xs: &[RcVariable],
+    kernel_size: (usize, usize),
+    stride_size: (usize, usize),
+    pad_size: (usize, usize),
+) -> RcVariable {
+    Im2col::new(xs, kernel_size, stride_size, pad_size)
+        .borrow_mut()
+        .call()
+}
+
+pub fn im2col_simple(
+    x: &RcVariable,
+    kernel_size: (usize, usize),
+    stride_size: (usize, usize),
+    pad_size: (usize, usize),
+) -> RcVariable {
+    let y = im2col_f(&[x.clone()], kernel_size, stride_size, pad_size);
+    y
+}
+
+#[derive(Debug, Clone)]
+struct Col2im {
+    inputs: Vec<RcVariable>,
+    output: Option<Weak<RefCell<Variable>>>,
+    input_shape: [usize; 4],
+    kernel_size: (usize, usize),
+    stride_size: (usize, usize),
+    pad_size: (usize, usize),
+    generation: i32,
+    id: usize,
+}
+
+impl Function for Col2im {
+    fn call(&mut self) -> RcVariable {
+        let inputs = &self.inputs;
+        if inputs.len() != 1 {
+            panic!("Col2imは一変数関数です。inputsの個数が一つではありません。")
+        }
+
+        let output = self.forward(inputs);
+
+        if get_grad_status() == true {
+            //inputのgenerationで一番大きい値をFuncitonのgenerationとする
+            self.generation = inputs.iter().map(|input| input.generation()).max().unwrap();
+
+            //  outputを弱参照(downgrade)で覚える
+            self.output = Some(output.downgrade());
+
+            let self_f: Rc<RefCell<dyn Function>> = Rc::new(RefCell::new(self.clone()));
+
+            //outputsに自分をcreatorとして覚えさせる
+            output.0.borrow_mut().set_creator(self_f.clone());
+        }
+
+        output
+    }
+
+    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+        let x = &xs[0];
+        //ここは後に動的のままcol2imに渡す予定。
+        let x_data = x.data().into_dimensionality::<Ix3>().unwrap();
+
+        let y_data = col2im(
+            x_data.view(),
+            self.input_shape,
+            self.kernel_size,
+            self.stride_size,
+            self.pad_size,
+        );
+
+        y_data.rv()
+    }
+
+    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+        let gx = im2col_simple(gy, self.kernel_size, self.stride_size, self.pad_size);
+        let gxs = vec![gx];
+
+        gxs
+    }
+
+    fn get_inputs(&self) -> &[RcVariable] {
+        &self.inputs
+    }
+
+    fn get_output(&self) -> RcVariable {
+        let output;
+        output = self
+            .output
+            .as_ref()
+            .unwrap()
+            .upgrade()
+            .as_ref()
+            .unwrap()
+            .clone();
+
+        RcVariable(output)
+    }
+
+    fn get_generation(&self) -> i32 {
+        self.generation
+    }
+    fn get_id(&self) -> usize {
+        self.id
+    }
+}
+impl Col2im {
+    fn new(
+        inputs: &[RcVariable],
+        input_shape: [usize; 4],
+        kernel_size: (usize, usize),
+        stride_size: (usize, usize),
+        pad_size: (usize, usize),
+    ) -> Rc<RefCell<Self>> {
+        Rc::new(RefCell::new(Self {
+            inputs: inputs.to_vec(),
+            output: None,
+            input_shape: input_shape,
+            kernel_size: kernel_size,
+            stride_size: stride_size,
+            pad_size: pad_size,
+            generation: 0,
+            id: id_generator(),
+        }))
+    }
+}
+
+fn col2im_f(
+    xs: &[RcVariable],
+    input_shape: [usize; 4],
+    kernel_size: (usize, usize),
+    stride_size: (usize, usize),
+    pad_size: (usize, usize),
+) -> RcVariable {
+    Col2im::new(xs, input_shape, kernel_size, stride_size, pad_size)
+        .borrow_mut()
+        .call()
+}
+
+pub fn col2im_simple(
+    x: &RcVariable,
+    input_shape: [usize; 4],
+    kernel_size: (usize, usize),
+    stride_size: (usize, usize),
+    pad_size: (usize, usize),
+) -> RcVariable {
+    let y = col2im_f(
+        &[x.clone()],
+        input_shape,
+        kernel_size,
+        stride_size,
+        pad_size,
+    );
+    y
+}
+
+/// imageからcolsに変換するndarray関数。
 /// inputには画像データ(4次元のndarray行列)を渡す。
 pub fn im2col(
     input: ArrayView4<f32>,

@@ -62,14 +62,14 @@ pub mod optimizers;
 #[cfg(test)]
 mod tests {
 
-    use std::mem::transmute;
+    use std::{mem::transmute, process::Output};
 
     use ndarray::{array, Array, Array4, Dim, IxDyn};
     use ndarray_stats::QuantileExt;
 
     use crate::{
         config::set_test_flag_true,
-        functions_cnn::{conv2d_array, max_pool2d},
+        functions_cnn::{col2im_simple, conv2d_array, im2col_simple, max_pool2d},
         functions_new::{
             clamp, cos, exp, log, matmul, permute_axes, relu, reshape, sin, square, sum, tanh,
             tensordot, transpose,
@@ -615,6 +615,60 @@ mod tests {
         [10.0, 24.0, 28.0, 16.0],
         [18.0, 40.0, 44.0, 24.0],
         [13.0, 28.0, 30.0, 16.0]]]] */
+    }
+
+    #[test]
+    fn im2col_function_test() {
+        use crate::{core_new::ArrayDToRcVariable, functions_cnn::im2col};
+
+        let input = array![[[
+            [1.0f32, 2.0, 3.0, 4.0],
+            [5.0, 6.0, 7.0, 8.0],
+            [9.0, 10.0, 11.0, 12.0],
+            [13.0, 14.0, 15.0, 16.0]
+        ]]]
+        .rv();
+        let kernel_size = (2, 2);
+        let stride_size = (1, 1);
+        let pad_size = (0, 0);
+
+        let mut output = im2col_simple(&input, kernel_size, stride_size, pad_size);
+
+        println!("output = {:?}", output); //shape (1,4,9)
+
+        output.backward(false);
+        println!("input_grad = {:?}", input.grad().unwrap().data());
+    }
+
+    #[test]
+    fn col2im_function_test() {
+        use crate::{core_new::ArrayDToRcVariable, functions_cnn::col2im};
+
+        // im2col_testの出力。(output)
+        let input = array![[
+            [1.0, 2.0, 3.0, 5.0, 6.0, 7.0, 9.0, 10.0, 11.0],
+            [2.0, 3.0, 4.0, 6.0, 7.0, 8.0, 10.0, 11.0, 12.0],
+            [5.0, 6.0, 7.0, 9.0, 10.0, 11.0, 13.0, 14.0, 15.0],
+            [6.0, 7.0, 8.0, 10.0, 11.0, 12.0, 14.0, 15.0, 16.0]
+        ]]
+        .rv();
+
+        let kernel_size = (2, 2);
+        let stride_size = (1, 1);
+        let pad_size = (0, 0);
+
+        let input_shape = [1, 1, 4, 4];
+
+        let mut output = col2im_simple(&input, input_shape, kernel_size, stride_size, pad_size);
+
+        println!("output = {:?}", output);
+        /*output = [[[[1.0, 4.0, 6.0, 4.0],
+        [10.0, 24.0, 28.0, 16.0],
+        [18.0, 40.0, 44.0, 24.0],
+        [13.0, 28.0, 30.0, 16.0]]]] */
+
+        output.backward(false);
+        println!("input_grad = {:?}", input.grad().unwrap().data());
     }
 
     #[test]
