@@ -1171,7 +1171,7 @@ impl Function for PermuteAxes {
     fn forward(&self, xs: &[RcVariable]) -> RcVariable {
         let x = &xs[0];
         let axes = self.axes.clone();
-        println!("forwardの中のaxesは{:?}", axes);
+
         let y_data = x.data().permuted_axes(axes);
 
         y_data.rv()
@@ -1187,7 +1187,7 @@ impl Function for PermuteAxes {
             .collect();
         let mut idx: Vec<usize> = (0..axes_len).collect();
         idx.sort_by_key(|&i| new_axes[i]);
-        println!("backwardの中のidxは{:?}", idx);
+
         let gx = permute_axes(gy, idx);
         let gxs = vec![gx];
 
@@ -1874,7 +1874,7 @@ fn array_tensordot(x_array: ArrayViewD<f32>, w_array: ArrayViewD<f32>) -> ArrayD
             let x = x_array.clone().into_dimensionality::<Ix2>().unwrap();
             let w = w_array.clone().into_dimensionality::<Ix3>().unwrap();
 
-            if x.shape()[2] != w.shape()[0] {
+            if x.shape()[1] != w.shape()[1] {
                 panic!("array_tensorの(2,3)での計算でxとwの次元が適合しません。")
             }
             let n = w.shape()[0];
