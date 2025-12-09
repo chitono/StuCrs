@@ -25,6 +25,48 @@ pub fn get_conv_outsize(
     (oh, ow)
 }
 
+pub fn conv2d_simple(
+    input: &RcVariable,
+    weight: &RcVariable,
+    bias: Option<RcVariable>,
+    stride_size: (usize, usize),
+    pad_size: (usize, usize),
+) -> RcVariable {
+    let input_data = input.data();
+    let weight_data = weight.data();
+
+    let input_shape = input_data.shape();
+    let weight_shape = weight_data.shape();
+
+    let n = input_shape[0];
+    let c = input_shape[1];
+    let h = input_shape[2];
+    let w = input_shape[3];
+
+    // weightから形状のデータを取り出す。
+    let oc = weight_shape[0];
+    let c_wt = weight_shape[1];
+    let kh = weight_shape[2];
+    let kw = weight_shape[3];
+
+    // チャンネル数がinputとweightで一致しているか確認。
+    if c != c_wt {
+        panic!("Conv2d: inputのチャンネル数とweightのチャンネル数が一致しません。");
+    }
+
+    let (oh, ow) = get_conv_outsize((h, w), (kh, kw), stride_size, pad_size);
+
+    let cols = im2col_simple(input, (kh, kw), stride_size, pad_size);
+
+    let weights_2d = weight.reshape(IxDyn(&[oc, c * kh * kw]));
+
+    let out = tensordot(&weights_2d, &cols);
+
+    let out4d = out.reshape(IxDyn(&[n, oc, oh, ow]));
+
+    out4d
+}
+
 pub fn conv2d_array(
     input: ArrayView4<f32>,
     weight: ArrayView4<f32>,

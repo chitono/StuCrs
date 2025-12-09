@@ -69,7 +69,7 @@ mod tests {
 
     use crate::{
         config::set_test_flag_true,
-        functions_cnn::{col2im_simple, conv2d_array, im2col_simple, max_pool2d},
+        functions_cnn::{col2im_simple, conv2d_array, conv2d_simple, im2col_simple, max_pool2d},
         functions_new::{
             clamp, cos, exp, log, matmul, permute_axes, relu, reshape, sin, square, sum, tanh,
             tensordot, transpose,
@@ -493,6 +493,31 @@ mod tests {
         //let output = conv2d_array(input, weight, stride_size, pad_size)
 
         //assert_eq!(output_size, (4, 4));
+    }
+
+    #[test]
+    fn conv2d_test() {
+        use crate::{core_new::ArrayDToRcVariable, functions_cnn::get_conv_outsize};
+
+        let input_array: Array4<f32> = Array::from_elem((1, 5, 15, 15), 2.0);
+        let weight_array: Array4<f32> = Array::from_elem((8, 5, 3, 3), 3.0);
+
+        let input = input_array.rv();
+        let weight = weight_array.rv();
+
+        let stride_size = (1, 1);
+        let pad_size = (1, 1);
+
+        let mut output = conv2d_simple(&input, &weight, None, stride_size, pad_size);
+
+        println!("output_shape = {:?}", output.data().shape()); //shape = (1,8,15,15)
+
+        output.backward(false);
+
+        println!(
+            "input_grad_shape = {:?}",
+            input.grad().unwrap().data().shape()
+        ); //shape = (1,5,15,15)
     }
 
     #[test]
