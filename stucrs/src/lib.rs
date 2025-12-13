@@ -71,8 +71,7 @@ mod tests {
         config::set_test_flag_true,
         functions_cnn::{col2im_simple, conv2d_array, conv2d_simple, im2col_simple, max_pool2d},
         functions_new::{
-            clamp, cos, exp, log, matmul, permute_axes, relu, reshape, sin, square, sum, tanh,
-            tensordot, transpose,
+            argmax_array, clamp, cos, exp, log, matmul, permute_axes, relu, reshape, sin, square, sum, tanh, tensordot, transpose
         },
     };
 
@@ -697,12 +696,12 @@ mod tests {
     }
 
     #[test]
-    fn array_max_test() {
+    fn array_argmax_test() {
         use crate::{core_new::ArrayDToRcVariable, functions_cnn::get_conv_outsize};
         use ndarray::{s, Array1};
-        let input = array![[1.0f32, 2.0], [3.0, 4.0], [10.0, 20.0], [30.0, 40.0]];
+        let input = array![[1.0f32, 2.0], [3.0, 4.0], [10.0, 20.0], [30.0, 40.0]].into_dyn();
         //let output:Array1<f32> = input.outer_iter().map(|row|{row.max().unwrap().clone()}).collect();
-        let output = input.slice(s![0, ..]);
+        let output = argmax_array(input.view(), None);
         println!("{:?}", output);
     }
 }
