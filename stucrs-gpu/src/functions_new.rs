@@ -1,17 +1,14 @@
-use core::num;
 use std::cell::RefCell;
-//use std::clone;
+
 use std::collections::HashSet;
 use std::fmt::Debug;
 
-//use std::sync::Mutex;
-//use std::future;
 //use std::hash::Hash;
-//use std::process::Output;
+
 use ndarray::*;
-use ndarray_stats::QuantileExt;
+//use ndarray_stats::QuantileExt;
 use std::rc::{Rc, Weak};
-use std::time::Instant;
+//use std::time::Instant;
 use std::vec;
 
 //use std::thread;
@@ -19,7 +16,7 @@ use std::vec;
 
 use crate::config::{get_grad_status, id_generator};
 use crate::core_new::*;
-use crate::datasets::arr1d_to_one_hot;
+//use crate::datasets::arr1d_to_one_hot;
 
 use tensor_frame::{Shape, Tensor, TensorOps};
 
