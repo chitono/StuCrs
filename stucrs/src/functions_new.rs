@@ -2296,7 +2296,7 @@ impl Function for Max {
                     }
 
                     _ => {
-                        panic!("指定した軸には対応していません。")
+                        unimplemented!("指定した軸には対応していません。")
                     }
                 };
 
@@ -2308,6 +2308,12 @@ impl Function for Max {
 
                 // 3次元での軸指定は2のみ対応。今後拡張予定。
                 let y_data = match self.axis {
+                    Some(0) => {
+                        todo!("3次元のmaxの軸0は未実装。")
+                    }
+                    Some(1) => {
+                        todo!("3次元のmaxの軸1は未実装。")
+                    }
                     Some(2) => {
                         let n = x_array.shape()[0];
                         let h = x_array.shape()[1];
@@ -2327,13 +2333,13 @@ impl Function for Max {
                         y_data
                     }
                     _ => {
-                        panic!("指定した軸は未対応。");
+                        unimplemented!("指定した軸は未対応。");
                     }
                 };
                 y_data.into_dyn()
             }
             _ => {
-                panic!("1,2,3次元以外の行列は未対応。")
+                unimplemented!("1,2,3次元以外の行列は未対応。");
             }
         };
 
@@ -2353,7 +2359,7 @@ impl Function for Max {
             }
             2 => match self.axis {
                 None => {
-                    panic!("2次元のmax関数のbackwardでの軸を指定なしは後で対応")
+                    todo!("2次元のmax関数のbackwardでの軸を指定なしは後で対応")
                 }
                 Some(0) => {
                     for (i, index) in x_argmax_array.iter().enumerate() {
@@ -2366,15 +2372,15 @@ impl Function for Max {
                     }
                 }
                 _ => {
-                    panic!("指定した軸は未対応。")
+                    unimplemented!("指定した軸は未対応。")
                 }
             },
             3 => match self.axis {
                 None => {
-                    panic!("3次元のmax関数のbackwardでの軸を指定なしは後で対応")
+                    todo!("3次元のmax関数のbackwardでの軸を指定なしは後で対応")
                 }
                 Some(0) => {
-                    panic!("3次元のmax関数のbackwardの軸0はまだ未対応")
+                    todo!("3次元のmax関数のbackwardの軸0はまだ未対応")
                 }
                 Some(1) => {
                     let n = x_shape[0];
@@ -2399,11 +2405,11 @@ impl Function for Max {
                     }
                 }
                 _ => {
-                    panic!("指定した軸は未対応。")
+                    unimplemented!("指定した軸は未対応。")
                 }
             },
             _ => {
-                panic!("1-3次元以外の次元には対応していません.")
+                unimplemented!("1-3次元以外の次元には対応していません.")
             }
         }
 
@@ -2634,7 +2640,7 @@ pub fn argmax_array(x_array: ArrayViewD<f32>, axis: Option<u16>) -> ArrayD<usize
         2 => {
             let y_data = match axis {
                 None => {
-                    panic!("2次元のargmax関数の軸を指定なしは後で対応")
+                    todo!("2次元のargmax関数の軸を指定なしは後で対応")
                 }
                 Some(0) => {
                     let x_array = x_array.into_dimensionality::<Ix2>().unwrap();
@@ -2657,7 +2663,7 @@ pub fn argmax_array(x_array: ArrayViewD<f32>, axis: Option<u16>) -> ArrayD<usize
                     max_array.into_dyn()
                 }
                 _ => {
-                    panic!("指定した軸には対応していません。")
+                    unimplemented!("指定した軸には対応していません。")
                 }
             };
             y_data
@@ -2666,10 +2672,10 @@ pub fn argmax_array(x_array: ArrayViewD<f32>, axis: Option<u16>) -> ArrayD<usize
             let x_array = x_array.into_dimensionality::<Ix3>().unwrap();
             let y_array: Array2<usize> = match axis {
                 None => {
-                    panic!("3次元のargmax関数の軸を指定なしは後で対応")
+                    todo!("3次元のargmax関数の軸を指定なしは後で対応")
                 }
                 Some(0) => {
-                    panic!("3次元の軸0はまだ未対応")
+                    todo!("3次元の軸0はまだ未対応")
                 }
                 Some(1) => {
                     let n = x_array.shape()[0];
@@ -2706,13 +2712,13 @@ pub fn argmax_array(x_array: ArrayViewD<f32>, axis: Option<u16>) -> ArrayD<usize
                     y_array
                 }
                 _ => {
-                    panic!("その他の軸は対応していません")
+                    unimplemented!("その他の軸は対応していません")
                 }
             };
             y_array.into_dyn()
         }
         _ => {
-            panic!("1-3次元以外の次元には対応していません")
+            unimplemented!("1-3次元以外の次元には対応していません")
         }
     };
     y_array
