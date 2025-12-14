@@ -69,10 +69,10 @@ mod tests {
 
     use crate::{
         config::set_test_flag_true,
-        functions_cnn::{col2im_simple, conv2d_array, conv2d_simple, im2col_simple, max_pool2d},
+        functions_cnn::{col2im_simple, conv2d_array, conv2d_simple, im2col_simple},
         functions_new::{
-            argmax_array, clamp, cos, exp, log, matmul, permute_axes, relu, reshape, sin, square,
-            sum, tanh, tensordot, transpose,
+            argmax_array, clamp, cos, exp, log, matmul, max, permute_axes, relu, reshape, sin,
+            square, sum, tanh, tensordot, transpose,
         },
     };
 
@@ -352,8 +352,8 @@ mod tests {
         y2.backward(false);
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); //
-        println!("b_grad = {:?}", a.grad().unwrap().data()); //
-        println!("c_grad = {:?}", a.grad().unwrap().data()); //
+        println!("b_grad = {:?}", b.grad().unwrap().data()); //
+        println!("c_grad = {:?}", c.grad().unwrap().data()); //
     }
 
     #[test]
@@ -449,6 +449,42 @@ mod tests {
         y.backward(false);
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); //[1,2,3] a_shapeと同じならok
+    }
+
+    #[test]
+    fn max_test() {
+        use crate::core_new::ArrayDToRcVariable;
+
+        let a = array![1.0, 2.0, 30.0, 4.0, 5.0, 6.0].rv(); //1次元
+        let b = array![[1.0, 5.0, 3.0], [4.0, 5.0, 6.0]].rv(); //2次元
+        let c = array![
+            [[1.0, 3.0, 2.0], [6.0, 5.0, 4.0]],
+            [[10.0, 20.0, 30.0], [60.0, 50.0, 40.0]]
+        ]
+        .rv(); //3次元
+
+        let mut y0 = max(&a, None);
+        println!("計算1完了");
+        let mut y1 = max(&b, Some(1));
+        println!("計算2完了");
+        let mut y2 = max(&c, Some(2));
+        println!("計3完了");
+
+        println!("y0 = {}", y0.data()); // [30]
+        println!("y1 = {}", y1.data()); // [[5],[6]]
+        println!("y2 = {}", y2.data()); //
+
+        y0.backward(false);
+        println!("微分1完了");
+
+        y1.backward(false);
+        println!("微分2完了");
+        y2.backward(false);
+        println!("微分3完了");
+
+        println!("a_grad = {:?}", a.grad().unwrap().data()); // [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+        println!("b_grad = {:?}", b.grad().unwrap().data()); //[[0.0, 1.0, 0.0],[0.0, 0.0, 1.0]]
+        println!("c_grad = {:?}", c.grad().unwrap().data()); //[[[0.0, 1.0, 0.0],[1.0, 0.0, 0.0]],[[0.0, 0.0, 1.0],[1.0, 0.0, 0.0]]]
     }
 
     #[test]
@@ -552,7 +588,7 @@ mod tests {
 
     #[test]
     fn max_pool2d_array_1ch_test() {
-        use crate::{core_new::ArrayDToRcVariable, functions_cnn::get_conv_outsize};
+        use crate::{core_new::ArrayDToRcVariable, functions_cnn::max_pool2d_array};
 
         let input = array![[[
             [4.0f32, 1.0, 5.0, 3.0],
@@ -564,14 +600,14 @@ mod tests {
         let stride_size = (1, 1);
         let pad_size = (0, 0);
 
-        let output = max_pool2d(input.view(), kernel_size, stride_size, pad_size);
+        let output = max_pool2d_array(input.view(), kernel_size, stride_size, pad_size);
         println!("output = {:?}", output);
         //assert_eq!(output_size, (4, 4));
     }
 
     #[test]
     fn max_pool2d_array_2ch_test() {
-        use crate::{core_new::ArrayDToRcVariable, functions_cnn::get_conv_outsize};
+        use crate::{core_new::ArrayDToRcVariable, functions_cnn::max_pool2d_array};
         let input = array![[
             [
                 [4.0f32, 1.0, 5.0, 3.0],
@@ -590,7 +626,7 @@ mod tests {
         let stride_size = (1, 1);
         let pad_size = (0, 0);
 
-        let output = max_pool2d(input.view(), kernel_size, stride_size, pad_size);
+        let output = max_pool2d_array(input.view(), kernel_size, stride_size, pad_size);
         println!("output = {:?}", output);
     }
 
@@ -708,8 +744,8 @@ mod tests {
     fn array_argmax3d_test() {
         let input = array![[[1.0f32, 2.0], [4.0, 3.0]], [[10.0, 20.0], [30.0, 40.0]]].into_dyn();
 
-        let output = argmax_array(input.view(), Some(1));
-        println!("{:?}", output); //axis = 1 ...[[1.0, 1.0],[1.0, 1.0]]
-                                  //axis = 2 ...[[1.0, 0.0],[1.0, 1.0]]
+        let output = argmax_array(input.view(), Some(2));
+        println!("{:?}", output); //axis = 1 ...[[1, 1],[1, 1]] 返す行列はusize型
+                                  //axis = 2 ...[[1, 0],[1, 1]]
     }
 }
