@@ -665,7 +665,7 @@ mod tests {
 
     #[test]
     fn im2col_test() {
-        use crate::{core_new::ArrayDToRcVariable, functions_cnn::im2col};
+        use crate::{core_new::ArrayDToRcVariable, functions_cnn::im2col_array};
 
         let input = array![[[
             [1.0f32, 2.0, 3.0, 4.0],
@@ -677,13 +677,13 @@ mod tests {
         let stride_size = (1, 1);
         let pad_size = (0, 0);
 
-        let output = im2col(input.view(), kernel_size, stride_size, pad_size);
+        let output = im2col_array(input.view(), kernel_size, stride_size, pad_size);
         println!("output = {:?}", output); //shape (1,4,9)
     }
 
     #[test]
     fn col2im_test() {
-        use crate::{core_new::ArrayDToRcVariable, functions_cnn::col2im};
+        use crate::{core_new::ArrayDToRcVariable, functions_cnn::col2im_array};
 
         // im2col_testの出力。(output)
         let input = array![[
@@ -697,7 +697,7 @@ mod tests {
         let stride_size = (1, 1);
         let pad_size = (0, 0);
 
-        let output = col2im(
+        let output = col2im_array(
             input.view(),
             [1, 1, 4, 4],
             kernel_size,
@@ -713,7 +713,7 @@ mod tests {
 
     #[test]
     fn im2col_function_test() {
-        use crate::{core_new::ArrayDToRcVariable, functions_cnn::im2col};
+        use crate::{core_new::ArrayDToRcVariable, functions_cnn::im2col_array};
 
         let input = array![[[
             [1.0f32, 2.0, 3.0, 4.0],
@@ -736,7 +736,7 @@ mod tests {
 
     #[test]
     fn col2im_function_test() {
-        use crate::{core_new::ArrayDToRcVariable, functions_cnn::col2im};
+        use crate::{core_new::ArrayDToRcVariable, functions_cnn::col2im_array};
 
         // im2col_testの出力。(output)
         let input = array![[

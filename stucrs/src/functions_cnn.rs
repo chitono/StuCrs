@@ -134,7 +134,7 @@ pub fn conv2d_array(
     let (oh, ow) = get_conv_outsize((h, w), (kh, kw), (stride_h, stride_w), (pad_h, pad_w));
 
     // im2col関数でcolsを出力。
-    let cols = im2col(input.view(), (kh, kw), stride_size, pad_size);
+    let cols = im2col_array(input.view(), (kh, kw), stride_size, pad_size);
 
     //weightを1列に展開し、並べて2次元の行列に変形させる。
     let weights_2d = weight.into_shape_with_order((oc, c * kh * kw)).unwrap();
@@ -209,7 +209,7 @@ pub fn conv2d_array_backward(
         .expect("conv2d_array_backwardのgy_gradの形状が正しくありません。");
 
     for b in 0..n {}
-    let cols = im2col(input.view(), (kh, kw), stride_size, pad_size);
+    let cols = im2col_array(input.view(), (kh, kw), stride_size, pad_size);
     //weightを1列に展開し、並べて2次元の行列に変形させる。
     let weights_2d = weight.into_shape_with_order((oc, c * kh * kw)).unwrap();
 
@@ -252,7 +252,7 @@ pub fn max_pool2d_array(
 
     let (oh, ow) = get_conv_outsize((h, w), kernel_size, stride_size, pad_size);
 
-    let cols = im2col(input, kernel_size, stride_size, pad_size);
+    let cols = im2col_array(input, kernel_size, stride_size, pad_size);
 
     // (N,c*kh*kw,oh*ow) -> (N,oh*ow,c*kh*kw)
     let cols = cols.permuted_axes([0, 2, 1]);
@@ -295,7 +295,7 @@ pub fn max_pool2d_array_backward(
 
     let (oh, ow) = get_conv_outsize((h, w), kernel_size, stride_size, pad_size);
 
-    let cols = im2col(input, kernel_size, stride_size, pad_size);
+    let cols = im2col_array(input, kernel_size, stride_size, pad_size);
 
     // (N,c*kh*kw,oh*ow) -> (N,oh*ow,c*kh*kw)
     let cols = cols.permuted_axes([0, 2, 1]);
@@ -361,7 +361,7 @@ impl Function for Im2col {
         //ここは後に動的のままim2colに渡す予定。
         let x_data = x.data().into_dimensionality::<Ix4>().unwrap();
 
-        let y_data = im2col(
+        let y_data = im2col_array(
             x_data.view(),
             self.kernel_size,
             self.stride_size,
@@ -497,7 +497,7 @@ impl Function for Col2im {
         //ここは後に動的のままcol2imに渡す予定。
         let x_data = x.data().into_dimensionality::<Ix3>().unwrap();
 
-        let y_data = col2im(
+        let y_data = col2im_array(
             x_data.view(),
             self.input_shape,
             self.kernel_size,
@@ -592,7 +592,7 @@ pub fn col2im_simple(
 
 /// imageからcolsに変換するndarray関数。
 /// inputには画像データ(4次元のndarray行列)を渡す。
-pub fn im2col(
+pub fn im2col_array(
     input: ArrayView4<f32>,
     kernel_size: (usize, usize),
     stride_size: (usize, usize),
@@ -659,7 +659,7 @@ pub fn im2col(
 /// colsからimageに変更する関数。
 /// inputにはcolsを渡す。
 /// im_shapeは元のimageのshape(N,C,H,W)を渡す。
-pub fn col2im(
+pub fn col2im_array(
     input: ArrayView3<f32>,
     im_shape: [usize; 4],
     kernel_size: (usize, usize),
