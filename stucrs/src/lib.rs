@@ -69,7 +69,9 @@ mod tests {
 
     use crate::{
         config::set_test_flag_true,
-        functions_cnn::{col2im_simple, conv2d_array, conv2d_simple, im2col_simple},
+        functions_cnn::{
+            col2im_simple, conv2d_array, conv2d_simple, im2col_simple, max_pool2d_simple,
+        },
         functions_new::{
             argmax_array, clamp, cos, exp, log, matmul, max, permute_axes, relu, reshape, sin,
             square, sum, tanh, tensordot, transpose,
@@ -558,8 +560,6 @@ mod tests {
 
     #[test]
     fn conv2d_array_1ch_test() {
-        use crate::{core_new::ArrayDToRcVariable, functions_cnn::get_conv_outsize};
-
         let input = array![[[[1.0f32, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]]];
         let kernel = array![[[[1.0f32, 1.0, 1.0], [0.0, 0.0, 0.0], [-1.0, -1.0, -1.0]]]];
 
@@ -574,8 +574,6 @@ mod tests {
 
     #[test]
     fn conv2d_array_2ch_test() {
-        use crate::{core_new::ArrayDToRcVariable, functions_cnn::get_conv_outsize};
-
         let input = array![[[[1.0f32, 2.0], [3.0, 4.0]], [[10.0, 20.0], [30.0, 40.0]]]];
         let kernel = array![[[[1.0f32, 0.0], [0.0, 1.0]], [[0.0, 1.0], [1.0, 0.0]]]];
 
@@ -584,6 +582,41 @@ mod tests {
 
         let output = conv2d_array(input.view(), kernel.view(), None, stride_size, pad_size);
         println!("{:?}", output); //55.0
+    }
+
+    #[test]
+    fn max_pool2d_test() {
+        use crate::core_new::ArrayDToRcVariable;
+
+        let input_array: Array4<f32> = array![[
+            [
+                [4.0f32, 1.0, 5.0, 3.0],
+                [7.0, 3.0, 2.0, 3.0],
+                [7.0, 2.0, 3.0, 4.0],
+                [1.0, 5.0, 3.0, 9.0]
+            ],
+            [
+                [4.0f32, 1.0, 5.0, 3.0],
+                [7.0, 3.0, 2.0, 3.0],
+                [7.0, 2.0, 3.0, 4.0],
+                [1.0, 5.0, 3.0, 9.0]
+            ]
+        ]];
+
+        println!("input_shape = {:?}", input_array.shape());
+
+        let input = input_array.rv();
+        let kernel_size = (2, 2);
+        let stride_size = (1, 1);
+        let pad_size = (0, 0);
+
+        let mut output = max_pool2d_simple(&input, kernel_size, stride_size, pad_size);
+
+        println!("output = {}", output.data()); //shape = (1,8,15,15)
+
+        output.backward(false);
+
+        println!("input_grad= {}", input.grad().unwrap().data()); //shape = (1,5,15,15)
     }
 
     #[test]

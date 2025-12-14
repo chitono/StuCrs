@@ -67,6 +67,40 @@ pub fn conv2d_simple(
     out4d
 }
 
+pub fn max_pool2d_simple(
+    input: &RcVariable,
+    kernel_size: (usize, usize),
+    stride_size: (usize, usize),
+    pad_size: (usize, usize),
+) -> RcVariable {
+    let input_data = input.data();
+
+    let input_shape = input_data.shape();
+
+    let n = input_shape[0];
+    let c = input_shape[1];
+    let h = input_shape[2];
+    let w = input_shape[3];
+
+    let (kh, kw) = kernel_size;
+
+    let (oh, ow) = get_conv_outsize((h, w), kernel_size, stride_size, pad_size);
+
+    let cols = im2col_simple(input, kernel_size, stride_size, pad_size);
+
+    let cols = permute_axes(&cols, vec![0, 2, 1]);
+
+    let cols = cols.reshape(IxDyn(&[n, c * oh * ow, kh * kw]));
+
+    let y = max(&cols, Some(2));
+
+    let output = y
+        .reshape(IxDyn(&[n, oh, ow, c]))
+        .permute_axes(vec![0, 3, 1, 2]);
+
+    output
+}
+
 pub fn conv2d_array(
     input: ArrayView4<f32>,
     weight: ArrayView4<f32>,
@@ -203,7 +237,48 @@ pub fn conv2d_array_backward(
     out4d.into_dyn();
 }
 
-pub fn max_pool2d(
+pub fn max_pool2d_array(
+    input: ArrayView4<f32>,
+    kernel_size: (usize, usize),
+    stride_size: (usize, usize),
+    pad_size: (usize, usize),
+) -> ArrayD<f32> {
+    let input_shape = input.shape();
+    let n = input_shape[0];
+    let c = input_shape[1];
+    let h = input_shape[2];
+    let w = input_shape[3];
+    let (kh, kw) = kernel_size;
+
+    let (oh, ow) = get_conv_outsize((h, w), kernel_size, stride_size, pad_size);
+
+    let cols = im2col(input, kernel_size, stride_size, pad_size);
+
+    // (N,c*kh*kw,oh*ow) -> (N,oh*ow,c*kh*kw)
+    let cols = cols.permuted_axes([0, 2, 1]);
+
+    let cols = cols
+        .to_owned()
+        .into_shape_clone((n, c * oh * ow, kh * kw))
+        .unwrap();
+    let mut out = Array2::<f32>::zeros((n, c * oh * ow));
+    for b in 0..n {
+        let rows = cols.slice(s![b, .., ..]);
+        let max: Array1<f32> = rows
+            .outer_iter()
+            .map(|row: ArrayBase<ViewRepr<&f32>, Dim<[usize; 1]>>| row.max().unwrap().clone())
+            .collect();
+
+        out.slice_mut(s![b, ..]).assign(&max);
+    }
+
+    let max_cols = out.into_shape_with_order((n, oh, ow, c)).unwrap();
+    let output = max_cols.permuted_axes([0, 3, 1, 2]);
+
+    output.into_dyn()
+}
+
+pub fn max_pool2d_array_backward(
     input: ArrayView4<f32>,
     kernel_size: (usize, usize),
     stride_size: (usize, usize),
@@ -242,7 +317,6 @@ pub fn max_pool2d(
 
     let max_cols = out.into_shape_with_order((n, oh, ow, c)).unwrap();
     let output = max_cols.permuted_axes([0, 3, 1, 2]);
-
     output.into_dyn()
 }
 
