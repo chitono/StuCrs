@@ -1,7 +1,7 @@
 use core::f32;
 use std::cell::RefCell;
 //use std::clone;
-use std::collections::HashSet;
+//use std::collections::HashSet;
 use std::fmt::Debug;
 
 use ndarray::*;
@@ -28,7 +28,7 @@ pub fn get_conv_outsize(
 pub fn conv2d_simple(
     input: &RcVariable,
     weight: &RcVariable,
-    bias: Option<RcVariable>,
+    _bias: Option<RcVariable>,
     stride_size: (usize, usize),
     pad_size: (usize, usize),
 ) -> RcVariable {
@@ -104,7 +104,7 @@ pub fn max_pool2d_simple(
 pub fn conv2d_array(
     input: ArrayView4<f32>,
     weight: ArrayView4<f32>,
-    bias: Option<Array1<f32>>,
+    _bias: Option<Array1<f32>>,
     stride_size: (usize, usize),
     pad_size: (usize, usize),
 ) -> ArrayD<f32> {
@@ -165,78 +165,6 @@ pub fn conv2d_array(
     out4d.into_dyn()
 }
 
-// inputにはConv2d_Function構造体のinputを渡す。
-pub fn conv2d_array_backward(
-    gy_array: ArrayView4<f32>,
-    weight: ArrayView4<f32>,
-    input: ArrayView4<f32>,
-    stride_size: (usize, usize),
-    pad_size: (usize, usize),
-) {
-    let input_shape = input.shape();
-    let weight_shape = weight.shape();
-
-    // inputから形状のデータを取り出す。
-    let n = input_shape[0]; //バッチ数
-    let c = input_shape[1]; //チャンネル数
-    let h = input_shape[2]; //縦
-    let w = input_shape[3]; //横
-
-    // weightから形状のデータを取り出す。
-    let oc = weight_shape[0];
-    let c_wt = weight_shape[1];
-    let kh = weight_shape[2];
-    let kw = weight_shape[3];
-
-    // チャンネル数がinputとweightで一致しているか確認。
-    if c != c_wt {
-        panic!("Conv2d: inputのチャンネル数とweightのチャンネル数が一致しません。");
-    }
-
-    let mut gx_array = Array4::<f32>::zeros((n, c, h, w));
-    let mut gw_array = Array4::<f32>::zeros((oc, c, kh, kw));
-    let mut gb_array = Array1::<f32>::zeros(oc);
-
-    //let grad_out_3d = gy_array.into_shape_with_order((n, c, oh * ow));
-
-    let (stride_h, stride_w) = stride_size;
-    let (pad_h, pad_w) = pad_size;
-
-    let (oh, ow) = get_conv_outsize((h, w), (kh, kw), (stride_h, stride_w), (pad_h, pad_w));
-
-    let cols_grad = gy_array
-        .to_shape((n, oc, oh * ow))
-        .expect("conv2d_array_backwardのgy_gradの形状が正しくありません。");
-
-    for b in 0..n {}
-    let cols = im2col_array(input.view(), (kh, kw), stride_size, pad_size);
-    //weightを1列に展開し、並べて2次元の行列に変形させる。
-    let weights_2d = weight.into_shape_with_order((oc, c * kh * kw)).unwrap();
-
-    // Wx = (oc,c*kh*kw) × (n,c*kh*kw,oh*ow) -> (n,oc,oh*ow)      (oc,c*kh*kw) × (c*kh*kw,oh*ow)の行列積をバッチn個として計算する。
-    let mut out = Array3::<f32>::zeros((n, oc, oh * ow));
-
-    for b in 0..n {
-        let col = cols.slice(s![b, .., ..]);
-        let result = weights_2d.dot(&col);
-        out.slice_mut(s![b, .., ..]).assign(&result);
-    }
-
-    let mut out4d = Array4::<f32>::zeros((n, oc, oh, ow));
-
-    //(N,OC,OH*OW) -> (N,OC,OH,OW)に変換
-    for b in 0..n {
-        for co in 0..oc {
-            for idx in 0..(oh * ow) {
-                let y = idx / ow;
-                let x = idx % ow;
-                out4d[(b, co, y, x)] = out[(b, co, idx)];
-            }
-        }
-    }
-    out4d.into_dyn();
-}
-
 pub fn max_pool2d_array(
     input: ArrayView4<f32>,
     kernel_size: (usize, usize),
@@ -275,48 +203,6 @@ pub fn max_pool2d_array(
     let max_cols = out.into_shape_with_order((n, oh, ow, c)).unwrap();
     let output = max_cols.permuted_axes([0, 3, 1, 2]);
 
-    output.into_dyn()
-}
-
-pub fn max_pool2d_array_backward(
-    input: ArrayView4<f32>,
-    kernel_size: (usize, usize),
-    stride_size: (usize, usize),
-    pad_size: (usize, usize),
-) -> ArrayD<f32> {
-    let input_shape = input.shape();
-    let n = input_shape[0];
-    let c = input_shape[1];
-    let h = input_shape[2];
-    let w = input_shape[3];
-    let (kh, kw) = kernel_size;
-    let (stride_h, stride_w) = stride_size;
-    let (pad_h, pad_w) = pad_size;
-
-    let (oh, ow) = get_conv_outsize((h, w), kernel_size, stride_size, pad_size);
-
-    let cols = im2col_array(input, kernel_size, stride_size, pad_size);
-
-    // (N,c*kh*kw,oh*ow) -> (N,oh*ow,c*kh*kw)
-    let cols = cols.permuted_axes([0, 2, 1]);
-
-    let cols = cols
-        .to_owned()
-        .into_shape_clone((n, c * oh * ow, kh * kw))
-        .unwrap();
-    let mut out = Array2::<f32>::zeros((n, c * oh * ow));
-    for b in 0..n {
-        let rows = cols.slice(s![b, .., ..]);
-        let max: Array1<f32> = rows
-            .outer_iter()
-            .map(|row: ArrayBase<ViewRepr<&f32>, Dim<[usize; 1]>>| row.max().unwrap().clone())
-            .collect();
-
-        out.slice_mut(s![b, ..]).assign(&max);
-    }
-
-    let max_cols = out.into_shape_with_order((n, oh, ow, c)).unwrap();
-    let output = max_cols.permuted_axes([0, 3, 1, 2]);
     output.into_dyn()
 }
 
