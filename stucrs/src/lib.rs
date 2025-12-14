@@ -53,6 +53,7 @@ pub mod core_new;
 pub mod config;
 pub mod dataloaders;
 pub mod datasets;
+pub mod functions;
 pub mod functions_cnn;
 pub mod functions_new;
 pub mod layers;
