@@ -1,17 +1,13 @@
-use core::num;
 use std::vec;
 
 use ndarray::{array, Array1, Array2, ArrayView1, ArrayView2, Axis};
-
 use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
+use tensor_frame::Tensor;
 
 use rand_distr::StandardNormal;
 
 use mnist::*;
-
-use ndarray::prelude::*;
-use tensor_frame::{Tensor, TensorOps};
 
 pub trait Dataset {
     /*
@@ -91,10 +87,10 @@ fn get_spiral_data() -> (Array2<f32>, Array1<u32>) {
 
 #[derive(Clone)]
 pub struct MNIST {
-    pub train_img: Array3<f32>,
-    pub train_label: Array2<f32>,
-    pub test_img: Array3<f32>,
-    pub test_label: Array2<f32>,
+    pub train_img: Tensor,
+    pub train_label: Tensor,
+    pub test_img: Tensor,
+    pub test_label: Tensor,
 }
 
 impl Dataset for MNIST {
@@ -106,7 +102,7 @@ impl Dataset for MNIST {
     }
     */
     fn len(&self) -> usize {
-        self.train_img.shape()[0]
+        self.train_img.shape().dims()[0]
     }
 }
 
@@ -123,7 +119,7 @@ impl MNIST {
     }
 }
 
-fn get_mnist_data() -> (Array3<f32>, Array2<f32>, Array3<f32>, Array2<f32>) {
+fn get_mnist_data() -> (Tensor, Tensor, Tensor, Tensor) {
     // Deconstruct the returned Mnist struct.
     let Mnist {
         trn_img,
@@ -139,24 +135,30 @@ fn get_mnist_data() -> (Array3<f32>, Array2<f32>, Array3<f32>, Array2<f32>) {
         .finalize();
 
     // Can use an Array2 or Array3 here (Array3 for visualization)
-    let train_data = Array3::from_shape_vec((50_000, 28, 28), trn_img)
-        .expect("Error converting images to Array3 struct")
-        .map(|x| *x as f32 / 256.0);
+    let train_data = Tensor::from_vec_with_shape(
+        trn_img.iter().map(|&x| x as f32 / 256.0).collect(),
+        vec![50_000, 28, 28],
+    )
+    .expect("Error converting images to Tensor struct");
     //println!("{:#.1?}\n",train_data.slice(s![image_num, .., ..]));
 
+    let train_labels =
+        Tensor::from_vec_with_shape(trn_lbl.iter().map(|&x| x as f32).collect(), vec![50_000, 1])
+            .expect("Error converting images to Tensor struct");
+
     // Convert the returned Mnist struct to Array2 format
-    let train_labels: Array2<f32> = Array2::from_shape_vec((50_000, 1), trn_lbl)
-        .expect("Error converting training labels to Array2 struct")
-        .map(|x| *x as f32);
     //println!("The first digit is a {:?}",train_labels.slice(s![image_num, ..]) );
 
-    let test_data = Array3::from_shape_vec((10_000, 28, 28), tst_img)
-        .expect("Error converting images to Array3 struct")
-        .map(|x| *x as f32 / 256.);
+    let test_data = Tensor::from_vec_with_shape(
+        tst_img.iter().map(|&x| x as f32 / 256.0).collect(),
+        vec![10_000, 28, 28],
+    )
+    .expect("Error converting images to Tensor struct");
 
-    let test_labels: Array2<f32> = Array2::from_shape_vec((10_000, 1), tst_lbl)
-        .expect("Error converting testing labels to Array2 struct")
-        .map(|x| *x as f32);
+    let test_labels =
+        Tensor::from_vec_with_shape(tst_lbl.iter().map(|&x| x as f32).collect(), vec![10_000, 1])
+            .expect("Error converting images to Tensor struct");
+
     (train_data, train_labels, test_data, test_labels)
 }
 
@@ -203,4 +205,32 @@ pub fn arr1d_to_one_hot(data: ArrayView1<u32>, num_class: usize) -> Array2<f32> 
     init_matrix
 }
 
+pub fn arr2d_to_one_hot(data: ArrayView2<u32>, num_class: usize) -> Array2<f32> {
+    if data.shape()[1] != 1 {
+        panic!("one_hotベクトルにしたい教師データの列数が1ではありません");
+    }
+    let mut init_matrix = Array2::zeros((data.shape()[0], num_class));
+    for i in 0..data.shape()[0] {
+        let data_t = data[[i, 0]];
+        init_matrix[[i, data_t as usize]] = 1.0;
+    }
+    init_matrix
+}
 
+/*
+
+pub fn tensor2d_to_one_hot(data: Tensor, num_class: usize) -> Tensor {
+    if data.shape().dims()[1] != 1 {
+        panic!("one_hotベクトルにしたい教師データの列数が1ではありません");
+    }
+    let init_shape = tensor_frame::Shape::new(vec![data.shape().dims()[0], num_class]).unwrap();
+    let mut init_tensor = Tensor::zeros(init_shape).unwrap();
+    let mut init_matrix = Tensor::zeros((data.shape()[0], num_class));
+
+    for i in 0..data.shape().dims()[0] {
+        let data_t = data[[i, 0]];
+        init_matrix[[i, data_t as usize]] = 1.0;
+    }
+    init_matrix
+}
+ */

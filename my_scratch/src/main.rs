@@ -15,7 +15,7 @@ use stucrs_gpu::config;
 
 //use stucrs::core_new::{F32ToRcVariable, RcVariable};
 //use stucrs::dataloaders::DataLoader;
-use stucrs_gpu::datasets::*;
+use stucrs::datasets::*;
 use stucrs_gpu::functions_new::{self as F, accuracy};
 use stucrs_gpu::layers::{self as L, Activation};
 use stucrs_gpu::models::{BaseModel, Model};
@@ -83,7 +83,6 @@ fn main() {
     optimizer.setup(&model);
     let start = Instant::now();
     for epoch in 0..max_epoch {
-
         let mut indices: Vec<usize> = (0..data_size).collect();
         let mut rng = thread_rng();
         indices.shuffle(&mut rng);
@@ -109,20 +108,17 @@ fn main() {
         //println!("x_batch = {:?}, t_batch = {:?}", x_batch, t_batch);
 
         for chunk_indices in indices.chunks(batch_size) {
-            
             let batch_indices: Vec<u32> = chunk_indices.iter().map(|&x| x as u32).collect();
 
-            
             let x_batch = x_train.rows_slice(&batch_indices).unwrap().rv();
             let y_batch = y_train.rows_slice(&batch_indices).unwrap().rv();
 
-            
             let y = model.call(&x_batch);
-            
+
             //println!("y ={:?}", y.data().backend_type());
-            
+
             let mut loss = F::softmax_cross_entropy_simple(&y, &y_batch);
-            
+
             //println!("loss ={}", loss.data());
 
             /*
@@ -131,14 +127,10 @@ fn main() {
                 y_batch.data().into_dimensionality().unwrap().view(),
             ); */
 
-            
             model.cleargrad();
-            
-            
+
             loss.backward(false);
-        
-            
-            
+
             optimizer.update();
 
             //ここでt_batch.lenはu32からf32に変換、さらに暗黙的にndarray型に変換されて、計算される。
@@ -153,9 +145,6 @@ fn main() {
             //sum_loss =&sum_loss + println!("epoch = {:?}, train_loss = {}", epoch + 1, loss.data());
 
             //config::set_grad_true();
-            
-
-                        
         }
         //let average_loss = &sum_loss / (data_size as f32);
     }
@@ -385,10 +374,10 @@ use stucrs_gpu::optimizers::{Optimizer, SGD};
 
 fn main() {
     let mnist = MNIST::new();
-    let x_train = mnist.train_img.view();
-    let y_train = mnist.train_label.view();
-    let x_test = mnist.test_img.view();
-    let y_test = mnist.test_label.view();
+    let x_train = mnist.train_img;
+    let y_train = mnist.train_label;
+    let x_test = mnist.test_img;
+    let y_test = mnist.test_label;
 
     //let image_num = 0;
 
@@ -397,8 +386,7 @@ fn main() {
     //println!("{:?}", x_train.shape());
 
     //println!("{:?}", y_train.shape());
-
-    let x_train = x_train.to_shape((50000, 28 * 28)).unwrap();
+    let x_train = x_train.reshape(vec![50000, 28 * 28]).unwrap();
     //let x_test = x_test.to_shape((10000, 28 * 28)).unwrap();
 
     let y_train = arr2d_to_one_hot(y_train.mapv(|x| x as u32).view(), 10);
@@ -414,7 +402,7 @@ fn main() {
     //println!("faltten = {:?}", x_train.shape());
     //println!("faltten = {:?}", x_test.shape());
 
-    let max_epoch = 1;
+    let max_epoch = 5;
     let lr = 0.01;
     let batch_size = 100;
 
@@ -449,7 +437,7 @@ fn main() {
         let mut rng = thread_rng();
         indices.shuffle(&mut rng);
 
-        let mut sum_loss = Tensor::ones(vec![1]);
+        let mut sum_loss = 0.0f32;
         let mut sum_acc = 0.0f32;
 
         /*
@@ -484,7 +472,6 @@ fn main() {
             //println!("y ={:?}", y.data().backend_type());
 
             let mut loss = F::softmax_cross_entropy_simple(&y, &y_batch);
-            println!("loss ={}", loss.data());
 
             /*
             let acc = accuracy(
@@ -503,12 +490,18 @@ fn main() {
 
             //let average_acc = sum_acc / (data_size as f32);
 
-            //let epoch_loss = (loss.data() * (y_batch.data().shape().dims()[0])).unwrap();
+            let batch_loss = loss.data().to_vec().unwrap().last().unwrap()
+                * ((y_batch.data().shape().dims()[0]) as f32);
 
-            //sum_loss =&sum_loss + println!("epoch = {:?}, train_loss = {}", epoch + 1, loss.data());
+            sum_loss = sum_loss + batch_loss;
 
-            config::set_grad_true();
+            //config::set_grad_true();
         }
+        println!(
+            "epoch = {:?}, train_loss = {}",
+            epoch + 1,
+            sum_loss / (data_size as f32)
+        );
         //let average_loss = &sum_loss / (data_size as f32);
     }
     //let end = Instant::now();
