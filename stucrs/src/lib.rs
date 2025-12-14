@@ -62,23 +62,17 @@ pub mod optimizers;
 #[cfg(test)]
 mod tests {
 
-    use std::{mem::transmute, process::Output};
-
     use ndarray::{array, Array, Array4, Dim, IxDyn};
-    use ndarray_stats::QuantileExt;
 
     use crate::{
-        config::set_test_flag_true,
         functions_cnn::{
             col2im_simple, conv2d_array, conv2d_simple, im2col_simple, max_pool2d_simple,
         },
         functions_new::{
-            argmax_array, clamp, cos, exp, log, matmul, max, permute_axes, relu, reshape, sin,
-            square, sum, tanh, tensordot, transpose,
+            argmax_array, cos, exp, log, matmul, max, permute_axes, relu, reshape, sin, square,
+            sum, tanh, tensordot, transpose,
         },
     };
-
-    use super::*;
 
     #[test]
     fn add_test() {
@@ -506,7 +500,7 @@ mod tests {
 
     #[test]
     fn get_conv_outsize_test() {
-        use crate::{core_new::ArrayDToRcVariable, functions_cnn::get_conv_outsize};
+        use crate::functions_cnn::get_conv_outsize;
 
         let input_size = (4, 4);
         let kernel_size = (3, 3);
@@ -520,8 +514,6 @@ mod tests {
 
     #[test]
     fn dim_test() {
-        use crate::{core_new::ArrayDToRcVariable, functions_cnn::get_conv_outsize};
-
         let input = array![[[[1, 2, 3], [4, 5, 6], [7, 8, 9]]]];
         let input_2 = array![[[[1.0f32, 2.0], [3.0, 4.0]], [[10.0, 20.0], [30.0, 40.0]]]];
 
@@ -535,7 +527,7 @@ mod tests {
 
     #[test]
     fn conv2d_test() {
-        use crate::{core_new::ArrayDToRcVariable, functions_cnn::get_conv_outsize};
+        use crate::core_new::ArrayDToRcVariable;
 
         let input_array: Array4<f32> = Array::from_elem((1, 5, 15, 15), 2.0);
         let weight_array: Array4<f32> = Array::from_elem((8, 5, 3, 3), 3.0);
@@ -621,7 +613,7 @@ mod tests {
 
     #[test]
     fn max_pool2d_array_1ch_test() {
-        use crate::{core_new::ArrayDToRcVariable, functions_cnn::max_pool2d_array};
+        use crate::functions_cnn::max_pool2d_array;
 
         let input = array![[[
             [4.0f32, 1.0, 5.0, 3.0],
@@ -640,7 +632,7 @@ mod tests {
 
     #[test]
     fn max_pool2d_array_2ch_test() {
-        use crate::{core_new::ArrayDToRcVariable, functions_cnn::max_pool2d_array};
+        use crate::functions_cnn::max_pool2d_array;
         let input = array![[
             [
                 [4.0f32, 1.0, 5.0, 3.0],
@@ -665,7 +657,7 @@ mod tests {
 
     #[test]
     fn im2col_test() {
-        use crate::{core_new::ArrayDToRcVariable, functions_cnn::im2col_array};
+        use crate::functions_cnn::im2col_array;
 
         let input = array![[[
             [1.0f32, 2.0, 3.0, 4.0],
@@ -683,7 +675,7 @@ mod tests {
 
     #[test]
     fn col2im_test() {
-        use crate::{core_new::ArrayDToRcVariable, functions_cnn::col2im_array};
+        use crate::functions_cnn::col2im_array;
 
         // im2col_testの出力。(output)
         let input = array![[
@@ -713,7 +705,7 @@ mod tests {
 
     #[test]
     fn im2col_function_test() {
-        use crate::{core_new::ArrayDToRcVariable, functions_cnn::im2col_array};
+        use crate::core_new::ArrayDToRcVariable;
 
         let input = array![[[
             [1.0f32, 2.0, 3.0, 4.0],
@@ -736,7 +728,7 @@ mod tests {
 
     #[test]
     fn col2im_function_test() {
-        use crate::{core_new::ArrayDToRcVariable, functions_cnn::col2im_array};
+        use crate::core_new::ArrayDToRcVariable;
 
         // im2col_testの出力。(output)
         let input = array![[
