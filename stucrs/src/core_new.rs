@@ -9,7 +9,8 @@ use std::rc::{Rc, Weak};
 use std::vec;
 
 use crate::config::{get_grad_status, id_generator, set_grad_false, set_grad_true};
-use crate::functions_new::*;
+use crate::functions::math::exp;
+use crate::functions::matrix::*;
 
 #[derive(Debug, Clone)]
 pub struct Variable {

@@ -1,7 +1,10 @@
 use crate::config::id_generator;
 use crate::core_new::ArrayDToRcVariable;
 use crate::core_new::{RcVariable, Variable};
-use crate::functions_new as F;
+use crate::functions::activation_funcs::{relu, sigmoid_simple};
+use crate::functions::math::tanh;
+use crate::functions::neural_funcs::linear_simple;
+
 use fxhash::FxHashMap;
 use ndarray::{Array, ArrayBase, Dim, OwnedRepr};
 use ndarray_rand::rand_distr::StandardNormal;
@@ -127,7 +130,7 @@ impl Linear {
             b = None;
         }
 
-        let y = F::linear_simple(&x, &w, &b);
+        let y = linear_simple(&x, &w, &b);
 
         y
     }
@@ -285,12 +288,12 @@ impl Dense {
             b = None;
         }
 
-        let t = F::linear_simple(&x, &w, &b);
+        let t = linear_simple(&x, &w, &b);
 
         let y = match self.activation {
-            Activation::Sigmoid => F::sigmoid_simple(&t),
-            Activation::Relu => F::relu(&t),
-            Activation::Tanh => F::tanh(&t),
+            Activation::Sigmoid => sigmoid_simple(&t),
+            Activation::Relu => relu(&t),
+            Activation::Tanh => tanh(&t),
         };
 
         y
@@ -457,7 +460,7 @@ impl Conv2d {
             b = None;
         }
 
-        let y = F::linear_simple(&x, &w, &b);
+        let y = linear_simple(&x, &w, &b);
 
         y
     }

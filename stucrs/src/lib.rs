@@ -48,14 +48,12 @@ impl Neg for RcVariable {
     }
 }
 
-pub mod core_new;
-//pub mod core_hdv;
 pub mod config;
+pub mod core_new;
 pub mod dataloaders;
 pub mod datasets;
 pub mod functions;
 pub mod functions_cnn;
-pub mod functions_new;
 pub mod layers;
 pub mod models;
 pub mod optimizers;
@@ -66,12 +64,13 @@ mod tests {
     use ndarray::{array, Array, Array4, Dim, IxDyn};
 
     use crate::{
+        functions::activation_funcs::relu,
+        functions::math::{cos, exp, log, max, sin, square, tanh},
+        functions::matrix::{
+            argmax_array, matmul, permute_axes, reshape, sum, tensordot, transpose,
+        },
         functions_cnn::{
             col2im_simple, conv2d_array, conv2d_simple, im2col_simple, max_pool2d_simple,
-        },
-        functions_new::{
-            argmax_array, cos, exp, log, matmul, max, permute_axes, relu, reshape, sin, square,
-            sum, tanh, tensordot, transpose,
         },
     };
 

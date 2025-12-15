@@ -11,8 +11,8 @@ use std::{usize, vec};
 
 use crate::config::{get_grad_status, id_generator};
 use crate::core_new::{ArrayDToRcVariable, Function, RcVariable, Variable};
-use crate::functions_new::*;
-
+use crate::functions::math::max;
+use crate::functions::matrix::{permute_axes, tensordot};
 pub fn get_conv_outsize(
     input_size: (usize, usize),
     kernel_size: (usize, usize),
