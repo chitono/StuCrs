@@ -19,6 +19,21 @@ use std::vec;
 use crate::config::get_test_flag_status;
 use crate::core_new::*;
 use crate::datasets::arr1d_to_one_hot;
+use crate::functions::matrix::matmul;
+
+pub fn linear_simple(x: &RcVariable, w: &RcVariable, b: &Option<RcVariable>) -> RcVariable {
+    let t = matmul(&x, &w);
+
+    let y;
+
+    if let Some(b_rc) = b {
+        y = t + b_rc.clone();
+    } else {
+        y = t;
+    }
+
+    y
+}
 
 pub fn dropout(x: &RcVariable, ratio: f32) -> RcVariable {
     if get_test_flag_status() == false {
