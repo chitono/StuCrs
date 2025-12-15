@@ -8,7 +8,6 @@ use std::fmt::Debug;
 //use std::future;
 //use std::hash::Hash;
 //use std::process::Output;
-use ndarray::*;
 
 use std::rc::{Rc, Weak};
 use std::vec;
@@ -19,23 +18,22 @@ use std::vec;
 use crate::config::{get_grad_status, id_generator};
 use crate::core_new::*;
 
-use crate::functions::activation_funcs::*;
 use crate::functions::math::*;
 use crate::functions::matrix::*;
 
 #[derive(Debug, Clone)]
-struct MeanSquaredError {
+pub struct Relu {
     inputs: Vec<RcVariable>,
     output: Option<Weak<RefCell<Variable>>>,
     generation: i32,
     id: usize,
 }
 
-impl Function for MeanSquaredError {
+impl Function for Relu {
     fn call(&mut self) -> RcVariable {
         let inputs = &self.inputs;
         if inputs.len() != 1 {
-            panic!("MeanSquaredErrorは二変数関数です。inputsの個数が二つではありません。")
+            panic!("Reluは一変数関数です。inputsの個数が一つではありません。")
         }
 
         let output = self.forward(inputs);
@@ -57,29 +55,17 @@ impl Function for MeanSquaredError {
     }
 
     fn forward(&self, xs: &[RcVariable]) -> RcVariable {
-        //xs[0]の方をX, xs[1]の方をWとする
-        let x0 = &xs[0];
-        let x1 = &xs[1];
+        let x = &xs[0];
+        let y_data = x.data().mapv(|x| if x > 0.0 { x } else { 0.0 });
 
-        let diff = &x0.data() - &x1.data();
-        let len = diff.len() as f32;
-
-        let error_data = array_sum(&diff.mapv(|x| x.powf(2.0)).view(), None) / len;
-
-        error_data.rv()
+        y_data.rv()
     }
 
     fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
-        let x0 = &self.inputs[0];
-        let x1 = &self.inputs[1];
-
-        let diff = x0.clone() - x1.clone();
-        let diff_shape = IxDyn(diff.data().shape());
-        let gy = broadcast_to(&gy, diff_shape);
-
-        let gx0 = gy.clone() * diff.clone() * (2.0.rv() / (diff.len() as f32).rv());
-        let gx1 = -gx0.clone();
-        let gxs = vec![gx0, gx1];
+        let x = &self.inputs[0];
+        //xが0以上なら微分の値は1で、0以下なら0になる。
+        let gx = x.data().mapv(|x| if x > 0.0 { 1.0 } else { 0.0 }).rv() * gy.clone();
+        let gxs = vec![gx];
 
         gxs
     }
@@ -109,7 +95,7 @@ impl Function for MeanSquaredError {
         self.id
     }
 }
-impl MeanSquaredError {
+impl Relu {
     fn new(inputs: &[RcVariable]) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self {
             inputs: inputs.to_vec(),
@@ -120,31 +106,20 @@ impl MeanSquaredError {
     }
 }
 
-fn mean_squared_error_f(xs: &[RcVariable]) -> RcVariable {
-    MeanSquaredError::new(xs).borrow_mut().call()
-}
-
-pub fn mean_squared_error(x0: &RcVariable, x1: &RcVariable) -> RcVariable {
-    let y = mean_squared_error_f(&[x0.clone(), x1.clone()]);
+pub fn relu(x: &RcVariable) -> RcVariable {
+    let y = relu_f(&[x.clone()]);
     y
 }
 
-// ここで渡すtはone-hotベクトル状態の教師データ
-pub fn softmax_cross_entropy_simple(x: &RcVariable, t: &RcVariable) -> RcVariable {
-    if x.data().shape() != t.data().shape() {
-        panic!("交差エントロピー誤差でのxとtの形状が異なります。tがone-hotベクトルでない可能性があります。")
-    }
+fn relu_f(xs: &[RcVariable]) -> RcVariable {
+    Relu::new(xs).borrow_mut().call()
+}
 
-    let n = x.data().shape()[0] as f32;
+pub fn softmax_simple(x: &RcVariable) -> RcVariable {
+    let exp_y = exp(&x);
 
-    let p = softmax_simple(&x);
+    let sum_y = sum(&exp_y, Some(1));
 
-    let clamped_p = clamp(&p, 1.0e-15, 1.0);
-
-    let log_p = log(&clamped_p, None);
-
-    let tlog_p = log_p * t.clone();
-
-    let y = (-sum(&tlog_p, None)) / n.rv();
+    let y = exp_y.clone() / sum_y.clone();
     y
 }
