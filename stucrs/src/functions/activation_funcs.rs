@@ -115,6 +115,12 @@ fn relu_f(xs: &[RcVariable]) -> RcVariable {
     Relu::new(xs).borrow_mut().call()
 }
 
+pub fn sigmoid_simple(x: &RcVariable) -> RcVariable {
+    let mainasu_x = -x.clone();
+    let y = 1.0f32.rv() / (1.0f32.rv() + exp(&mainasu_x));
+    y
+}
+
 pub fn softmax_simple(x: &RcVariable) -> RcVariable {
     let exp_y = exp(&x);
 
