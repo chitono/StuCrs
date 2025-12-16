@@ -64,14 +64,15 @@ mod tests {
     use ndarray::{array, Array, Array4, Dim, IxDyn};
 
     use crate::{
-        functions::activation_funcs::relu,
-        functions::math::{cos, exp, log, max, sin, square, tanh},
-        functions::matrix::{
-            argmax_array, matmul, permute_axes, reshape, sum, tensordot, transpose,
+        functions::{
+            activation_funcs::relu,
+            math::{cos, exp, log, max, sin, square, tanh},
+            matrix::{argmax_array, matmul, permute_axes, reshape, sum, tensordot, transpose},
         },
         functions_cnn::{
             col2im_simple, conv2d_array, conv2d_simple, im2col_simple, max_pool2d_simple,
         },
+        models::Model,
     };
 
     #[test]
@@ -772,5 +773,25 @@ mod tests {
         let output = argmax_array(input.view(), Some(2));
         println!("{:?}", output); //axis = 1 ...[[1, 1],[1, 1]] 返す行列はusize型
                                   //axis = 2 ...[[1, 0],[1, 1]]
+    }
+
+    #[test]
+    fn conv2d_layer_test() {
+        use crate::core_new::ArrayDToRcVariable;
+        use crate::layers as L;
+        use crate::models::BaseModel;
+
+        let mut model = BaseModel::new();
+        model.stack(L::Conv2d::new(4, (3, 3), (1, 1), (0, 0), false));
+        let input_array: Array4<f32> = Array::from_elem((1, 3, 15, 15), 2.0);
+
+        let input = input_array.rv();
+
+        let mut y = model.call(&input);
+
+        println!("y = {:?}", y.data()); // shape = [1,4,13,13]
+        y.backward(false);
+
+        println!("input_grad = {:?}", input.grad().unwrap().data()); // shape = [1,3,15,15]
     }
 }

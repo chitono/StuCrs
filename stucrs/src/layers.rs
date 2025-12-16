@@ -4,6 +4,7 @@ use crate::core_new::{RcVariable, Variable};
 use crate::functions::activation_funcs::{relu, sigmoid_simple};
 use crate::functions::math::tanh;
 use crate::functions::neural_funcs::linear_simple;
+use crate::functions_cnn::conv2d_simple;
 
 use fxhash::FxHashMap;
 use ndarray::{Array, ArrayBase, Dim, OwnedRepr};
@@ -460,7 +461,7 @@ impl Conv2d {
             b = None;
         }
 
-        let y = linear_simple(&x, &w, &b);
+        let y = conv2d_simple(x, w, b, self.stride_size, self.pad_size);
 
         y
     }
@@ -472,7 +473,7 @@ impl Conv2d {
         pad_size: (usize, usize),
         biased: bool,
     ) -> Self {
-        let mut linear = Self {
+        let mut conv2d = Self {
             input: None,
             output: None,
             out_channels: out_channels,
@@ -488,19 +489,11 @@ impl Conv2d {
 
         if biased == true {
             let b = Array::zeros(out_channels as usize).rv();
-            linear.b_id = Some(b.id());
-            linear.set_params(&b.clone());
+            conv2d.b_id = Some(b.id());
+            conv2d.set_params(&b.clone());
         }
 
-        linear
-    }
-
-    pub fn update_params(&mut self, lr: f32) {
-        for (_id, param) in self.params.iter() {
-            let param_data = param.data();
-            let current_grad = param.grad().as_ref().unwrap().data();
-            param.0.borrow_mut().data = param_data - lr * current_grad;
-        }
+        conv2d
     }
 }
 
