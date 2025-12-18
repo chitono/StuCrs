@@ -183,6 +183,9 @@ impl Linear {
     }
 }
 
+///線形変換(Linear)と活性化関数をまとめて計算するLayer構造体.
+/// new()で呼び出す際、activationのところはenumのActivationから選び、渡す。
+/// 例...Dense::new(1000, true, None, Activation::Sigmoid)
 #[derive(Debug, Clone)]
 pub struct Dense {
     input: Option<Weak<RefCell<Variable>>>,
@@ -352,7 +355,16 @@ impl Dense {
         }
     }
 }
-
+/// Conv2d関数を処理するLayer構造体
+///
+/// ## 実装例
+///     let kernel_size = (2, 2);
+///     let stride_size = (1, 1);
+///     let pad_size = (0, 0);
+///     let mut model = BaseModel::new();
+///     model.stack(L::Maxpool2d::new(kernel_size, stride_size, pad_size));
+///
+///conv2d_simple関数でbiasの処理が未実装なので、このLayerでもbiasはまだ使えない。
 #[derive(Debug, Clone)]
 pub struct Conv2d {
     input: Option<Weak<RefCell<Variable>>>,
@@ -497,11 +509,15 @@ impl Conv2d {
     }
 }
 
-
-
-
-
-
+/// Maxpool2dを処理するLayer構造体
+///
+/// ## 実装例
+///     let kernel_size = (2, 2);
+///     let stride_size = (1, 1);
+///     let pad_size = (0, 0);
+///     let mut model = BaseModel::new();
+///     model.stack(L::Maxpool2d::new(kernel_size, stride_size, pad_size));
+///
 #[derive(Debug, Clone)]
 pub struct Maxpool2d {
     input: Option<Weak<RefCell<Variable>>>,
@@ -576,10 +592,7 @@ impl Layer for Maxpool2d {
 
 impl Maxpool2d {
     fn forward(&mut self, x: &RcVariable) -> RcVariable {
-        
-
         let y = max_pool2d_simple(x, self.kernel_size, self.stride_size, self.pad_size);
-
 
         y
     }
@@ -599,21 +612,13 @@ impl Maxpool2d {
             id: id_generator(),
         };
 
-        
-
         maxpool2d
     }
 }
 
-
-
-
-
-
-
-
-
-
+/// 実装している活性化関数をまとめた列挙型
+///
+/// 今後新たに活性化関数を実装したら、名前をここに追加
 #[derive(Debug, Clone)]
 pub enum Activation {
     Sigmoid,
