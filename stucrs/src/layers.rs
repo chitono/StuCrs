@@ -42,7 +42,6 @@ pub trait Layer: Debug {
 ///線形変換(Linear)を処理するLayer構造体
 ///
 /// # Examples
-/// ```no_run
 ///
 ///     let mut model = BaseModel::new();
 ///     model.stack(L::Linear::new(10, true, None));
@@ -205,7 +204,7 @@ impl Linear {
 ///線形変換(Linear)と活性化関数をまとめて計算するLayer構造体
 ///
 /// # Examples
-///  ```no_run
+///
 ///     let mut model = BaseModel::new();
 ///     model.stack(L::Dense::new(1000, true, None, Activation::Sigmoid));
 ///
@@ -381,7 +380,7 @@ impl Dense {
 /// Conv2d関数を処理するLayer構造体
 ///
 /// # Examples
-/// ```no_run
+///
 ///     let out_channels = 4;
 ///     let kernel_size = (3, 3);
 ///     let stride_size = (1, 1);
@@ -538,7 +537,7 @@ impl Conv2d {
 /// Maxpool2dを処理するLayer構造体
 ///
 /// # Examples
-/// ```no_run
+///
 ///     let kernel_size = (2, 2);
 ///     let stride_size = (1, 1);
 ///     let pad_size = (0, 0);
