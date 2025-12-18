@@ -4,7 +4,7 @@ use crate::core_new::{RcVariable, Variable};
 use crate::functions::activation_funcs::{relu, sigmoid_simple};
 use crate::functions::math::tanh;
 use crate::functions::neural_funcs::linear_simple;
-use crate::functions_cnn::conv2d_simple;
+use crate::functions_cnn::{conv2d_simple, max_pool2d_simple};
 
 use fxhash::FxHashMap;
 use ndarray::{Array, ArrayBase, Dim, OwnedRepr};
@@ -496,6 +496,123 @@ impl Conv2d {
         conv2d
     }
 }
+
+
+
+
+
+
+#[derive(Debug, Clone)]
+pub struct Maxpool2d {
+    input: Option<Weak<RefCell<Variable>>>,
+    output: Option<Weak<RefCell<Variable>>>,
+    kernel_size: (usize, usize),
+    stride_size: (usize, usize),
+    pad_size: (usize, usize),
+    generation: i32,
+    id: usize,
+}
+
+impl Layer for Maxpool2d {
+    fn set_params(&mut self, _param: &RcVariable) {
+        unimplemented!("Maxpool2dはパラメータを保持していません。") //Maxpool2dはparamsを持たないので
+    }
+    fn get_input(&self) -> RcVariable {
+        let input = self
+            .input
+            .as_ref()
+            .unwrap()
+            .upgrade()
+            .as_ref()
+            .unwrap()
+            .clone();
+        RcVariable(input)
+    }
+
+    fn get_output(&self) -> RcVariable {
+        let output;
+        output = self
+            .output
+            .as_ref()
+            .unwrap()
+            .upgrade()
+            .as_ref()
+            .unwrap()
+            .clone();
+
+        RcVariable(output)
+    }
+
+    fn call(&mut self, input: &RcVariable) -> RcVariable {
+        // inputのvariableからdataを取り出す
+
+        let output = self.forward(input);
+
+        //ここから下の処理はbackwardするときだけ必要。
+
+        //　inputを弱参照で覚える
+        self.input = Some(input.downgrade());
+
+        //  outputを弱参照(downgrade)で覚える
+        self.output = Some(output.downgrade());
+
+        output
+    }
+
+    fn get_generation(&self) -> i32 {
+        self.generation
+    }
+    fn get_id(&self) -> usize {
+        self.id
+    }
+    fn params(&mut self) -> &mut FxHashMap<usize, RcVariable> {
+        unimplemented!("Maxpool2dはパラメータを保持していません。")
+    }
+
+    fn cleargrad(&mut self) {
+        unimplemented!("Maxpool2dはパラメータを保持していません。")
+    }
+}
+
+impl Maxpool2d {
+    fn forward(&mut self, x: &RcVariable) -> RcVariable {
+        
+
+        let y = max_pool2d_simple(x, self.kernel_size, self.stride_size, self.pad_size);
+
+
+        y
+    }
+
+    pub fn new(
+        kernel_size: (usize, usize),
+        stride_size: (usize, usize),
+        pad_size: (usize, usize),
+    ) -> Self {
+        let maxpool2d = Self {
+            input: None,
+            output: None,
+            kernel_size: kernel_size,
+            stride_size: stride_size,
+            pad_size: pad_size,
+            generation: 0,
+            id: id_generator(),
+        };
+
+        
+
+        maxpool2d
+    }
+}
+
+
+
+
+
+
+
+
+
 
 #[derive(Debug, Clone)]
 pub enum Activation {
