@@ -358,11 +358,13 @@ impl Dense {
 /// Conv2d関数を処理するLayer構造体
 ///
 /// ## 実装例
-///     let kernel_size = (2, 2);
+///     let out_channels = 4;
+///     let kernel_size = (3, 3);
 ///     let stride_size = (1, 1);
 ///     let pad_size = (0, 0);
+///     let biased = false;
 ///     let mut model = BaseModel::new();
-///     model.stack(L::Maxpool2d::new(kernel_size, stride_size, pad_size));
+///     model.stack(L::Conv2d::new(out_channels, kernel_size, stride_size, pad_size, biased));
 ///
 ///conv2d_simple関数でbiasの処理が未実装なので、このLayerでもbiasはまだ使えない。
 #[derive(Debug, Clone)]
