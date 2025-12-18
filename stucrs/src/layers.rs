@@ -16,6 +16,17 @@ use std::fmt::Debug;
 
 use std::rc::Weak;
 
+///Model構造体が保持するLayerを表すトレイト。
+///
+/// ## 概要
+/// このトレイトを実装するとModelがLayerを保持、管理し、
+///
+/// 重みやバックプロパゲーションを自動でModel側から行える。
+///
+/// ## 実装上の注意
+/// 重みをもたないLayerも作成可能(Maxpool2dや活性化関数のLayerなど)。
+/// その場合、set_params(),params()やcleargrad()の関数は不要なので、unimplemented!()にする。
+/// Maxpool2dを参照。
 pub trait Layer: Debug {
     fn set_params(&mut self, param: &RcVariable);
 
@@ -28,6 +39,13 @@ pub trait Layer: Debug {
     fn cleargrad(&mut self);
 }
 
+///線形変換(Linear)を処理するLayer構造体
+///
+/// ## 実装例
+///
+///     let mut model = BaseModel::new();
+///     model.stack(L::Linear::new(10, true, None));
+///
 #[derive(Debug, Clone)]
 pub struct Linear {
     input: Option<Weak<RefCell<Variable>>>,
@@ -183,9 +201,13 @@ impl Linear {
     }
 }
 
-///線形変換(Linear)と活性化関数をまとめて計算するLayer構造体.
-/// new()で呼び出す際、activationのところはenumのActivationから選び、渡す。
-/// 例...Dense::new(1000, true, None, Activation::Sigmoid)
+///線形変換(Linear)と活性化関数をまとめて計算するLayer構造体
+///
+/// ## 実装例
+///
+///     let mut model = BaseModel::new();
+///     model.stack(L::Dense::new(1000, true, None, Activation::Sigmoid));
+///
 #[derive(Debug, Clone)]
 pub struct Dense {
     input: Option<Weak<RefCell<Variable>>>,
