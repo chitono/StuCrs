@@ -3,4 +3,4 @@ resolver = "2"
 members = [
     "test_lab",
     "stucrs", "cuda_test","stucrs-gpu"
-, "stucrs_test"]
+, "stucrs_test", "stucrs_gpu_test"]

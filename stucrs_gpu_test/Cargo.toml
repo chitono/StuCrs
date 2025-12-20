@@ -1,0 +1,21 @@
+[package]
+name = "stucrs_gpu_test"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ndarray = "0.16"
+rand = "0.8"
+ndarray-rand = "0.15"
+ndarray-stats = "0.6.0"
+plotters = "0.3.1"
+image = "0.25.8"
+stucrs = { path = "../stucrs" }
+stucrs-gpu = {path = "../stucrs-gpu"}
+cudarc={ version = "0.16.1", features = ["cuda-version-from-build-system"]}
+
+
+[dependencies.tensor_frame]
+git = "https://github.com/chitono/Tensor-Frame.git"
+branch = "main"
+features = ["cuda"]
