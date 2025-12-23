@@ -854,4 +854,40 @@ mod tests {
 
         println!("input_grad = {:?}", input.grad().unwrap().data());
     }
+
+    #[test]
+    fn flatten_layer_test() {
+        use crate::core_new::ArrayDToRcVariable;
+        use crate::layers as L;
+        use crate::models::BaseModel;
+
+        let input_array = array![[
+            [
+                [4.0f32, 1.0, 5.0, 3.0],
+                [7.0, 3.0, 2.0, 3.0],
+                [7.0, 2.0, 3.0, 4.0],
+                [1.0, 5.0, 3.0, 9.0]
+            ],
+            [
+                [4.0f32, 1.0, 5.0, 3.0],
+                [7.0, 3.0, 2.0, 3.0],
+                [7.0, 2.0, 3.0, 4.0],
+                [1.0, 5.0, 3.0, 9.0]
+            ]
+        ]];
+
+        println!("input_shape = {:?}", input_array.shape()); //[1,2,4,4]
+
+        let mut model = BaseModel::new();
+        model.stack(L::Flatten::new());
+
+        let input = input_array.rv();
+
+        let mut y = model.call(&input);
+
+        println!("y = {:?}", y.data()); // shape = [1,32]
+        y.backward(false);
+
+        println!("input_grad = {:?}", input.grad().unwrap().data()); // shape = [1,2,4,4]
+    }
 }

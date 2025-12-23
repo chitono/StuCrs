@@ -3,11 +3,12 @@ use crate::core_new::ArrayDToRcVariable;
 use crate::core_new::{RcVariable, Variable};
 use crate::functions::activation_funcs::{relu, sigmoid_simple};
 use crate::functions::math::tanh;
+use crate::functions::matrix::reshape;
 use crate::functions::neural_funcs::{dropout, linear_simple};
 use crate::functions_cnn::{conv2d_simple, max_pool2d_simple};
 
 use fxhash::FxHashMap;
-use ndarray::{Array, ArrayBase, Dim, OwnedRepr};
+use ndarray::{Array, ArrayBase, Dim, IxDyn, OwnedRepr};
 use ndarray_rand::rand_distr::StandardNormal;
 use ndarray_rand::RandomExt;
 use std::cell::RefCell;
@@ -832,6 +833,114 @@ impl ActivationLayer {
         };
 
         activations_layer
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Flatten {
+    input: Option<Weak<RefCell<Variable>>>,
+    output: Option<Weak<RefCell<Variable>>>,
+    generation: i32,
+    id: usize,
+}
+
+impl Layer for Flatten {
+    fn set_params(&mut self, _param: &RcVariable) {
+        unimplemented!("Flattenはパラメータを保持していません。")
+    }
+    fn get_input(&self) -> RcVariable {
+        let input = self
+            .input
+            .as_ref()
+            .unwrap()
+            .upgrade()
+            .as_ref()
+            .unwrap()
+            .clone();
+        RcVariable(input)
+    }
+
+    fn get_output(&self) -> RcVariable {
+        let output;
+        output = self
+            .output
+            .as_ref()
+            .unwrap()
+            .upgrade()
+            .as_ref()
+            .unwrap()
+            .clone();
+
+        RcVariable(output)
+    }
+
+    fn call(&mut self, input: &RcVariable) -> RcVariable {
+        // inputのvariableからdataを取り出す
+
+        let output = self.forward(input);
+
+        //ここから下の処理はbackwardするときだけ必要。
+
+        //　inputを弱参照で覚える
+        self.input = Some(input.downgrade());
+
+        //  outputを弱参照(downgrade)で覚える
+        self.output = Some(output.downgrade());
+
+        output
+    }
+
+    fn get_generation(&self) -> i32 {
+        self.generation
+    }
+    fn get_id(&self) -> usize {
+        self.id
+    }
+    fn params(&mut self) -> &mut FxHashMap<usize, RcVariable> {
+        unimplemented!("Flattenはパラメータを保持していません。")
+    }
+
+    fn cleargrad(&mut self) {
+        unimplemented!("Flattenはパラメータを保持していません。")
+    }
+}
+
+impl Flatten {
+    fn forward(&mut self, x: &RcVariable) -> RcVariable {
+        let n = x.data().shape()[0];
+        let y = match x.data().ndim() {
+            3 => {
+                let h = x.data().shape()[1];
+                let w = x.data().shape()[2];
+                let y = reshape(&x, IxDyn(&[n, h * w]));
+
+                y
+            }
+            4 => {
+                let h = x.data().shape()[1];
+                let w = x.data().shape()[2];
+                let c = x.data().shape()[3];
+                let y = reshape(&x, IxDyn(&[n, h * w * c]));
+
+                y
+            }
+            _ => {
+                unimplemented!("Flattenの3,4以外の次元の行列には未対応")
+            }
+        };
+
+        y
+    }
+
+    pub fn new() -> Self {
+        let flatten = Self {
+            input: None,
+            output: None,
+            generation: 0,
+            id: id_generator(),
+        };
+
+        flatten
     }
 }
 
