@@ -31,6 +31,7 @@ impl Optimizer for SGD {
             .expect("SGDにModelが設定されていません")
             .borrow_mut()
             .iter_mut()
+            .filter(|layer| layer.has_params())
         {
             for (_id, param) in layer.params() {
                 let new_param = self.update_param(&param);
