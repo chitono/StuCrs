@@ -983,19 +983,9 @@ impl Function for Max {
             }
         }
 
-        println!("gy_shape = {:?}", gy.data().shape());
-        println!("x_shape = {:?}", x_shape);
-        println!("mask_shape = {:?}", mask_array.shape());
-
         let broadcasted_gy = broadcast_to(gy, IxDyn(x_shape));
 
-        println!(
-            "broadecasted_gy_shape = {:?}",
-            broadcasted_gy.data().shape()
-        );
-
         let gx = mask_array.rv() * broadcasted_gy;
-        println!("gx_shape = {:?}", gx.data().shape());
 
         let gxs = vec![gx];
         gxs
