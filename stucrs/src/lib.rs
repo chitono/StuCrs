@@ -795,8 +795,6 @@ mod tests {
         println!("input_grad = {:?}", input.grad().unwrap().data()); // shape = [1,3,15,15]
     }
 
-
-
     #[test]
     fn maxpool2d_layer_test() {
         use crate::core_new::ArrayDToRcVariable;
@@ -821,7 +819,6 @@ mod tests {
         let stride_size = (1, 1);
         let pad_size = (0, 0);
 
-
         let mut model = BaseModel::new();
         model.stack(L::Maxpool2d::new(kernel_size, stride_size, pad_size));
 
@@ -833,5 +830,28 @@ mod tests {
         y.backward(false);
 
         println!("input_grad = {:?}", input.grad().unwrap().data()); // shape = [1,3,15,15]
+    }
+
+    #[test]
+    fn dropout_layer_test() {
+        use crate::core_new::ArrayDToRcVariable;
+        use crate::layers as L;
+        use crate::models::BaseModel;
+
+        let input_array = array![[4.0f32, 1.0, 5.0, 3.0], [1.0, 5.0, 3.0, 9.0]];
+
+        let ratio = 0.5f32;
+
+        let mut model = BaseModel::new();
+        model.stack(L::Dropout::new(ratio));
+
+        let input = input_array.rv();
+
+        let mut y = model.call(&input);
+
+        println!("y = {:?}", y.data());
+        y.backward(false);
+
+        println!("input_grad = {:?}", input.grad().unwrap().data());
     }
 }
