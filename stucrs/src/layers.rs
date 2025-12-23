@@ -38,6 +38,7 @@ pub trait Layer: Debug {
     fn get_id(&self) -> usize;
     fn params(&mut self) -> &mut FxHashMap<usize, RcVariable>;
     fn cleargrad(&mut self);
+    fn has_params(&self) -> bool;
 }
 
 ///線形変換(Linear)を処理するLayer構造体
@@ -119,6 +120,10 @@ impl Layer for Linear {
         for (_id, param) in self.params.iter_mut() {
             param.cleargrad();
         }
+    }
+
+    fn has_params(&self) -> bool {
+        true
     }
 }
 
@@ -284,6 +289,10 @@ impl Layer for Dense {
         for (_id, param) in self.params.iter_mut() {
             param.cleargrad();
         }
+    }
+
+    fn has_params(&self) -> bool {
+        true
     }
 }
 
@@ -467,6 +476,10 @@ impl Layer for Conv2d {
             param.cleargrad();
         }
     }
+
+    fn has_params(&self) -> bool {
+        true
+    }
 }
 
 impl Conv2d {
@@ -615,6 +628,10 @@ impl Layer for Maxpool2d {
     fn cleargrad(&mut self) {
         unimplemented!("Maxpool2dはパラメータを保持していません。")
     }
+
+    fn has_params(&self) -> bool {
+        false
+    }
 }
 
 impl Maxpool2d {
@@ -720,6 +737,10 @@ impl Layer for Dropout {
     fn cleargrad(&mut self) {
         unimplemented!("Dropoutはパラメータを保持していません。")
     }
+
+    fn has_params(&self) -> bool {
+        false
+    }
 }
 
 impl Dropout {
@@ -807,8 +828,10 @@ impl Layer for ActivationLayer {
         unimplemented!("ActivationLayerはパラメータを保持していません。")
     }
 
-    fn cleargrad(&mut self) {
-        unimplemented!("ActivationLayerはパラメータを保持していません。")
+    fn cleargrad(&mut self) {}
+
+    fn has_params(&self) -> bool {
+        false
     }
 }
 
@@ -902,6 +925,10 @@ impl Layer for Flatten {
 
     fn cleargrad(&mut self) {
         unimplemented!("Flattenはパラメータを保持していません。")
+    }
+
+    fn has_params(&self) -> bool {
+        false
     }
 }
 
