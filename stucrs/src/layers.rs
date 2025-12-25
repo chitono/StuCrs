@@ -625,9 +625,7 @@ impl Layer for Maxpool2d {
         unimplemented!("Maxpool2dはパラメータを保持していません。")
     }
 
-    fn cleargrad(&mut self) {
-        unimplemented!("Maxpool2dはパラメータを保持していません。")
-    }
+    fn cleargrad(&mut self) {}
 
     fn has_params(&self) -> bool {
         false
@@ -734,9 +732,7 @@ impl Layer for Dropout {
         unimplemented!("Dropoutはパラメータを保持していません。")
     }
 
-    fn cleargrad(&mut self) {
-        unimplemented!("Dropoutはパラメータを保持していません。")
-    }
+    fn cleargrad(&mut self) {}
 
     fn has_params(&self) -> bool {
         false
@@ -923,9 +919,7 @@ impl Layer for Flatten {
         unimplemented!("Flattenはパラメータを保持していません。")
     }
 
-    fn cleargrad(&mut self) {
-        unimplemented!("Flattenはパラメータを保持していません。")
-    }
+    fn cleargrad(&mut self) {}
 
     fn has_params(&self) -> bool {
         false
