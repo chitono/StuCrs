@@ -87,9 +87,9 @@ fn get_spiral_data() -> (Array2<f32>, Array1<u32>) {
 
 #[derive(Clone)]
 pub struct MNIST {
-    pub train_img: Array3<f32>,
+    pub train_img: Array4<f32>,
     pub train_label: Array2<f32>,
-    pub test_img: Array3<f32>,
+    pub test_img: Array4<f32>,
     pub test_label: Array2<f32>,
 }
 
@@ -119,7 +119,7 @@ impl MNIST {
     }
 }
 
-fn get_mnist_data() -> (Array3<f32>, Array2<f32>, Array3<f32>, Array2<f32>) {
+fn get_mnist_data() -> (Array4<f32>, Array2<f32>, Array4<f32>, Array2<f32>) {
     // Deconstruct the returned Mnist struct.
     let Mnist {
         trn_img,
@@ -135,7 +135,7 @@ fn get_mnist_data() -> (Array3<f32>, Array2<f32>, Array3<f32>, Array2<f32>) {
         .finalize();
 
     // Can use an Array2 or Array3 here (Array3 for visualization)
-    let train_data = Array3::from_shape_vec((50_000, 28, 28), trn_img)
+    let train_data = Array4::from_shape_vec((50_000, 1, 28, 28), trn_img)
         .expect("Error converting images to Array3 struct")
         .map(|x| *x as f32 / 256.0);
     //println!("{:#.1?}\n",train_data.slice(s![image_num, .., ..]));
@@ -146,7 +146,7 @@ fn get_mnist_data() -> (Array3<f32>, Array2<f32>, Array3<f32>, Array2<f32>) {
         .map(|x| *x as f32);
     //println!("The first digit is a {:?}",train_labels.slice(s![image_num, ..]) );
 
-    let test_data = Array3::from_shape_vec((10_000, 28, 28), tst_img)
+    let test_data = Array4::from_shape_vec((10_000, 1, 28, 28), tst_img)
         .expect("Error converting images to Array3 struct")
         .map(|x| *x as f32 / 256.);
 
