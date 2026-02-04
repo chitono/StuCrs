@@ -32,6 +32,10 @@
 <https://docs.google.com/document/d/1jJL_ijYnqIFADSTfTqLcnNre754g24bE963L_r3hwus/edit?usp=sharing>
 
 
+## 研究の解説webサイトはこちら
+https://chitono.github.io/research-notes/
+
+
 ## ファイル構成
 
 |フォルダ名 |説明         |
