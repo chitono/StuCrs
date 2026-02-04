@@ -217,7 +217,8 @@ fn main() {
 
 StuCrsを実際に実行して処理速度などを計測した試験データをこちらに公開しております。　<https://docs.google.com/spreadsheets/d/1Fkxn7yqLILJlHYeADVa_jJljFBYD5ZvIH0I7-EVTuFU/edit?usp=sharing>
 
-
+## 今後の課題
+本研究が課題として解決したいと考えている問題はこちらの[Discussions](https://github.com/chitono/StuCrs/discussions)に載せています。ぜひご覧ください。
 ## 参考文献
 
 詳細な参考文献一覧は[docs/REFERENCES.md](docs/REFERENCES.md)を参照してください。
