@@ -70,6 +70,7 @@ NVIDIAのGPUで実行できる機能も提供しています。その場合はst
 詳しくは[研究の解説webサイト](https://chitono.github.io/research-notes/)をご参照ください。
 
 ## MNISTの学習の実装例
+他の学習コードなどはこちらの[examples](examples)をご覧ください。
 ```
 
 use ndarray::*;
