@@ -1,1 +1,39 @@
+[book]
+authors = ["chitono"]
+language = "ja"
+multilingual = false
+src = "src"
+title = "StuCrs解説ドキュメント"
+description = "StuCrs 深層学習の原理を探求するRust製フレームワーク"
 
+[build]
+build-dir = "book"
+create-missing = true
+
+[preprocessor.links]
+
+[preprocessor.index]
+
+[output.html]
+default-theme = "navy"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/chitono/StuCrs"
+
+[output.html.print]
+enable = true
+
+[output.html.search]
+enable = true
+limit-results = 30
+teaser-word-count = 30
+use-boolean-and = true
+boost-title = 2
+boost-hierarchy = 1
+boost-paragraph = 1
+expand = true
+heading-split-level = 3
+
+[output.html.playground]
+runnable = false # Maybe later i'll add support
+editable = true
+copyable = true
