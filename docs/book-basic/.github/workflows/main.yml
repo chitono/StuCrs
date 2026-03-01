@@ -1,0 +1,23 @@
+name: CI/CD
+on:
+  push:
+    branches:
+    - main
+    paths:
+    - "src/**"
+    - "book.toml"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build
+      uses: ./.github/actions/build
+    - name: Deploy
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        deploy_key: ${{ secrets.actions_deploy_key }}
+        external_repository: [chitono]/[StuCrs]
+        PUBLISH_BRANCH: main
+        PUBLISH_DIR: ./book
