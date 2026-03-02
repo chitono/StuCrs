@@ -30,13 +30,17 @@ jobs:
         run: |
           cd docs/book-basic
           mdbook build
+      - name: Prepare public
+        run: |
+          mkdir -p public
+          cp -r docs/book-basic/book public/book-basic
       - name: Setup Pages
         uses: actions/configure-pages@v4
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           # Upload entire repository
-          path: 'book'
+          path: public
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
