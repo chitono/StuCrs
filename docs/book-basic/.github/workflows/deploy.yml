@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write  
-      pages: write  # To push to a GitHub Pages site
+      pages: write  
       id-token: write # To update the deployment status
     steps:
       - uses: actions/checkout@v4
