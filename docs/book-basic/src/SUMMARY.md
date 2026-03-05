@@ -1,7 +1,7 @@
 # Summary
 
 - [はじめに](./introduction.md)
-- [実数での自動微分](./Aut_dif_realnumber/README.md)
+- [実数での自動微分]
   - [変数の作成](./Aut_dif_realnumber/create_variables.md)
   - [関数の作成](./Aut_dif_realnumber/create_functions.md)
   - [微分の理論](./Aut_dif_realnumber/bibun_riron.md)
