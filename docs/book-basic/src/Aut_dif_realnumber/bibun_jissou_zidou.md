@@ -339,7 +339,125 @@ let mut funcs: Vec<Rc<RefCell<Functions>>> = vec![Rc::clone(self.creator.as_ref(
 ## forward,backwardのRcVariable対応
 
 ## 可変長への拡張
+今までの関数(exp,square)は一変数関数で入力と出力の個数が一個です。しかし、今後実装するaddやmulといった演算子の関数はa+b,a*bというように入力は2個です。なのでこれからは二変数関数、ひいてはそれ以上の多変数に対応できるように拡張していきます。具体的にはFunctionトレイト・構造体のフィールド、そしてVariableのbackward()メソッドの二つを変更していきます。
+```rust
+trait Function: Debug {
+    fn call(&mut self,input: &RcVariable) -> RcVariable;
+    fn forward(&self, x: &[RcVariable]) -> RcVariable;
+    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable>;
+    fn get_inputs(&self) -> [Option<RcVariable>; 2];
+    fn get_outputs(&self) -> [Option<RcVariable>; 2];
+}
+```
+はじめにFunctionトレイトを変更します。注目すべきところはトレイトで定義された関数の引数と戻り値の型です。今までは戻り値の型をf32、RcVariableだけでしたが、ここではスライス型として渡し、出力します。これにより可変個の入力を渡せるようになりました。ここでは配列をvec型としましたが、ここにはRustの動的、静的といった考えがあります。   
+
+>Rustの複数のデータを保持する型の種類として主に２種類あります。それはVec型と配列型です。これらの違いは保持するデータの個数、すなわち長さがいつ決まるかということです。Vec型ではコードの実行中に、配列ではコンパイル時に決まります。いうなればVecは可変の長さであり、実行中に自由に変更することができます。一方配列はすでに決まった長さ、つまり不変の長さです。一見するとVecの方が自由度が高くて便利だと思いますが、長さが実行中に決まるので、決定するのに多少時間がかかってしまいます。要するにVecは自由度が高い代わりに、パフォーマンスを犠牲にしているということです。逆に配列は自由度が低い分、パフォーマンス的には良いです。まとめると、自由度とパフォーマンス、どっちをとるかということです。ただし実際はこれら二つのパフォーマンスに差が出るのは要素が数万個ぐらいのものを処理する場合であり、数個の場合はまったくと言っていいほど差はありません。よってここでは柔軟性が高いVec型を採用しています。このような静的と動的の考えはRustでは非常に重要になってきます。
 
 ## add関数の実装
 
+可変長に対応することができたので、実際に2変数関数であるadd関数を実装してみましょう。
+
+```rust
+#[derive(Debug, Clone)]
+struct AddF {
+    inputs: Vec<Rc<RefCell<Variable>>>,
+    output: Option<Weak<RefCell<Variable>>>,
+    id: usize,
+}
+
+impl Function for AddF {
+    fn call(&mut self) -> RcVariable {
+        let inputs = &self.inputs;
+        if inputs.len() != 2 {
+            panic!("Addは二変数関数です。inputsの個数が二つではありません。")
+        }
+
+        let output = self.forward(inputs);
+
+        if get_grad_status() == true {
+            
+            //  outputを弱参照(downgrade)で覚える
+            self.output = Some(output.downgrade());
+
+            let self_f: Rc<RefCell<dyn Function>> = Rc::new(RefCell::new(self.clone()));
+
+            //outputsに自分をcreatorとして覚えさせる
+            output.0.borrow_mut().set_creator(self_f.clone());
+        }
+
+        output
+    }
+
+    fn forward(&self, xs: &[RcVariable]) -> f32 {
+        let x0 = &xs[0];
+        let x1 = &xs[1];
+        let y_data = x0.data() + x1.data();
+
+        y_data
+    }
+
+    fn backward(&self, gy: &RcVariable) -> Vec<f32> {
+        let gx0 = gy.clone();
+        let gx1 = gy.clone();
+        
+        let gxs = vec![gx0, gx1];
+        gxs
+    }
+
+    fn get_inputs(&self) -> &[RcVariable] {
+        &self.inputs
+    }
+
+    fn get_output(&self) -> RcVariable {
+        let output;
+        output = self
+            .output
+            .as_ref()
+            .unwrap()
+            .upgrade()
+            .as_ref()
+            .unwrap()
+            .clone();
+
+        RcVariable(output)
+    }
+
+    fn get_id(&self) -> usize {
+        self.id
+    }
+}
+impl AddF {
+    fn new(inputs: &[RcVariable]) -> Rc<RefCell<Self>> {
+        Rc::new(RefCell::new(Self {
+            inputs: inputs.to_vec(),
+            output: None,
+            id: id_generator(),
+        }))
+    }
+}
+
+pub fn add(xs: &[RcVariable]) -> RcVariable {
+    AddF::new(xs).borrow_mut().call()
+}
+```
+Add関数の微分ですが、ここで初めて一つの変数の一変数関数ではなく、複数の変数の多変数関数が登場しました。今までは一変数でつながりも一直線でしたが、多変数関数の場合は分岐します。ではどのように微分を求めるのでしょうか。ここで必要な知識は偏微分です。   
+
+```mermaid
+graph RL
+ z(("z")) -->|"∂L/∂Z"| mul["Mul(x,y)"]
+ mul -->|"Z"| z
+ x -->|"ⅹ"| mul
+ y(("y")) -->|"ｙ"| mul
+ mul -->|"∂L/∂Z・1"| y
+ mul -->|"∂L/∂Z・1"| x((x))
+```
+TODO: グラフ改善予定
+
+ここではz(x,y)の関数を考えてみましょう。z=x+yとすると、zは独立するxとyによって定まるので二変数関数です。これは足し算の関数ですが、x、yのそれぞれのzに対する偏微分を考えます。すると**∂z/∂x = 1**、**∂z/∂y = 1**となります。よって上から流れて来た微分の値、図で言うなら∂L/∂z、コードで言うなら**gy**をそのまま流すことになります。このように偏微分を駆使して実装すれば多変数関数でも正しく逆伝播を行うことができます。   
+
+Add構造体の名前がAddFなのは、今後これを演算子のオーバーロードで用いるのですが、すでにAdd構造体がもともと存在するので、それと名前が重複するのを防ぐためです。
+
+
 ## 同じ変数を繰り返し使う
+TODO: 今後書く予定
+
