@@ -11,9 +11,12 @@ struct Variable {
     data: f32,
     grad: Option<f32>,
 
+}
 impl Variable {
     fn new(data: f32) -> Self {
         Variable { data, grad: None }
+    }
+}
 
 trait Function {
     fn call(&mut self) -> Variable;

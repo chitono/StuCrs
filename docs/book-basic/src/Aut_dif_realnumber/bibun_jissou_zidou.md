@@ -67,7 +67,7 @@ graph LR
 
 Rcは「参照カウント」型で複数の所有者を可能にしますが内部のデータへの不変な参照しか提供しません。RefCellはborrow_()、borrow_mut()によって、実行時における可変性（Interior Mutability）を可能にします。つまりRc<RefCell>型は所有権の共有と内部のデータを可変に操作できるというRustでは難しい特徴を両立できる型なのです。まとめると、Rc型は所有権の共同保有を、Refcell型は共同保有されたものを可変に扱うことを可能にしているのです。
 
-Variable構造体に**Rc<'RefCell'>** を導入すると、**Rc<Refcell<'Variable'>>** 構造体となります。これはもとのVariable構造体を可変な共同保有ができるようにしたものです。しかし、Variableの内部のデータにアクセスするにはborrow()を多用しなければなりません。またこの構造体を型で示すとき、毎回、Rc<RefCell<'Variable'>>と書かなくてはならず、面倒です。そこでこのRc<Refcell<'Variable'>>構造体を一つの構造体として実装してみましょう。ここではRc型を用いているのでRcVariable型とします。
+Variable構造体に**Rc&lt;RefCell&gt;** を導入すると、**Rc<Refcell&lt;Variable&gt;>** 構造体となります。これはもとのVariable構造体を可変な共同保有ができるようにしたものです。しかし、Variableの内部のデータにアクセスするにはborrow()を多用しなければなりません。またこの構造体を型で示すとき、毎回、Rc<Refcell&lt;Variable&gt;>と書かなくてはならず、面倒です。そこでこのRc<Refcell&lt;Variable&gt;>構造体を一つの構造体として実装してみましょう。ここではRc型を用いているのでRcVariable型とします。
 
 では可変な参照の共有ができるRc<'Refcell'>型を用いて**RcVariable構造体** を実装してみましょう。
 >ここで用いるRc、RefCellはRustの中でも扱いが難しい概念です。特にborrow()関数などは扱い方を知らないと簡単にエラーが起きます。なので事前に調べておくことをお勧めします。これらの参考資料はGitHubのreadmeから見ることもできます。
@@ -140,11 +140,11 @@ trait Function{
 
 はじめにVariableの変更点について説明します。  
 
-フィールドとしてOption<Rc<RefCell<Functions>>>型をcreatorとして保持し、Option<String>型をnameとして保持します。また、初期化の関数new()にもcreatorとnameを追加します。次にcreatorを保持するための関数set_createrを追加します。この関数はFunctionの共有された所有権をコピーし、Variableのcreatorに格納します。これにより、Variableは、自分を生み出したFunctionをたどることができ、そのFunctionの情報にアクセスできるようになります。  
+フィールドとしてOption<Rc<RefCell&lt;Functions&gt;>>型をcreatorとして保持し、Option&lt;String&gt;型をnameとして保持します。また、初期化の関数new()にもcreatorとnameを追加します。次にcreatorを保持するための関数set_createrを追加します。この関数はFunctionの共有された所有権をコピーし、Variableのcreatorに格納します。これにより、Variableは、自分を生み出したFunctionをたどることができ、そのFunctionの情報にアクセスできるようになります。  
 
 ---
 
-RcVariableはRc<Refcell<Variable>>をタプル構造体として定義します。なので、実際には(Rc<Refcell<Variable>>、)となっていてタプルとしてVariableを保持します。タプルの要素にアクセスする際はtaple.0など、インデックスの値をつけるのでした。
+RcVariableはRc<Refcell&lt;Variable&gt;>をタプル構造体として定義します。なので、実際には(Rc<Refcell&lt;Variable&gt;>、)となっていてタプルとしてVariableを保持します。タプルの要素にアクセスする際はtaple.0など、インデックスの値をつけるのでした。
 だから**self.0.borrow_mut():のとき.0を使う** のです。このRcVariable構造体のイメージは饅頭です。中の餡が**Variable** でその**Variable** のdataや**grad** にアクセスするのに、**self.0** を用います。
 なので**RcVariableはあくまでVariableを使いやすくするためのもので、データの保持など、本質的な構造体は中身のVariableなのです。**  
 
@@ -158,7 +158,7 @@ Functionトレイトの変更点について説明します。
 
 関数としてget_inputとget_outputを追加します。この関数は２つともFunction構造体のインプットとアウトプットのRcVariable型を返すものです。この関数はinputとoutputとFunction構造体のつながりを保つという意味で重要なものとなります。
 ここでなんでフィールドにアクセスする関数をわざわざFunctionトレイトに実装しないといけないのか疑問を持たれるかもしれません。これに関しては後の5.3のbackward()メソッドを実装する際に説明します。
-ちなみにFunctionトレイトで関数をいくつか実装しましたがここで型を指定する際、RcVariableと何度も書きましたが、RcVariableを導入していないと、全部Rc<RefCell<Variable>>と書かなくてなりません。
+ちなみにFunctionトレイトで関数をいくつか実装しましたがここで型を指定する際、RcVariableと何度も書きましたが、RcVariableを導入していないと、全部Rc<RefCell&lt;Variable&gt;>と書かなくてなりません。
 
 
 ## 各関数の変更点
@@ -210,7 +210,7 @@ impl Square {
 Squareを構造体として定義していますが、そのフィールドを変更していきます。はじめにinputのVariableをRcVariableに変更します。
 
 - Square::new()の変更点      
-Rc<RefCell<Self>>を返すことで、Square関数自体が共有可能かつ内部可変なオブジェクトとして扱われるようにします。
+Rc<RefCell&lt;Self&gt;>>を返すことで、Square関数自体が共有可能かつ内部可変なオブジェクトとして扱われるようにします。
 逆伝播で値を取得するために使用するためVariableへの強い参照（所有権を共有）つまりinputの値を長時間保持しなくてはならないため。**self.input = Rc ::clone(input);** でcloneを使っています。ここで**Functionがinputとのつながりを保持します。**
 
 self.output = Rc::downgrade(&output);はなぜcloneしないのかというと
@@ -316,7 +316,6 @@ impl Variable {
             funcs.push(Rc::clone(x.borrow().creator.as_ref().unwrap()));
         }  // ↑ xのcreatorのFunction構造体を新たにfuncsリストに追加
     }
- }
 }
 ```
 このbackwardメソッドではVariableのcreatorから関数を受け取り、その関数の入力を取り出した後にbackwardメソッドを呼び出すという処理をループを使って実装しています。
