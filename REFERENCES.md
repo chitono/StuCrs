@@ -10,6 +10,7 @@
 - [Rust] ndarray入門　tictaqqn　<https://qiita.com/ttttkkkkk31525/items/b75574bbff52e6cd213a>
 - Rust で HashSet を使って値の重複をチェックする　shota　<https://zenn.dev/collabostyle/articles/2295836292f092>
 - Rustの高速化はHashmapから　あろめ　<https://zenn.dev/arome/articles/f9c52bf1c2a246>
+- Rust | Vec型をsort_byで昇順・降順に並び替える ふくだ <https://dottrail.codemountains.org/rust-vec-sort-by/>
 - 【Rust】演算子のオーバーロード　tyfkda　<https://tyfkda.github.io/blog/2020/06/05/rust-op-overload.html>
 - Rust勉強中 - その18 -> 演算子オーバーロード　@deta-mamoru(出田 守)　<https://qiita.com/deta-mamoru/items/c0f4bb485488607660c1#%E8%87%AA%E5%B7%B1%E7%B4%B9%E4%BB%8B>
 - Rust で mutable なグローバル変数を作る方法　nojima　<https://zenn.dev/nojima/articles/fc2befbb3ee2d5>
@@ -20,4 +21,4 @@
 - MNIST データセットをダウンロードしたい　kumazo　<https://zenn.dev/kumazo/articles/d635cca42727b7>
 - ndarray クレートと NumPy の速度比較　@Surpris (Surpris)　<https://qiita.com/Surpris/items/ac64b129603e107b882c>
 - RustでCUDA(Cublas)を使った行列計算を実装する　そゆっけ　<https://zenn.dev/soyukke/articles/ed71288396b7fc>
-- 
+  
