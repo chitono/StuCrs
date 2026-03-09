@@ -96,4 +96,31 @@ fn main() {
 >**neg** は一変数関数なので、注意してください。また、オーバーロードに対応しているのはadd,mul,sub,div,negのみなので、**pow** はできません。よくわからない場合は**stucrs**のプログラムの[lib](https://github.com/chitono/StuCrs/blob/main/stucrs/src/lib.rs)をご覧ください。
 
 TODO: RcVariableの追加実装の説明追加予定
+## RcVariableの追加実装
+ここではよりRcVariableを便利に、そして可読性が増すように、RcVariableに独自のメソッドを追加していきます。
 
+### データからRcVariableを直接生成する関数
+**RcVariable** を生成する際、今まではRcVariableのメソッドである **new(data)** という関数をもちいていました。実はこれをもっと簡単に、シンプルに生成する方法があります。前に用いた **オーバーロード** を用いるのです。※ここで言うオーバーロードも厳密にはオーバーロードではありません。   
+
+具体的にはf32型に自身のデータを保持するRcVariableを生成する関数をf32にオーバーロードするのです。試しにコードを作成しましょう。
+
+```rust
+pub trait F32ToRcVariable {
+    fn rv(&self) -> RcVariable;
+}
+
+impl F32ToRcVariable for f32 {
+    fn rv(&self) -> RcVariable {
+        RcVariable::new(self.clone()) // <- 中の処理はRcVariableのnew()と同じ
+    }
+}
+```
+はじめにトレイトで関数を定義します。**rv()** という関数名です。続いてこの関数の処理を書き、f32に実装します。関数の処理はただのRcVariableの **new()** と同じです。これにより、f32型独自のメソッドを実装できました。ではこの関数を用いてRcVariableを生成してみましょう。
+
+```rust
+fn main() {
+    let a = RcVariable::new(1.0); // <- 今までの生成方法
+    let b = 2.0.rv();             // <- 新たな生成方法
+}
+```
+この二つの生成を比べると、変数となる **a,b** がどのような値を持つRcVariableか一目で判断がつきます。今後このメソッドを多用しますので、忘れずに実装しておきましょう。
