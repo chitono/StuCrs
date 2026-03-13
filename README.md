@@ -220,7 +220,7 @@ fn main() {
 
 ## 試験データ
 
-StuCrsを実際に実行して処理速度などを計測した試験データを[試験データ](PERFORMANCE.md)こ公開しております。　
+StuCrsを実際に実行して処理速度などを計測した[試験データ](PERFORMANCE.md)を公開しております。　
 
 ## 今後の課題
 本研究が課題として解決したいと考えている問題はこちらの[Discussions](https://github.com/chitono/StuCrs/discussions)に載せています。ぜひご覧ください。
