@@ -33,8 +33,6 @@
 
 
 
-## 研究の解説webサイトはこちら
-https://chitono.github.io/research-notes/
 
 
 ## ファイル構成
@@ -68,7 +66,7 @@ NVIDIAのGPUで実行できる機能も提供しています。その場合はst
 ## 実行方法
 はじめにDockerfileとcompose.yamlファイルを用いてdockerでコンテナを立ち上げてください。
 フォルダーのstucrsをダウンロードしていただき、外部クレートとしてご利用ください。また、こちらのクレートはバグといった不具合の対応が不十分だと判断し、ライブラリクレートとしては公開しておりません。またオプションとして、NVIDIAのGPUで実行できる機能も提供しています。その場合はstucrs-gpuをダウンロードしてください。(現在GPU版は一部不具合が発生しており、完全に対応している状態ではないため、使用は今しばらくお待ちください。)  
-詳しくは[研究の解説webサイト](https://chitono.github.io/research-notes/)をご参照ください。
+詳しくは[研究の解説ドキュメント](https://chitono.github.io/StuCrs/book-basic/)をご参照ください。
 
 ## MNISTの学習の実装例
 他の学習コードなどはこちらの[examples](examples)をご覧ください。
@@ -222,7 +220,7 @@ fn main() {
 
 ## 試験データ
 
-StuCrsを実際に実行して処理速度などを計測した試験データをこちらに公開しております。　<https://docs.google.com/spreadsheets/d/1Fkxn7yqLILJlHYeADVa_jJljFBYD5ZvIH0I7-EVTuFU/edit?usp=sharing>
+StuCrsを実際に実行して処理速度などを計測した[試験データ](PERFORMANCE.md)を公開しております。　
 
 ## 今後の課題
 本研究が課題として解決したいと考えている問題はこちらの[Discussions](https://github.com/chitono/StuCrs/discussions)に載せています。ぜひご覧ください。
