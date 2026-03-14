@@ -8,7 +8,7 @@
 
 ```mermaid
 graph LR
- A((X)) --> B["f(x)"]
+ A((x)) --> B["$$f(x)$$"]
  B --> C((y))
  A ---|"input"| B
  B ---|"output"| C
@@ -19,7 +19,7 @@ graph LR
 
 ```mermaid
 graph LR
- A((X)) --> B["f(x)"]
+ A((x)) --> B["$$f(x)$$"]
  B --> C((y))
  B ---|"creator"| C
 ```
@@ -258,14 +258,16 @@ graph LR
  E --> F[C]
  F --> G((y))
 ```
+
+
 ```mermaid
 graph RL
- A(("dy/dy")) --> B["C'(b)"]
- B --> C(("dy/db"))
- C --> D["B'(a)"]
- D --> E(("dy/da"))
- E --> F["A'(x)"]
- F --> G(("dy/dx"))
+ A(("$$dy/dy$$")) --> B["$$C'(b)$$"]
+ B --> C(("$$dy/db$$"))
+ C --> D["$$B'(a)$$"]
+ D --> E(("$$dy/da$$"))
+ E --> F["$$A'(x)$$"]
+ F --> G(("$$dy/dx$$"))
 ```
 
 ```rust
@@ -441,9 +443,10 @@ pub fn add(xs: &[RcVariable]) -> RcVariable {
 ```
 Add関数の微分ですが、ここで初めて一つの変数の一変数関数ではなく、複数の変数の多変数関数が登場しました。今までは一変数でつながりも一直線でしたが、多変数関数の場合は分岐します。ではどのように微分を求めるのでしょうか。ここで必要な知識は偏微分です。   
 
+TODO: 文字を改善する予定
 ```mermaid
 graph RL
- z(("z")) -->|"∂L/∂Z"| mul["Mul(x,y)"]
+ z(("$$z$$")) -->|"$$\partial f/\\partial x$$"| mul["Mul(x,y)"]
  mul -->|"Z"| z
  x -->|"ⅹ"| mul
  y(("y")) -->|"ｙ"| mul
