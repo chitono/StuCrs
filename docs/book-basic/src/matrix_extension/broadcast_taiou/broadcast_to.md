@@ -56,34 +56,36 @@ graph RL
 
 この二つは違う形状の **input** を同じ形状に変形させています。注目すべき点は**gx** の行列の値です。**BroadcastTo** でinputの行列の値をいわばコピーして拡張しています。なので、 **Backward** の場合はそのコピーを戻す形で足し合わせることで **gx** に戻します。
 
+
 ここでBroadcastToで拡張した際、バックプロパゲーションでは要素を足すことを数学的に確かめます。 
 $$
 X:\begin{pmatrix}
 x_0 & x_1 & x_2
 \end{pmatrix}
-\xrightarrow{BroadCastTo}
+\xrightarrow{\text{BroadCastTo}}
 Y:\begin{pmatrix}
-y_0 & y_1 & y_2 \\
+y_0 & y_1 & y_2\\\\
 y_3 & y_4 & y_5
 \end{pmatrix} = 
 \begin{pmatrix}
-x_0 & x_1 & x_2 \\
+x_0 & x_1 & x_2\\\\
 x_0 & x_1 & x_2
 \end{pmatrix}
 $$
 
 $$
-\frac{\partial L}{\partial \bm{X}}:\begin{pmatrix}
-\frac{\partial L}{\partial \bm{y}} \cdot \frac{\partial y}{\partial \bm{x_0}} & \frac{\partial L}{\partial \bm{y}} \cdot \frac{\partial y}{\partial \bm{x_1}} & \frac{\partial L}{\partial \bm{y}} \cdot \frac{\partial y}{\partial \bm{x_2}}
+\frac{\partial L}{\partial X}:\begin{pmatrix}
+\frac{\partial L}{\partial  y} \cdot \frac{\partial y}{\partial x_0} & \frac{\partial L}{\partial  y} \cdot \frac{\partial y}{\partial x_1} & \frac{\partial L}{\partial  y} \cdot \frac{\partial y}{\partial x_2}
 \end{pmatrix}
-\xleftarrow{SumTo}
-\frac{\partial L}{\partial \bm{Y}}:\begin{pmatrix}
-\frac{\partial L}{\partial \bm{y_0}} & \frac{\partial L}{\partial \bm{y_1}} & \frac{\partial L}{\partial \bm{y_2}} \\
-\frac{\partial L}{\partial \bm{y_3}} & \frac{\partial L}{\partial \bm{y_4}} & \frac{\partial L}{\partial \bm{y_5}}
+\xleftarrow{\text{SumTo}}
+\frac{\partial L}{\partial Y}:\begin{pmatrix}
+\frac{\partial L}{\partial y_0} & \frac{\partial L}{\partial y_1} & \frac{\partial L}{\partial y_2} \\\\
+\frac{\partial L}{\partial y_3} & \frac{\partial L}{\partial y_4} & \frac{\partial L}{\partial y_5}
 \end{pmatrix}
 $$
-この際$x_0$の偏微分、$\frac{\partial L}{\partial \bm{x_0}} = \frac{\partial L}{\partial \bm{y}} \cdot \frac{\partial y}{\partial \bm{x_0}}$で考えてみます。$y$での偏微分ですが、この$y$は$x_0$に関係する$y$の要素なので、$y_0,y_3$を指します。よってこの部分は正確には$\frac{\partial L}{\partial \bm{x_0}} = \frac{\partial L}{\partial \bm{y_0}} \cdot \frac{\partial y_0}{\partial \bm{x_0}} + \frac{\partial L}{\partial \bm{y_3}} \cdot \frac{\partial y_3}{\partial \bm{x_0}}$ 
-となります。ここで、$\frac{\partial y_0}{\partial \bm{x_0}}$と$\frac{\partial y_3}{\partial \bm{x_0}}$はただ値をコピーしただけ関係なのでそれぞれ1です。なので最終的に$\frac{\partial L}{\partial \bm{x_0}} = \frac{\partial L}{\partial \bm{y_0}}  + \frac{\partial L}{\partial \bm{y_3}}$ となります。これは$gy$の要素の和を取ったものです。
+この際 \\(x_0\\) の偏微分、$$\frac{\partial L}{\partial x_0} = \frac{\partial L}{\partial y} \cdot \frac{\partial y}{\partial x_0}$$で考えてみます。\\(y\\)での偏微分ですが、この\\(y\\)は\\(x_0\\)に関係する\\(y\\)の要素なので、\\(y_0,y_3\\)を指します。よってこの部分は正確には $$\frac{\partial L}{\partial x_0} = \frac{\partial L}{\partial y_0} \cdot \frac{\partial y_0}{\partial x_0} + \frac{\partial L}{\partial y_3} \cdot \frac{\partial y_3}{\partial x_0}$$ 
+となります。ここで、\\(\frac{\partial y_0}{\partial x_0}\\)と\\(\frac{\partial y_3}{\partial x_0}\\)はただ値をコピーしただけ関係なのでそれぞれ1です。なので最終的に$$\frac{\partial L}{\partial x_0} = \frac{\partial L}{\partial y_0}  + \frac{\partial L}{\partial y_3}$$ となります。これは\\(gy\\)の要素の和を取ったものです。
+
 
 そして、このバックプロパゲーションを実装するにあたって、**gy** の要素を正しく足して**gx** を返す関数が必要となります。これがもう一つの関数、**SumTo** です。つまり、**SumTo関数** を実装しなければ **BroadcastTo関数** のバックプロパゲーションが実装できないのです。なので、下にあるBroadcastToのコードは次に説明する **SumTo関数** を見てからにしてください。 
 
