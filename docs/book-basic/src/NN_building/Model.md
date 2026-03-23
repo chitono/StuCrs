@@ -1,6 +1,9 @@
 # Modelの実装
 続いて **Model** の実装です。前のLayerがパラメーターを管理するなら、このModelはレイヤーを管理するものです。このModelも同様に、**Modelトレイト** を実装し、様々な構造体に継承させるので、Modelトレイトを実装した構造体を**Model構造体** と呼ぶことにします。
 
+先ほどと同じように **core.rs** ファイルと同じ階層に **model.rs** ファイルを追加します。モジュールとして認識してもらうよう、 **lib.rs**、**mod.rs** に **model.rs** の名前を追加しておきます。
+
+
 ```rust
 pub trait Model {
     fn stack(&mut self, layer: impl Layer + 'static);
