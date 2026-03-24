@@ -34,6 +34,7 @@
   - [Modelの実装](./NN_building/Model.md)
   - [Optimizerの実装](./NN_building/Optimizer.md)
   - [Configの実装](./NN_building/Config.md)
+  - [NNの学習](./NN_building/NN_training.md)
 - [学習]()
   - [損失関数](./Training/Loss_function.md)
   - [データセットの用意](./Training/Datasets_junbi.md)
