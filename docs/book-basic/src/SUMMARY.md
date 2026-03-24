@@ -42,6 +42,7 @@
   - [スパイラルデータの学習](./Training/Spiral_training.md)
   - [MNISTの学習](./Training/Mnist_training.md)
 - [補足]()
+  - [高階微分](./Supplement/koukai_bibun.md)
   - [plottersを使う](./Supplement/Plotters.md)
   - [MNISTのデータの用意](./Supplement/Mnist_data.md)
 
