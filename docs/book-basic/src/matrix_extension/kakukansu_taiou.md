@@ -9,12 +9,12 @@
 $$
 Sin(X):
 \begin{bmatrix}
-1 & 2 & 3\\
+1 & 2 & 3\\\\
 4 & 5 & 6
 \end{bmatrix}
 \mapsto
 \begin{bmatrix}
-sin(1) & sin(2) & sin(3)\\
+sin(1) & sin(2) & sin(3)\\\\
 sin(4) & sin(5) & sin(6)
 \end{bmatrix}
 $$   
@@ -76,12 +76,12 @@ Function構造体でのArrayD型への変更は実はほとんどありません
 $$
 Forward: 
 \begin{bmatrix}
-x_0 & x_1 & x_2\\
+x_0 & x_1 & x_2\\\\
 x_3 & x_4 & x_5
 \end{bmatrix}
 \xrightarrow{Sin}
 \begin{bmatrix}
-sin(x_0) & sin(x_1) & sin(x_2)\\
+sin(x_0) & sin(x_1) & sin(x_2)\\\\
 sin(x_3) & sin(x_4) & sin(x_5)
 \end{bmatrix}
 $$   
@@ -90,12 +90,12 @@ $$
 $$
 Backward: 
 \begin{bmatrix}
-cos(x_0) \cdot gy_0 & cos(x_1) \cdot gy_1 & cos(x_2) \cdot gy_2\\
+cos(x_0) \cdot gy_0 & cos(x_1) \cdot gy_1 & cos(x_2) \cdot gy_2\\\\
 cos(x_3) \cdot gy_3 & cos(x_4) \cdot gy_4 & cos(x_5) \cdot gy_5
 \end{bmatrix}
 \xleftarrow{Sin'}
 \begin{bmatrix}
-gy_0 & gy_1 & gy_2\\
+gy_0 & gy_1 & gy_2\\\\
 gy_3 & gy_4 & gy_5
 \end{bmatrix}
 $$   
