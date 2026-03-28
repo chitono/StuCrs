@@ -116,7 +116,6 @@ pub fn double_matrix_shuffle_rows_immutable(
 <br>
 
 $$
-
 data:\begin{pmatrix}
 x_0 & y_0  \\\\ 
 x_1 & y_1  \\\\ 
@@ -141,7 +140,7 @@ t_N
 \quad
 \xrightarrow{\text{shuffle}}
 \quad
-data:\begin{pmatrix}
+data':\begin{pmatrix}
 x_4 & y_4  \\\\ 
 x_N & y_N  \\\\ 
 x_2 & y_2  \\\\
@@ -152,7 +151,7 @@ x_0 & y_0  \\\\
 x_5 & y_5
 \end{pmatrix}
 \qquad\
-T:\begin{pmatrix}
+T':\begin{pmatrix}
 t_4 \\\\ 
 t_N \\\\ 
 t_2\\\\
