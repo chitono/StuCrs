@@ -32,7 +32,6 @@ jobs:
           mdbook build
       - name: Build Book-CNN
         run: |
-          cd ..
           cd docs/book-cnn
           mdbook build
       - name: Prepare public
