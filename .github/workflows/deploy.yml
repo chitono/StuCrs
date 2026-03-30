@@ -30,10 +30,16 @@ jobs:
         run: |
           cd docs/book-basic
           mdbook build
+      - name: Build Book-CNN
+        run: |
+          cd ..
+          cd docs/book-cnn
+          mdbook build
       - name: Prepare public
         run: |
           mkdir -p public
           cp -r docs/book-basic/book public/book-basic
+          cp -r docs/book-basic/book public/book-cnn
       - name: Setup Pages
         uses: actions/configure-pages@v4
       - name: Upload artifact
