@@ -113,7 +113,7 @@ pub fn transpose(x: &RcVariable) -> RcVariable {
 ```
 転置行列の形状変更の手段は一つに決まっており、**backward** でも上流からきた微分の値を転置させればinputと同じ形状に戻るので特に形状を覚えるといった操作は必要ありません。
 
-forwardでinputのArrayのデータの形状を転置行列として変形します。backwardでは上流からきた微分の値である **gy** を再び転置します。backward内の **gy.t()** は **Transpose構造体** をRcVariableのメソッドとして呼び出しています。   
+forwardでinputのArrayのデータの形状を転置行列として変形します。backwardでは上流からきた微分の値である **gy** を再び転置します。backward内の `gy.t()` は **Transpose構造体** をRcVariableのメソッドとして呼び出しています。   
 
 では実装した **Transpose** 関数をテストしてみましょう。微分の値や形状などに着目してください。
 
