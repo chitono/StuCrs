@@ -1,0 +1,24 @@
+[book]
+title = "StuCrs Book CNN"
+authors = ["chitono"]
+language = "ja"
+
+description = "StuCrs: 深層学習の原理探究へ向けたRust製フレームワーク ゼロから実装するための解説ドキュメント。第二段: CNN編"
+
+[preprocessor.mermaid]
+command = "mdbook-mermaid"
+
+[output]
+
+[output.html]
+additional-js = ["mermaid.min.js", "mermaid-init.js"]
+mathjax-support = true
+git-repository-url = "https://github.com/chitono/StuCrs"
+
+[output.html.print]
+enable = true
+
+[output.html.playground]
+runnable = false 
+editable = true
+copyable = true
