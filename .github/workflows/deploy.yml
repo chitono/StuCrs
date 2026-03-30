@@ -38,7 +38,7 @@ jobs:
         run: |
           mkdir -p public
           cp -r docs/book-basic/book public/book-basic
-          cp -r docs/book-basic/book public/book-cnn
+          cp -r docs/book-cnn/book public/book-cnn
       - name: Setup Pages
         uses: actions/configure-pages@v4
       - name: Upload artifact
