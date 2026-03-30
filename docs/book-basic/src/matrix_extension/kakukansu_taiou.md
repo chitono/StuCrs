@@ -62,7 +62,7 @@ impl Function for Sin {
     }
 }
 ```
-Function構造体でのArrayD型への変更は実はほとんどありません。なぜなら、Function構造体はデータをRcVariableですべて管理しているからです。前回Variable、RcVariableへの対応は済みましたので、特に変更する点はありません。唯一変更する点は **forward** の計算処理の変更です。forwardの中はArray型で計算処理されるので、変更しなければならないところが生まれます。Array型のメソッドの **mapv()** を用いて計算します。backwardの処理は全て、RcVariableで処理されるので、変更点はありません。   
+Function構造体でのArrayD型への変更は実はほとんどありません。なぜなら、Function構造体はデータをRcVariableですべて管理しているからです。前回Variable、RcVariableへの対応は済みましたので、特に変更する点はありません。唯一変更する点は **forward** の計算処理の変更です。forwardの中はArray型で計算処理されるので、変更しなければならないところが生まれます。Array型のメソッドの `mapv()` を用いて計算します。backwardの処理は全て、RcVariableで処理されるので、変更点はありません。   
 
 
 
