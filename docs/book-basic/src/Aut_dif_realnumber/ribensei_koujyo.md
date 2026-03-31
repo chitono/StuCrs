@@ -47,7 +47,25 @@ backward: \\(\partial z/\partial x_0 = -1\\)
 | neg | \\(z = -x_0\\) | \\(\partial z/\partial x_0 = -1\\) | なし |
 | pow | \\(z = x^c\\) | \\(\partial z/\partial x = cx^{c-1}\\) | なし |
 
-TODO: 四則演算関数の微分が正しく行われるか試すコードを追加予定
+
+では足し算で偏微分がうまく計算されたか確かめてみます。
+
+```rust
+fn add_test() {
+        use crate::core_new::ArrayDToRcVariable;
+        let a = array![1.0, 1.0, 1.0, 1.0, 1.0].rv();
+        let b = array![2.0, 2.0, 2.0, 2.0, 2.0].rv();
+
+        let mut c = add(&a + &b);
+
+        println!("c = {}", c.data());
+
+        c.backward(false);
+
+        println!("a_grad = {:?}", a.grad().unwrap().data());
+        println!("b_grad = {:?}", b.grad().unwrap().data());
+    }
+```
 
 ## 演算子のオーバーロード
 この章ではいままで実装してきた演算子の関数をオーバーロードしていきます。Add関数とNeg関数を例にして説明します。
