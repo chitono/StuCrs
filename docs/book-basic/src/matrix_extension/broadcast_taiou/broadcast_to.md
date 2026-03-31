@@ -219,7 +219,7 @@ pub fn sum_to(x: &RcVariable, shape: IxDyn) -> RcVariable {
 
 **SumTo関数**も実装したら、 **BroadcastTo** 関数を二つの場合でテストしてみましょう。
 
-TODO: コード検証必要
+
 ```rust
 #[test]
     fn broadcast_to_test() {
