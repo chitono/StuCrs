@@ -59,10 +59,20 @@ pub fn accuracy(y: ArrayView2<f32>, t: ArrayView2<f32>) -> f32 {
 
 また、この関数はバックプロパゲーション対象外なので、**Function構造体** や **RcVariable** といったものを考える必要はなく、ただ単にndarrayの行列計算に集中してよいというわけです。
 
-コードで登場した `arr1d_to_one_hot()` は一次元の行列から2次元のone_hotベクトルの行列を生成します。[損失関数](../Training/Loss_function.md)の **one_hotベクトル** の\\(T\\)から\\(T'\\)の変換説明を見るとわかりやすいと思います。この `arr1d_to_one_hot()` については **補足** で説明します。   
+コードで登場した `arr1d_to_one_hot()` は一次元の行列から2次元のone_hotベクトルの行列を生成します。[損失関数](../Training/Loss_function.md)の **one_hotベクトル** の\\(T\\)から\\(T'\\)の変換説明を見るとわかりやすいと思います。
 
-TODO:arr1d_to_one_hot()補足
+```rust
+pub fn arr1d_to_one_hot(data: ArrayView1<u32>, num_class: usize) -> Array2<f32> {
+    let mut init_matrix = Array2::zeros((data.len(), num_class));
+    for i in 0..data.len() {
+        let data_t = data[i];
+        init_matrix[[i, data_t as usize]] = 1.0;
+    }
+    init_matrix
+}
+```
 
+最初にすべての要素が0の2次元の行列を初期化し、インデックスの要素に応じて1に変更します。これを繰り返すことで **one_hotベクトル** の行列が生成されます。この関数は実際の学習でも正解ラベルを変換する際に用います。
 
 では実際に正解率を求められるかテストします。
 

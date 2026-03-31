@@ -25,16 +25,16 @@ graph LR
 
 **Backward**    
 
-TODO:数値ではなく、記号に変更する予定
+
 
 ```mermaid
 graph RL
 
- arr_c["$$C:\begin{pmatrix}2 & 3 & 4 \\\ 5 & 6 & 7\end{pmatrix}$$"] --> Add'
- Add' --> arr_ab["$$A':\begin{pmatrix}1 & 1 & 1 \\\ 1 & 1 & 1\end{pmatrix}$$"]
- arr_ab -->|SumTo関数で元に戻す| arr_a("$$A:\begin{pmatrix}6 \end{pmatrix}$$")
- Add' --> arr_b["$$B:\begin{pmatrix}1 & 2 & 3 \\\ 4 & 5 & 6\end{pmatrix}$$"] 
- arr_b -->|"SumTo関数($$B$$は変形しないためそのまま流す)"| arr_b2("$$B:\begin{pmatrix}1 & 2 & 3 \\\ 4 & 5 & 6\end{pmatrix}$$")
+ arr_c["$$C:\begin{pmatrix}gc_0 & gc_1 & gc_2 \\\ gc_3 & gc_4 & gc_5\end{pmatrix}$$"] --> Add'
+ Add' --> arr_ab["$$A':\begin{pmatrix}ga_0 & ga_1 & ga_2 \\\ ga_3 & ga_4 & ga_5\end{pmatrix}$$"]
+ arr_ab -->|SumTo関数で元に戻す| arr_a("$$A:\begin{pmatrix}ga_{sum} \end{pmatrix}$$")
+ Add' --> arr_b["$$B:\begin{pmatrix}gb_0 & gb_1 & gb_2 \\\ gb_3 & gb_4 & gb_5\end{pmatrix}$$"] 
+ arr_b -->|"SumTo関数($$B$$は変形しないためそのまま流す)"| arr_b2("$$B:\begin{pmatrix}gb_0 & gb_1 & gb_2 \\\ gb_3 & gb_4 & gb_5\end{pmatrix}$$")
 
 
  style arr_a stroke-width:0px
@@ -44,7 +44,8 @@ graph RL
  style arr_c stroke-width:0px
 ```
 
-※ここで重要なのはブロードキャストで変形させた形状をどう戻すかであり、数値は関係ありません。
+: \\(ga_{sum} = \sum_{i=0}^5 ga_i\\)
+
 
 ---
 
