@@ -39,7 +39,7 @@ impl Function for Square {
     }
 }
 ```
-まずはFunctionというtraitを実装します。ここでは **call** と **forward** というメソッドを作ります。今後このtraitには多くの関数（Exp関数やsin関数など）を追加するためcallにはすべての関数に共通する「Variableからデータを取り出す」、「計算結果をVariable型にして返す」という２つの機能のみを追加します。具体的な計算はforwardにやらせます。ここで大事なのは **input** 、**output** はVariable型、x,yはf32型であるということです。
+まずはFunctionというtraitを実装します。ここでは `call` と `forward` というメソッドを作ります。今後このtraitには多くの関数（Exp関数やsin関数など）を追加するためcallにはすべての関数に共通する「Variableからデータを取り出す」、「計算結果をVariable型にして返す」という２つの機能のみを追加します。具体的な計算はforwardにやらせます。ここで大事なのは **input** 、**output** はVariable型、x,yはf32型であるということです。
 
 次に **Squre** という構造体を実装します. その後implキーワードという定義されたメソッドをimplブロック内で具体的に実装できる機能を用いることでSqure関数という２乗の計算を実装します。main関数を実行すると２の２乗の結果がでます。
 
@@ -68,7 +68,7 @@ Squre構造体と同じように実装します。変更点はなかの計算が
 
 ## Function構造体を呼び出す関数
 
-**「Functionトレイトの実装」** のコードを見てみましょう。Function構造体を用いて計算する際、*let f = Square{}* と、 *let y = f.call(&x)* という二つのコードで実行しています。この処理はSquareというFunction構造体を作成し、作成した構造体に変数を渡して計算するという今後多く使われる基本的な処理です。これを一つの関数として定義しましょう。
+**「Functionトレイトの実装」** のコードを見てみましょう。Function構造体を用いて計算する際、`let f = Square{}` と、 `let y = f.call(&x)` という二つのコードで実行しています。この処理はSquareというFunction構造体を作成し、作成した構造体に変数を渡して計算するという今後多く使われる基本的な処理です。これを一つの関数として定義しましょう。
 
 ```rust
 fn square(&x:Variable) -> Variable {
