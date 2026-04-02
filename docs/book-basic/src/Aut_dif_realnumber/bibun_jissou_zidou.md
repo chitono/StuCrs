@@ -339,6 +339,105 @@ let mut funcs: Vec<Rc<RefCell<Functions>>> = vec![Rc::clone(self.creator.as_ref(
 
 ## forward,backwardのRcVariable対応
 
+では次にforward、backwardの引数を **RcVariable** に変更します。今までのforward、backwardは数値のみの計算だけを行う関数でしたが、その処理を **RcVariable上** で行う設計にします。なぜ変更するのかというと、引数という関数の入り口を **RcVariable** に統一するためです。ここで、sin関数を例に挙げて考えてみます。まず、今までの例に倣ってsin関数を実装します。
+
+```rust
+pub struct Sin {
+    inputs: Vec<RcVariable>,
+    output: Option<Weak<RefCell<Variable>>>,
+    generation: i32,
+    id: usize,
+}
+
+impl Function for Sin {
+    fn call(&mut self, input: &RcVariable) -> RcVariable {
+        let x = input.borrow().data;
+        let y = self.forward(x);
+
+        let output = Variable::new(y);
+
+        self.input = Rc::clone(input); //inputを保存
+       
+　　　　 self.output = Rc::downgrade(&output); //outputを保存、弱参照で
+       
+        let self_f: Rc<RefCell<dyn Function>> = Rc::new(RefCell::new(self.clone()));
+        output.borrow_mut().set_creator(&self_f); //outputに自分を覚えさせる
+
+        output
+    }
+
+    fn forward(&self, x: &RcVariable) -> RcVariable {
+        let y_data = x.data().mapv(|x| x.sin());
+
+        y_data.rv()
+    }
+
+    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+        let x = &self.inputs[0];
+        let gx = cos(x) * gy.clone(); // cos構造体の呼び出し(cos構造体は未実装)
+        let gxs = vec![gx];
+        gxs
+    }
+
+    /* 以前の設計
+    fn forward(&self, x: f32) -> f32 {
+        x.sin(2.0)               // ndarrayのメソッド
+    }
+
+    fn backward(&self, gy: f32) -> f32 {
+        let x = self.input.data;
+        x.cos() * gy // gxを表す // ndarrayのメソッド
+    }
+    */
+
+    fn get_inputs(&self) -> &[RcVariable] {
+        &self.inputs
+    }
+
+    fn get_output(&self) -> RcVariable {
+        let output;
+        output = self
+            .output
+            .as_ref()
+            .unwrap()
+            .upgrade()
+            .as_ref()
+            .unwrap()
+            .clone();
+
+        RcVariable(output)
+    }
+
+    fn get_generation(&self) -> i32 {
+        self.generation
+    }
+    fn get_id(&self) -> usize {
+        self.id
+    }
+}
+impl Sin {
+    fn new(inputs: &[RcVariable]) -> Rc<RefCell<Self>> {
+        Rc::new(RefCell::new(Self {
+            inputs: inputs.to_vec(),
+            output: None,
+            generation: 0,
+            id: id_generator(),
+        }))
+    }
+}
+
+pub fn sin(x: &RcVariable) -> RcVariable {
+    let y = sin_f(&[x.clone()]);
+    y
+}
+
+fn sin_f(xs: &[RcVariable]) -> RcVariable {
+    Sin::new(xs).borrow_mut().call()
+}
+```
+
+`forward`、`backward` に注目してください。以前は数値計算をndarrayのメソッドに任せていましたが、RcVariableから処理するよう変更します。RcVariableに統一することで、Function構造体をそのまま使えるだけでなく、実はより複雑な計算である **高階微分** にもつながるのです。私たちはFunction構造体でデータを流すと、つながりが生まれる仕組みを作りました。そして、backward内でその構造体を用いて計算させるということは、その中でも新たにつながりが生まれるということです。これが実は新たな2回微分の関数を表しているのです。この仕組みは難しいので、補足の[高階微分](../Supplement/koukai_bibun.md)で解説します。また、この新たなつながりは一回微分では不要な処理なので、高階微分を行うかを示す `GRAD_CONFIG` というフラグが、[Configの実装](../NN_building/Config.md)で登場しますが、それも **高階微分** のところで後に実装します。ここではとりあえず、RcVariableを引数とし、Function構造体を用いて計算させるので、新たなつながりが生まれるということだけ理解してもらえればよいです。
+
 ## 可変長への拡張
 今までの関数(exp,square)は一変数関数で入力と出力の個数が一個です。しかし、今後実装するaddやmulといった演算子の関数はa+b,a*bというように入力は2個です。なのでこれからは二変数関数、ひいてはそれ以上の多変数に対応できるように拡張していきます。具体的にはFunctionトレイト・構造体のフィールド、そしてVariableのbackward()メソッドの二つを変更していきます。
 ```rust
