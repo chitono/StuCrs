@@ -47,7 +47,6 @@ impl Neg for RcVariable {
         neg_y
     }
 }
-
 pub mod config;
 pub mod core_new;
 pub mod dataloaders;
@@ -57,6 +56,7 @@ pub mod functions_cnn;
 pub mod layers;
 pub mod models;
 pub mod optimizers;
+pub mod tensor;
 
 #[cfg(test)]
 mod tests {
