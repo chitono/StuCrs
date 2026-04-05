@@ -10,6 +10,7 @@ use crate::tensor::ops::TensorOps;
 use crate::tensor::shape::Shape;
 use std::fmt;
 use std::ops::{Add, Div, Mul, Sub};
+use std::time::Instant;
 
 /// A multi-dimensional array with support for various backends and operations.
 ///
@@ -323,7 +324,7 @@ impl Tensor {
 
                 _ => {
                     return Err(TensorError::BackendError(format!(
-                        "Unknown backend: {backend_name}. Supported backends: CPU, CUDA, WGPU"
+                        "Unknown backend: {backend_name}. Supported backends: CPU, CUDA"
                     )));
                 }
             }
@@ -435,9 +436,14 @@ impl Add for Tensor {
         // If shapes are the same, try backends directly
         if self_shape.numel() > other_shape.numel() {
             for backend in &BACKENDS[0..] {
-                let other_storage = backend
-                    .broadcast_to(&other.storage, &other_shape, &result_shape)
-                    .unwrap();
+                let other_storage = match &other.storage {
+                    #[cfg(feature = "cpu")]
+                    Storage::Cpu(_) => &other.storage,
+                    #[cfg(feature = "cuda")]
+                    Storage::Cuda(_) => &backend
+                        .broadcast_to(&other.storage, &other_shape, &result_shape)
+                        .unwrap(),
+                };
 
                 match backend.add(&self.storage, &other_storage) {
                     Ok(storage) => {
@@ -453,9 +459,14 @@ impl Add for Tensor {
 
         if self_shape.numel() < other_shape.numel() {
             for backend in &BACKENDS[0..] {
-                let self_storage = backend
-                    .broadcast_to(&self.storage, &self.shape, &result_shape)
-                    .unwrap();
+                let self_storage = match &self.storage {
+                    #[cfg(feature = "cpu")]
+                    Storage::Cpu(_) => &self.storage,
+                    #[cfg(feature = "cuda")]
+                    Storage::Cuda(_) => &backend
+                        .broadcast_to(&self.storage, &self.shape, &result_shape)
+                        .unwrap(),
+                };
 
                 match backend.add(&self_storage, &other.storage) {
                     Ok(storage) => {
@@ -541,10 +552,14 @@ impl Sub for Tensor {
         // If shapes are the same, try backends directly
         if self_shape.numel() > other_shape.numel() {
             for backend in &BACKENDS[0..] {
-                let other_storage = backend
-                    .broadcast_to(&other.storage, &other_shape, &result_shape)
-                    .unwrap();
-
+                let other_storage = match &other.storage {
+                    #[cfg(feature = "cpu")]
+                    Storage::Cpu(_) => &other.storage,
+                    #[cfg(feature = "cuda")]
+                    Storage::Cuda(_) => &backend
+                        .broadcast_to(&other.storage, &other_shape, &result_shape)
+                        .unwrap(),
+                };
                 match backend.sub(&self.storage, &other_storage) {
                     Ok(storage) => {
                         return Ok(Tensor {
@@ -559,10 +574,14 @@ impl Sub for Tensor {
 
         if self_shape.numel() < other_shape.numel() {
             for backend in &BACKENDS[0..] {
-                let self_storage = backend
-                    .broadcast_to(&self.storage, &self.shape, &result_shape)
-                    .unwrap();
-
+                let self_storage = match &self.storage {
+                    #[cfg(feature = "cpu")]
+                    Storage::Cpu(_) => &self.storage,
+                    #[cfg(feature = "cuda")]
+                    Storage::Cuda(_) => &backend
+                        .broadcast_to(&self.storage, &self.shape, &result_shape)
+                        .unwrap(),
+                };
                 match backend.sub(&self_storage, &other.storage) {
                     Ok(storage) => {
                         return Ok(Tensor {
@@ -647,9 +666,14 @@ impl Mul for Tensor {
         // If shapes are the same, try backends directly
         if self_shape.numel() > other_shape.numel() {
             for backend in &BACKENDS[0..] {
-                let other_storage = backend
-                    .broadcast_to(&other.storage, &other_shape, &result_shape)
-                    .unwrap();
+                let other_storage = match &other.storage {
+                    #[cfg(feature = "cpu")]
+                    Storage::Cpu(_) => &other.storage,
+                    #[cfg(feature = "cuda")]
+                    Storage::Cuda(_) => &backend
+                        .broadcast_to(&other.storage, &other_shape, &result_shape)
+                        .unwrap(),
+                };
 
                 match backend.mul(&self.storage, &other_storage) {
                     Ok(storage) => {
@@ -665,9 +689,14 @@ impl Mul for Tensor {
 
         if self_shape.numel() < other_shape.numel() {
             for backend in &BACKENDS[0..] {
-                let self_storage = backend
-                    .broadcast_to(&self.storage, &self.shape, &result_shape)
-                    .unwrap();
+                let self_storage = match &self.storage {
+                    #[cfg(feature = "cpu")]
+                    Storage::Cpu(_) => &self.storage,
+                    #[cfg(feature = "cuda")]
+                    Storage::Cuda(_) => &backend
+                        .broadcast_to(&self.storage, &self.shape, &result_shape)
+                        .unwrap(),
+                };
 
                 match backend.mul(&self_storage, &other.storage) {
                     Ok(storage) => {
@@ -753,9 +782,14 @@ impl Div for Tensor {
         // If shapes are the same, try backends directly
         if self_shape.numel() > other_shape.numel() {
             for backend in &BACKENDS[0..] {
-                let other_storage = backend
-                    .broadcast_to(&other.storage, &other_shape, &result_shape)
-                    .unwrap();
+                let other_storage = match &other.storage {
+                    #[cfg(feature = "cpu")]
+                    Storage::Cpu(_) => &other.storage,
+                    #[cfg(feature = "cuda")]
+                    Storage::Cuda(_) => &backend
+                        .broadcast_to(&other.storage, &other_shape, &result_shape)
+                        .unwrap(),
+                };
 
                 match backend.div(&self.storage, &other_storage) {
                     Ok(storage) => {
@@ -771,9 +805,14 @@ impl Div for Tensor {
 
         if self_shape.numel() < other_shape.numel() {
             for backend in &BACKENDS[0..] {
-                let self_storage = backend
-                    .broadcast_to(&self.storage, &self.shape, &result_shape)
-                    .unwrap();
+                let self_storage = match &self.storage {
+                    #[cfg(feature = "cpu")]
+                    Storage::Cpu(_) => &self.storage,
+                    #[cfg(feature = "cuda")]
+                    Storage::Cuda(_) => &backend
+                        .broadcast_to(&self.storage, &self.shape, &result_shape)
+                        .unwrap(),
+                };
 
                 match backend.div(&self_storage, &other.storage) {
                     Ok(storage) => {

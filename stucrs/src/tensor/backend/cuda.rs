@@ -1,5 +1,5 @@
 use super::{Backend, CudaStorage, Storage};
-use crate::error::{Result, TensorError};
+use crate::tensor::error::{Result, TensorError};
 use crate::tensor::shape::Shape;
 
 use cudarc::driver::{CudaContext, CudaFunction, LaunchConfig, PushKernelArg};
@@ -811,11 +811,7 @@ impl Backend for CudaBackend {
                     panic!("Unsupported combination of storages");
                 }
                 #[cfg(feature = "cpu")]
-                Storage::Cpu(data) => Ok(data.clone()),
-                #[cfg(feature = "wgpu")]
-                Storage::Wgpu(_) => Err(TensorError::BackendError(
-                    "Cannot convert WGPU storage with CUDA backend".to_string(),
-                )),
+                Storage::Cpu(data) => Ok(data.iter().cloned().collect()),
             }
         }
         #[cfg(not(feature = "cuda"))]
@@ -1151,9 +1147,6 @@ impl Backend for CudaBackend {
         ))
     }
 
-
-
-
     fn max_mask(&self, storage: &Storage, max: f32) -> Result<Storage> {
         #[cfg(feature = "cuda")]
         {
@@ -1184,7 +1177,10 @@ impl Backend for CudaBackend {
                     builder.arg(&size_arg);
 
                     unsafe { builder.launch(cfg) }.map_err(|e| {
-                        TensorError::BackendError(format!("Failed to launch max_mask kernel: {}", e))
+                        TensorError::BackendError(format!(
+                            "Failed to launch max_mask kernel: {}",
+                            e
+                        ))
                     })?;
 
                     Ok(Storage::Cuda(CudaStorage {
@@ -1205,7 +1201,6 @@ impl Backend for CudaBackend {
             "CUDA support not compiled in".to_string(),
         ))
     }
-
 
     fn min_mask(&self, storage: &Storage, min: f32) -> Result<Storage> {
         #[cfg(feature = "cuda")]
@@ -1237,7 +1232,10 @@ impl Backend for CudaBackend {
                     builder.arg(&size_arg);
 
                     unsafe { builder.launch(cfg) }.map_err(|e| {
-                        TensorError::BackendError(format!("Failed to launch min_mask kernel: {}", e))
+                        TensorError::BackendError(format!(
+                            "Failed to launch min_mask kernel: {}",
+                            e
+                        ))
                     })?;
 
                     Ok(Storage::Cuda(CudaStorage {
@@ -1258,13 +1256,6 @@ impl Backend for CudaBackend {
             "CUDA support not compiled in".to_string(),
         ))
     }
-
-
-
-
-
-
-
 
     fn mask_for_grad_relu(&self, storage: &Storage) -> Result<Storage> {
         #[cfg(feature = "cuda")]
@@ -1453,9 +1444,6 @@ impl Backend for CudaBackend {
         ))
     }
 
-
-
-
     fn argmax_axis_2d(&self, storage: &Storage, shape: &Shape, axis: usize) -> Result<Storage> {
         #[cfg(feature = "cuda")]
         {
@@ -1477,9 +1465,12 @@ impl Backend for CudaBackend {
                             ))
                         })?;
 
-                        let kernel = self.kernels.get("argmax_axis0_2d_kernel").ok_or_else(|| {
-                            TensorError::BackendError("argmax_axis0_2d_kernel not found".to_string())
-                        })?;
+                        let kernel =
+                            self.kernels.get("argmax_axis0_2d_kernel").ok_or_else(|| {
+                                TensorError::BackendError(
+                                    "argmax_axis0_2d_kernel not found".to_string(),
+                                )
+                            })?;
 
                         let size = cuda_storage.buffer.len();
                         let block_size = 256;
@@ -1499,9 +1490,11 @@ impl Backend for CudaBackend {
                         builder.arg(&in_rows);
                         builder.arg(&in_cols);
 
-
                         unsafe { builder.launch(cfg) }.map_err(|e| {
-                            TensorError::BackendError(format!("Failed to launch argmax_axis0_2d kernel: {}", e))
+                            TensorError::BackendError(format!(
+                                "Failed to launch argmax_axis0_2d kernel: {}",
+                                e
+                            ))
                         })?;
 
                         Ok(Storage::Cuda(CudaStorage {
@@ -1520,7 +1513,7 @@ impl Backend for CudaBackend {
                         let cols = shape.dims()[1];
 
                         let stream = self.context.default_stream();
-                        
+
                         let mut result_buf = stream.alloc_zeros::<f32>(rows).map_err(|e| {
                             TensorError::BackendError(format!(
                                 "Failed to allocate CUDA result buffer: {}",
@@ -1528,13 +1521,16 @@ impl Backend for CudaBackend {
                             ))
                         })?;
 
-                        let kernel = self.kernels.get("argmax_axis1_2d_kernel").ok_or_else(|| {
-                                TensorError::BackendError("argmax_axis1_2d_kernel not found".to_string())
+                        let kernel =
+                            self.kernels.get("argmax_axis1_2d_kernel").ok_or_else(|| {
+                                TensorError::BackendError(
+                                    "argmax_axis1_2d_kernel not found".to_string(),
+                                )
                             })?;
-            
+
                         let size = cuda_storage.buffer.len();
                         let block_size = 256;
-                        let grid_size = (size+block_size-1)/block_size;
+                        let grid_size = (size + block_size - 1) / block_size;
 
                         let cfg = LaunchConfig {
                             grid_dim: (grid_size as u32, 1, 1),
@@ -1551,7 +1547,10 @@ impl Backend for CudaBackend {
                         builder.arg(&in_cols);
 
                         unsafe { builder.launch(cfg) }.map_err(|e| {
-                            TensorError::BackendError(format!("Failed to launch argmax_axis1_2d kernel: {}", e))
+                            TensorError::BackendError(format!(
+                                "Failed to launch argmax_axis1_2d kernel: {}",
+                                e
+                            ))
                         })?;
 
                         Ok(Storage::Cuda(CudaStorage {
@@ -1559,9 +1558,9 @@ impl Backend for CudaBackend {
                         }))
                     }
                 }
-                _ => {Err(TensorError::BackendError(
-            "CUDA support not compiled in".to_string(),
-        ))}
+                _ => Err(TensorError::BackendError(
+                    "CUDA support not compiled in".to_string(),
+                )),
             }
         }
         #[cfg(not(feature = "cuda"))]
@@ -1570,25 +1569,24 @@ impl Backend for CudaBackend {
         ))
     }
 
-
-
-
-
-    fn one_hot_encode(&self, storage: &Storage, shape:&Shape,num_class: usize) -> Result<Storage> {
+    fn one_hot_encode(
+        &self,
+        storage: &Storage,
+        shape: &Shape,
+        num_class: usize,
+    ) -> Result<Storage> {
         #[cfg(feature = "cuda")]
         {
             match storage {
                 Storage::Cuda(cuda_storage) => {
                     let stream = self.context.default_stream();
                     let n = shape.dims()[0];
-                    let mut result_buf = stream
-                        .alloc_zeros::<f32>(n*num_class)
-                        .map_err(|e| {
-                            TensorError::BackendError(format!(
-                                "Failed to allocate CUDA result buffer: {}",
-                                e
-                            ))
-                        })?;
+                    let mut result_buf = stream.alloc_zeros::<f32>(n * num_class).map_err(|e| {
+                        TensorError::BackendError(format!(
+                            "Failed to allocate CUDA result buffer: {}",
+                            e
+                        ))
+                    })?;
 
                     let kernel = self.kernels.get("one_hot_encode_kernel").ok_or_else(|| {
                         TensorError::BackendError("one_hot_encode_kernel not found".to_string())
@@ -1605,7 +1603,10 @@ impl Backend for CudaBackend {
                     builder.arg(&num_class);
 
                     unsafe { builder.launch(cfg) }.map_err(|e| {
-                        TensorError::BackendError(format!("Failed to launch one_hot_encode kernel: {}", e))
+                        TensorError::BackendError(format!(
+                            "Failed to launch one_hot_encode kernel: {}",
+                            e
+                        ))
                     })?;
 
                     Ok(Storage::Cuda(CudaStorage {
@@ -1617,7 +1618,7 @@ impl Backend for CudaBackend {
                     let data = self.to_vec_f32(storage)?;
                     let shape = Shape::new(vec![data.len()])?;
                     let cuda_storage = self.from_slice(&data, &shape)?;
-                    self.one_hot_encode(&cuda_storage,&shape, num_class)
+                    self.one_hot_encode(&cuda_storage, &shape, num_class)
                 }
             }
         }
@@ -1626,6 +1627,4 @@ impl Backend for CudaBackend {
             "CUDA support not compiled in".to_string(),
         ))
     }
-
-    
 }

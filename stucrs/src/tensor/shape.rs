@@ -5,7 +5,7 @@
 //! broadcasting rules.
 
 use crate::tensor::error::{Result, TensorError};
-
+use ndarray::{IntoDimension, IxDyn};
 /// Represents the shape (dimensions) of a tensor.
 ///
 /// A shape is essentially a list of dimension sizes. For example:
@@ -20,7 +20,6 @@ use crate::tensor::error::{Result, TensorError};
 /// # Examples
 ///
 /// ```
-/// use tensor_frame::Shape;
 ///
 /// let shape = Shape::new(vec![2, 3, 4]).unwrap();
 /// assert_eq!(shape.ndim(), 3);
@@ -252,5 +251,11 @@ impl From<Vec<usize>> for Shape {
 impl From<&[usize]> for Shape {
     fn from(dims: &[usize]) -> Self {
         Shape::new(dims.to_vec()).expect("Invalid shape dimensions")
+    }
+}
+
+impl From<&Shape> for IxDyn {
+    fn from(shape: &Shape) -> Self {
+        IxDyn(&shape.dims)
     }
 }

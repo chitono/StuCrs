@@ -13,13 +13,14 @@ fxhash = "0.2.1"
 mnist = "0.6.0"
 
 once_cell = "1.21"
-rayon = { version = "1.10", optional = true }
+
 
 # CUDA dependencies (optional)
 cudarc = { version = "0.16", features = ["cuda-version-from-build-system"], optional = true }
 
 [features]
 default = ["cpu"]
-cpu = ["rayon"]
+cpu = []
 cuda = ["dep:cudarc"]
 debug = []
+

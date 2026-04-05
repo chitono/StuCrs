@@ -85,6 +85,8 @@ pub use super::{ops::TensorOps, shape::Shape, tensor::Tensor};
 
 #[cfg(test)]
 mod tests {
+    use ndarray::{array, Array};
+
     use super::*;
 
     // ==== TENSOR CREATION TESTS ====
@@ -566,24 +568,49 @@ mod tests {
     }
 
     #[test]
-    fn div_test() {
-        use crate::tensor::ops::TensorOps;
+    fn array_div_test() {
+        use ndarray::{Array, Array2};
         use std::time::Instant;
-        // Create a 2x3 tensor: [[1, 2, 3], [4, 5, 6]]
-        let a = Tensor::ones(Shape::new(vec![100, 784]).unwrap())
+        let a: Array2<f32> = Array::ones((1000, 784));
+        let b = array![[2.0]];
+        let c = array![[3.0]];
+        let start = Instant::now();
+        let result1 = (a + b) * c;
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間array_cpu = {:?}", duration);
+        println!("array_shape = {:?}", result1.shape());
+    }
+
+    #[test]
+    fn tensor_div_test() {
+        use std::time::Instant;
+        let a = Tensor::ones(Shape::new(vec![1000, 784]).unwrap()).unwrap();
+        let b = Tensor::from_vec(vec![2.0], vec![1]).unwrap();
+        let c = Tensor::from_vec(vec![3.0], vec![1]).unwrap();
+        let start = Instant::now();
+        let result = (a + b).unwrap() * c;
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
+        println!("tensor_cpu_shape = {:?}", result.unwrap().shape());
+    }
+
+    #[test]
+    fn tensor_div_cuda_test() {
+        use std::time::Instant;
+        let a = Tensor::ones(Shape::new(vec![1000, 784]).unwrap())
             .unwrap()
             .to_backend("CUDA")
             .expect("cudaだめ");
-        let b = Tensor::from_vec(vec![2.0], vec![1, 1]).unwrap();
+        let b = Tensor::from_vec(vec![2.0], vec![1]).unwrap();
+        let c = Tensor::from_vec(vec![3.0], vec![1]).unwrap();
         let start = Instant::now();
-        let result = (a / b).unwrap();
+        let result = (a + b).unwrap() * c;
         let end = Instant::now();
         let duration = end.duration_since(start);
-        println!("処理時間{:?}", duration);
-
-        // Sum along axis 0 (columns): should give [5, 7, 9] with shape [3]
-
-        //println!("result = {}", result);
+        println!("処理時間gpu = {:?}", duration);
+        println!("tensor_gpu_shape = {:?}", result.unwrap().shape());
     }
 
     #[test]

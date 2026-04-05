@@ -15,7 +15,8 @@
 //! given to GPU backends (CUDA, then WGPU) before falling back to CPU.
 
 use crate::tensor::error::Result;
-use crate::tensor::shape::Shape;
+use crate::tensor::shape::{self, Shape};
+use ndarray::{ArrayD, ArrayViewD};
 use once_cell::sync::Lazy;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -175,7 +176,7 @@ pub trait Backend: Debug + Send + Sync {
 #[derive(Debug, Clone)]
 pub enum Storage {
     #[cfg(feature = "cpu")]
-    Cpu(Vec<f32>),
+    Cpu(ArrayD<f32>),
     #[cfg(feature = "cuda")]
     Cuda(CudaStorage),
 }
