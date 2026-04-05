@@ -614,6 +614,52 @@ mod tests {
     }
 
     #[test]
+    fn array_matmul_test() {
+        use ndarray::{Array, Array2};
+        use std::time::Instant;
+        let a: Array2<f32> = Array::ones((100, 784));
+        let b: Array2<f32> = Array::ones((784, 500));
+        let start = Instant::now();
+        let result1 = a.dot(&b);
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間array_cpu = {:?}", duration);
+        println!("array_shape = {:?}", result1.shape());
+    }
+
+    #[test]
+    fn tensor_matmul_test() {
+        use std::time::Instant;
+        let a = Tensor::ones(Shape::new(vec![100, 784]).unwrap()).unwrap();
+        let b = Tensor::ones(Shape::new(vec![784, 500]).unwrap()).unwrap();
+        let start = Instant::now();
+        let result = a.matmul(&b);
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
+        println!("tensor_cpu_shape = {:?}", result.unwrap().shape());
+    }
+
+    #[test]
+    fn tensor_matmul_cuda_test() {
+        use std::time::Instant;
+        let a = Tensor::ones(Shape::new(vec![100, 784]).unwrap())
+            .unwrap()
+            .to_backend("CUDA")
+            .expect("a_cudaだめ");
+        let b = Tensor::ones(Shape::new(vec![784, 500]).unwrap())
+            .unwrap()
+            .to_backend("CUDA")
+            .expect("b_cudaだめ");
+        let start = Instant::now();
+        let result = a.matmul(&b);
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間gpu = {:?}", duration);
+        println!("tensor_gpu_shape = {:?}", result.unwrap().shape());
+    }
+
+    #[test]
     fn max_mask_test() {
         use crate::tensor::ops::TensorOps;
 

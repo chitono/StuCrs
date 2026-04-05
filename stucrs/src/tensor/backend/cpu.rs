@@ -218,7 +218,7 @@ impl Backend for CpuBackend {
         let rhs_data = rhs.to_ndarray()?;
 
         let lhs_dims = lhs_data.shape();
-        let rhs_dims = lhs_data.shape();
+        let rhs_dims = rhs_data.shape();
 
         // Validate that tensors are 2D
         if lhs_dims.len() != 2 || rhs_dims.len() != 2 {
