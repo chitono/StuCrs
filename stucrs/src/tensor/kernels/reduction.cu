@@ -104,16 +104,35 @@ __global__ void mean_kernel(const float* data, float* result, int size) {
 
 
 __global__ void broadcast_to_kernel(const float* input, float* output,
-                  int in_rows, int in_cols,
-                  int out_rows, int out_cols) {
-    int i = blockIdx.y * blockDim.y + threadIdx.y;
-    int j = blockIdx.x * blockDim.x + threadIdx.x;
+                  const int* in_shape, const int* out_shape,
+                  const int* in_strides, const int* out_strides,
+                  int in_ndim, int out_ndim,
+                  int in_n, int out_n) {
 
-    if (i < out_rows && j < out_cols) {
-        int src_i = in_rows == 1 ? 0 : i;
-        int src_j = in_cols == 1 ? 0 : j;
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-        output[i * out_cols + j] = input[src_i * in_cols + src_j];
+    if (idx < out_n) {
+        int coords[6];
+        int tmp = idx;
+
+        for (int i = out_ndim -1; i >= 0; --i) {
+            coords[i] = tmp % out_shape[i];
+            tmp /= out_shape[i];
+        }
+
+
+        int in_idx = 0;
+
+        if (in_n == 1){
+            in_idx = 0;
+        }else{
+            for (int i = 0; i < out_ndim; ++i) {
+                in_idx += coords[i] * in_strides[i];
+            }
+            
+        }
+
+        output[idx] = input[in_idx];
     }
 }
 

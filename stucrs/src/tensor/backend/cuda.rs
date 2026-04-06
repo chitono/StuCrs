@@ -523,48 +523,63 @@ impl Backend for CudaBackend {
         {
             match storage {
                 Storage::Cuda(cuda_storage) => {
-                    let out_rows = to_shape.dims()[0];
-                    let out_cols = to_shape.dims()[1];
+                    let in_shape = &from_shape.dims;
+                    let out_shape = &to_shape.dims;
+
+                    let in_strides = from_shape.strides();
+                    let out_strides = to_shape.strides();
+
+                    let in_ndim = in_shape.len();
+                    let out_ndim = out_shape.len();
+
+                    let in_n = from_shape.numel();
+                    let out_n = to_shape.numel();
 
                     let stream = self.context.default_stream();
-                    let mut result_buf =
-                        stream
-                            .alloc_zeros::<f32>(out_rows * out_cols)
-                            .map_err(|e| {
-                                TensorError::BackendError(format!(
-                                    "Failed to allocate CUDA result buffer: {}",
-                                    e
-                                ))
-                            })?;
+                    let mut result_buf = stream.alloc_zeros::<f32>(out_n).map_err(|e| {
+                        TensorError::BackendError(format!(
+                            "Failed to allocate CUDA result buffer: {}",
+                            e
+                        ))
+                    })?;
 
                     let kernel = self.kernels.get("broadcast_to_kernel").ok_or_else(|| {
                         TensorError::BackendError("broadcast_to_kernel not found".to_string())
                     })?;
 
-                    let size = cuda_storage.buffer.len();
-                    let block_x = 16;
-                    let block_y = 16;
+                    //let in_rows = from_shape.dims()[0];
+                    //let in_cols = from_shape.dims()[1];
 
-                    let grid_x = (out_cols + block_x - 1) / block_x;
-                    let grid_y = (out_rows + block_y - 1) / block_y;
+                    let size = cuda_storage.buffer.len();
+                    //let block_x = 16;
+                    //let block_y = 16;
+
+                    let grid_x = (out_n + 256 - 1) / 256;
+                    //let grid_y = (out_rows + block_y - 1) / block_y;
 
                     let cfg = LaunchConfig {
-                        grid_dim: (grid_x as u32, grid_y as u32, 1),
-                        block_dim: (block_x as u32, block_y as u32, 1),
+                        grid_dim: (grid_x as u32, 1, 1),
+                        block_dim: (256, 1, 1),
                         shared_mem_bytes: 0,
                     };
 
+                    let in_shape_buffer = stream.memcpy_stod(in_shape).unwrap();
+                    let out_shape_buffer = stream.memcpy_stod(out_shape).unwrap();
+                    let in_strides_buffer = stream.memcpy_stod(&in_strides).unwrap();
+                    let out_strides_buffer = stream.memcpy_stod(&out_strides).unwrap();
+
                     let mut builder = stream.launch_builder(kernel);
-                    let in_rows = from_shape.dims()[0];
-                    let in_cols = from_shape.dims()[1];
 
                     builder.arg(cuda_storage.buffer.as_ref());
                     builder.arg(&mut result_buf);
-                    builder.arg(&in_rows);
-                    builder.arg(&in_cols);
-                    builder.arg(&out_rows);
-                    builder.arg(&out_cols);
-
+                    builder.arg(&in_shape_buffer);
+                    builder.arg(&out_shape_buffer);
+                    builder.arg(&in_strides_buffer);
+                    builder.arg(&out_strides_buffer);
+                    builder.arg(&in_ndim);
+                    builder.arg(&out_ndim);
+                    builder.arg(&in_n);
+                    builder.arg(&out_n);
                     unsafe { builder.launch(cfg) }.map_err(|e| {
                         TensorError::BackendError(format!(
                             "Failed to launch broadcast_to kernel: {}",
