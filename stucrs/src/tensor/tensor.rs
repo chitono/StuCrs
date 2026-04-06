@@ -374,28 +374,8 @@ impl Add for Tensor {
     type Output = Result<Tensor>;
 
     fn add(self, other: Self) -> Self::Output {
-        //スカラー型の場合、shapeがvec[]となってしまうので形状を一次元として扱うよう変換
-        let self_shape = if self.shape.dims().len() < other.shape.dims().len() {
-            match other.shape.dims().len() {
-                1 => Shape::new(vec![1]).unwrap(),
-                2 => Shape::new(vec![1, 1]).unwrap(),
-                3 => Shape::new(vec![1, 1, 1]).unwrap(),
-                _ => panic!("4次元以上は未実装です。"),
-            }
-        } else {
-            self.shape.clone()
-        };
-
-        let other_shape = if other.shape.dims().len() < self.shape.dims().len() {
-            match self.shape.dims().len() {
-                1 => Shape::new(vec![1]).unwrap(),
-                2 => Shape::new(vec![1, 1]).unwrap(),
-                3 => Shape::new(vec![1, 1, 1]).unwrap(),
-                _ => panic!("4次元以上は未実装です。"),
-            }
-        } else {
-            other.shape
-        };
+        let self_shape = self.shape;
+        let other_shape = other.shape;
 
         // Check if shapes are compatible for broadcasting
         let result_shape = if self_shape == other_shape {
@@ -433,50 +413,46 @@ impl Add for Tensor {
             }
         }
 
-        // If shapes are the same, try backends directly
-        if self_shape.numel() > other_shape.numel() {
-            for backend in &BACKENDS[0..] {
-                let other_storage = match &other.storage {
-                    #[cfg(feature = "cpu")]
-                    Storage::Cpu(_) => &other.storage,
-                    #[cfg(feature = "cuda")]
-                    Storage::Cuda(_) => &backend
-                        .broadcast_to(&other.storage, &other_shape, &result_shape)
-                        .unwrap(),
-                };
-
-                match backend.add(&self.storage, &other_storage) {
-                    Ok(storage) => {
-                        return Ok(Tensor {
-                            storage,
-                            shape: result_shape,
-                        });
+        // broadcastが生じる場合
+        for backend in &BACKENDS[0..] {
+            let self_storage = match &self.storage {
+                #[cfg(feature = "cpu")]
+                Storage::Cpu(_) => &self.storage,
+                #[cfg(feature = "cuda")]
+                Storage::Cuda(_) => {
+                    if self_shape != result_shape {
+                        &backend
+                            .broadcast_to(&self.storage, &self_shape, &result_shape)
+                            .unwrap()
+                    } else {
+                        &self.storage
                     }
-                    Err(_) => continue,
                 }
-            }
-        }
+            };
 
-        if self_shape.numel() < other_shape.numel() {
-            for backend in &BACKENDS[0..] {
-                let self_storage = match &self.storage {
-                    #[cfg(feature = "cpu")]
-                    Storage::Cpu(_) => &self.storage,
-                    #[cfg(feature = "cuda")]
-                    Storage::Cuda(_) => &backend
-                        .broadcast_to(&self.storage, &self.shape, &result_shape)
-                        .unwrap(),
-                };
-
-                match backend.add(&self_storage, &other.storage) {
-                    Ok(storage) => {
-                        return Ok(Tensor {
-                            storage,
-                            shape: result_shape,
-                        });
+            let other_storage = match &other.storage {
+                #[cfg(feature = "cpu")]
+                Storage::Cpu(_) => &other.storage,
+                #[cfg(feature = "cuda")]
+                Storage::Cuda(_) => {
+                    if other_shape != result_shape {
+                        &backend
+                            .broadcast_to(&other.storage, &other_shape, &result_shape)
+                            .unwrap()
+                    } else {
+                        &other.storage
                     }
-                    Err(_) => continue,
                 }
+            };
+
+            match backend.add(&self_storage, &other_storage) {
+                Ok(storage) => {
+                    return Ok(Tensor {
+                        storage,
+                        shape: result_shape,
+                    });
+                }
+                Err(_) => continue,
             }
         }
 
@@ -490,30 +466,9 @@ impl Sub for Tensor {
     type Output = Result<Tensor>;
 
     fn sub(self, other: Self) -> Self::Output {
-        //スカラー型の場合、shapeがvec[]となってしまうので形状を一次元として扱うよう変換
-        let self_shape = if self.shape.dims().len() < other.shape.dims().len() {
-            match other.shape.dims().len() {
-                1 => Shape::new(vec![1]).unwrap(),
-                2 => Shape::new(vec![1, 1]).unwrap(),
-                3 => Shape::new(vec![1, 1, 1]).unwrap(),
-                _ => panic!("4次元以上は未実装です。"),
-            }
-        } else {
-            self.shape.clone()
-        };
+        let self_shape = self.shape;
+        let other_shape = other.shape;
 
-        let other_shape = if other.shape.dims().len() < self.shape.dims().len() {
-            match self.shape.dims().len() {
-                1 => Shape::new(vec![1]).unwrap(),
-                2 => Shape::new(vec![1, 1]).unwrap(),
-                3 => Shape::new(vec![1, 1, 1]).unwrap(),
-                _ => panic!("4次元以上は未実装です。"),
-            }
-        } else {
-            other.shape
-        };
-
-        // Check if shapes are compatible for broadcasting
         let result_shape = if self_shape == other_shape {
             self_shape.clone()
         } else if let Some(broadcasted_shape) = self_shape.broadcast_shape(&other_shape) {
@@ -544,53 +499,51 @@ impl Sub for Tensor {
                             shape: self_shape,
                         });
                     }
-                    Err(_) => continue,
+                    Err(err) => return Err(err),
                 }
             }
         }
 
-        // If shapes are the same, try backends directly
-        if self_shape.numel() > other_shape.numel() {
-            for backend in &BACKENDS[0..] {
-                let other_storage = match &other.storage {
-                    #[cfg(feature = "cpu")]
-                    Storage::Cpu(_) => &other.storage,
-                    #[cfg(feature = "cuda")]
-                    Storage::Cuda(_) => &backend
-                        .broadcast_to(&other.storage, &other_shape, &result_shape)
-                        .unwrap(),
-                };
-                match backend.sub(&self.storage, &other_storage) {
-                    Ok(storage) => {
-                        return Ok(Tensor {
-                            storage,
-                            shape: result_shape,
-                        });
+        // broadcastが生じる場合
+        for backend in &BACKENDS[0..] {
+            let self_storage = match &self.storage {
+                #[cfg(feature = "cpu")]
+                Storage::Cpu(_) => &self.storage,
+                #[cfg(feature = "cuda")]
+                Storage::Cuda(_) => {
+                    if self_shape != result_shape {
+                        &backend
+                            .broadcast_to(&self.storage, &self_shape, &result_shape)
+                            .unwrap()
+                    } else {
+                        &self.storage
                     }
-                    Err(_) => continue,
                 }
-            }
-        }
+            };
 
-        if self_shape.numel() < other_shape.numel() {
-            for backend in &BACKENDS[0..] {
-                let self_storage = match &self.storage {
-                    #[cfg(feature = "cpu")]
-                    Storage::Cpu(_) => &self.storage,
-                    #[cfg(feature = "cuda")]
-                    Storage::Cuda(_) => &backend
-                        .broadcast_to(&self.storage, &self.shape, &result_shape)
-                        .unwrap(),
-                };
-                match backend.sub(&self_storage, &other.storage) {
-                    Ok(storage) => {
-                        return Ok(Tensor {
-                            storage,
-                            shape: result_shape,
-                        });
+            let other_storage = match &other.storage {
+                #[cfg(feature = "cpu")]
+                Storage::Cpu(_) => &other.storage,
+                #[cfg(feature = "cuda")]
+                Storage::Cuda(_) => {
+                    if other_shape != result_shape {
+                        &backend
+                            .broadcast_to(&other.storage, &other_shape, &result_shape)
+                            .unwrap()
+                    } else {
+                        &other.storage
                     }
-                    Err(_) => continue,
                 }
+            };
+
+            match backend.sub(&self_storage, &other_storage) {
+                Ok(storage) => {
+                    return Ok(Tensor {
+                        storage,
+                        shape: result_shape,
+                    });
+                }
+                Err(_) => continue,
             }
         }
 
@@ -604,28 +557,8 @@ impl Mul for Tensor {
     type Output = Result<Tensor>;
 
     fn mul(self, other: Self) -> Self::Output {
-        //スカラー型の場合、shapeがvec[]となってしまうので形状を一次元として扱うよう変換
-        let self_shape = if self.shape.dims().len() < other.shape.dims().len() {
-            match other.shape.dims().len() {
-                1 => Shape::new(vec![1]).unwrap(),
-                2 => Shape::new(vec![1, 1]).unwrap(),
-                3 => Shape::new(vec![1, 1, 1]).unwrap(),
-                _ => panic!("4次元以上は未実装です。"),
-            }
-        } else {
-            self.shape.clone()
-        };
-
-        let other_shape = if other.shape.dims().len() < self.shape.dims().len() {
-            match self.shape.dims().len() {
-                1 => Shape::new(vec![1]).unwrap(),
-                2 => Shape::new(vec![1, 1]).unwrap(),
-                3 => Shape::new(vec![1, 1, 1]).unwrap(),
-                _ => panic!("4次元以上は未実装です。"),
-            }
-        } else {
-            other.shape
-        };
+        let self_shape = self.shape;
+        let other_shape = other.shape;
 
         // Check if shapes are compatible for broadcasting
         let result_shape = if self_shape == other_shape {
@@ -663,50 +596,46 @@ impl Mul for Tensor {
             }
         }
 
-        // If shapes are the same, try backends directly
-        if self_shape.numel() > other_shape.numel() {
-            for backend in &BACKENDS[0..] {
-                let other_storage = match &other.storage {
-                    #[cfg(feature = "cpu")]
-                    Storage::Cpu(_) => &other.storage,
-                    #[cfg(feature = "cuda")]
-                    Storage::Cuda(_) => &backend
-                        .broadcast_to(&other.storage, &other_shape, &result_shape)
-                        .unwrap(),
-                };
-
-                match backend.mul(&self.storage, &other_storage) {
-                    Ok(storage) => {
-                        return Ok(Tensor {
-                            storage,
-                            shape: result_shape,
-                        });
+        // broadcastが生じる場合
+        for backend in &BACKENDS[0..] {
+            let self_storage = match &self.storage {
+                #[cfg(feature = "cpu")]
+                Storage::Cpu(_) => &self.storage,
+                #[cfg(feature = "cuda")]
+                Storage::Cuda(_) => {
+                    if self_shape != result_shape {
+                        &backend
+                            .broadcast_to(&self.storage, &self_shape, &result_shape)
+                            .unwrap()
+                    } else {
+                        &self.storage
                     }
-                    Err(_) => continue,
                 }
-            }
-        }
+            };
 
-        if self_shape.numel() < other_shape.numel() {
-            for backend in &BACKENDS[0..] {
-                let self_storage = match &self.storage {
-                    #[cfg(feature = "cpu")]
-                    Storage::Cpu(_) => &self.storage,
-                    #[cfg(feature = "cuda")]
-                    Storage::Cuda(_) => &backend
-                        .broadcast_to(&self.storage, &self.shape, &result_shape)
-                        .unwrap(),
-                };
-
-                match backend.mul(&self_storage, &other.storage) {
-                    Ok(storage) => {
-                        return Ok(Tensor {
-                            storage,
-                            shape: result_shape,
-                        });
+            let other_storage = match &other.storage {
+                #[cfg(feature = "cpu")]
+                Storage::Cpu(_) => &other.storage,
+                #[cfg(feature = "cuda")]
+                Storage::Cuda(_) => {
+                    if other_shape != result_shape {
+                        &backend
+                            .broadcast_to(&other.storage, &other_shape, &result_shape)
+                            .unwrap()
+                    } else {
+                        &other.storage
                     }
-                    Err(_) => continue,
                 }
+            };
+
+            match backend.mul(&self_storage, &other_storage) {
+                Ok(storage) => {
+                    return Ok(Tensor {
+                        storage,
+                        shape: result_shape,
+                    });
+                }
+                Err(_) => continue,
             }
         }
 
@@ -720,30 +649,9 @@ impl Div for Tensor {
     type Output = Result<Tensor>;
 
     fn div(self, other: Self) -> Self::Output {
-        //スカラー型の場合、shapeがvec[]となってしまうので形状を一次元として扱うよう変換
-        let self_shape = if self.shape.dims().len() < other.shape.dims().len() {
-            match other.shape.dims().len() {
-                1 => Shape::new(vec![1]).unwrap(),
-                2 => Shape::new(vec![1, 1]).unwrap(),
-                3 => Shape::new(vec![1, 1, 1]).unwrap(),
-                _ => panic!("4次元以上は未実装です。"),
-            }
-        } else {
-            self.shape.clone()
-        };
+        let self_shape = self.shape;
+        let other_shape = other.shape;
 
-        let other_shape = if other.shape.dims().len() < self.shape.dims().len() {
-            match self.shape.dims().len() {
-                1 => Shape::new(vec![1]).unwrap(),
-                2 => Shape::new(vec![1, 1]).unwrap(),
-                3 => Shape::new(vec![1, 1, 1]).unwrap(),
-                _ => panic!("4次元以上は未実装です。"),
-            }
-        } else {
-            other.shape
-        };
-
-        // Check if shapes are compatible for broadcasting
         let result_shape = if self_shape == other_shape {
             self_shape.clone()
         } else if let Some(broadcasted_shape) = self_shape.broadcast_shape(&other_shape) {
@@ -779,50 +687,46 @@ impl Div for Tensor {
             }
         }
 
-        // If shapes are the same, try backends directly
-        if self_shape.numel() > other_shape.numel() {
-            for backend in &BACKENDS[0..] {
-                let other_storage = match &other.storage {
-                    #[cfg(feature = "cpu")]
-                    Storage::Cpu(_) => &other.storage,
-                    #[cfg(feature = "cuda")]
-                    Storage::Cuda(_) => &backend
-                        .broadcast_to(&other.storage, &other_shape, &result_shape)
-                        .unwrap(),
-                };
-
-                match backend.div(&self.storage, &other_storage) {
-                    Ok(storage) => {
-                        return Ok(Tensor {
-                            storage,
-                            shape: result_shape,
-                        });
+        // broadcastが生じる場合
+        for backend in &BACKENDS[0..] {
+            let self_storage = match &self.storage {
+                #[cfg(feature = "cpu")]
+                Storage::Cpu(_) => &self.storage,
+                #[cfg(feature = "cuda")]
+                Storage::Cuda(_) => {
+                    if self_shape != result_shape {
+                        &backend
+                            .broadcast_to(&self.storage, &self_shape, &result_shape)
+                            .unwrap()
+                    } else {
+                        &self.storage
                     }
-                    Err(_) => continue,
                 }
-            }
-        }
+            };
 
-        if self_shape.numel() < other_shape.numel() {
-            for backend in &BACKENDS[0..] {
-                let self_storage = match &self.storage {
-                    #[cfg(feature = "cpu")]
-                    Storage::Cpu(_) => &self.storage,
-                    #[cfg(feature = "cuda")]
-                    Storage::Cuda(_) => &backend
-                        .broadcast_to(&self.storage, &self.shape, &result_shape)
-                        .unwrap(),
-                };
-
-                match backend.div(&self_storage, &other.storage) {
-                    Ok(storage) => {
-                        return Ok(Tensor {
-                            storage,
-                            shape: result_shape,
-                        });
+            let other_storage = match &other.storage {
+                #[cfg(feature = "cpu")]
+                Storage::Cpu(_) => &other.storage,
+                #[cfg(feature = "cuda")]
+                Storage::Cuda(_) => {
+                    if other_shape != result_shape {
+                        &backend
+                            .broadcast_to(&other.storage, &other_shape, &result_shape)
+                            .unwrap()
+                    } else {
+                        &other.storage
                     }
-                    Err(_) => continue,
                 }
+            };
+
+            match backend.div(&self_storage, &other_storage) {
+                Ok(storage) => {
+                    return Ok(Tensor {
+                        storage,
+                        shape: result_shape,
+                    });
+                }
+                Err(_) => continue,
             }
         }
 
@@ -834,7 +738,6 @@ impl Div for Tensor {
 
 impl TensorOps for Tensor {
     fn sum(&self, axis: Option<usize>) -> Result<Self> {
-        // Calculate the result shape
         let result_shape = match axis {
             None => Shape::scalar(),
             Some(axis_idx) => {
