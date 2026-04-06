@@ -27,7 +27,7 @@ use ndarray::{IntoDimension, IxDyn};
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Shape {
-    dims: Vec<usize>,
+    pub dims: Vec<usize>,
 }
 
 impl Shape {
@@ -136,6 +136,16 @@ impl Shape {
         }
     }
 
+    pub fn strides(&self) -> Vec<usize> {
+        let mut stride: Vec<usize> = vec![0; self.ndim()];
+        let mut tmp = 1;
+        for i in (0..self.ndim()).rev() {
+            stride[i] = tmp;
+            tmp = tmp * self.dims()[i];
+        }
+        stride
+    }
+
     /// Checks if this shape can be broadcast to another shape.
     ///
     /// Broadcasting follows NumPy-style rules:
@@ -212,6 +222,7 @@ impl Shape {
         let self_dims = &self.dims;
         let other_dims = &other.dims;
 
+        // self_dimsとother_dimsで次元が大きい方の次元数を返す
         let max_len = self_dims.len().max(other_dims.len());
         let mut result_dims = vec![1; max_len];
 
