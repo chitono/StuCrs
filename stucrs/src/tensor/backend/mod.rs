@@ -72,7 +72,14 @@ pub trait Backend: Debug + Send + Sync {
     fn div(&self, lhs: &Storage, rhs: &Storage) -> Result<Storage>;
 
     /// Computes the sum of elements along an optional axis.
-    fn sum(&self, storage: &Storage, shape: &Shape, axis: Option<usize>) -> Result<Storage>;
+    fn sum(
+        &self,
+        storage: &Storage,
+        shape: &Shape,
+        result_shape: &Shape,
+        axis: Option<usize>,
+        keepdims: bool,
+    ) -> Result<Storage>;
 
     fn broadcast_to(
         &self,

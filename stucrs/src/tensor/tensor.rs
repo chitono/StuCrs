@@ -7,10 +7,10 @@ use crate::tensor::backend::{Storage, BACKENDS};
 use crate::tensor::error::{Result, TensorError};
 //use broadcast::broadcast_data;
 use crate::tensor::ops::TensorOps;
-use crate::tensor::shape::Shape;
-use std::fmt;
+use crate::tensor::shape::{self, Shape};
 use std::ops::{Add, Div, Mul, Sub};
 use std::time::Instant;
+use std::{fmt, vec};
 
 /// A multi-dimensional array with support for various backends and operations.
 ///
@@ -737,9 +737,15 @@ impl Div for Tensor {
 }
 
 impl TensorOps for Tensor {
-    fn sum(&self, axis: Option<usize>) -> Result<Self> {
+    fn sum(&self, axis: Option<usize>, keepdims: bool) -> Result<Self> {
         let result_shape = match axis {
-            None => Shape::scalar(),
+            None => {
+                if keepdims {
+                    Shape::new(vec![1; self.shape.ndim()])?
+                } else {
+                    Shape::scalar()
+                }
+            }
             Some(axis_idx) => {
                 let dims = self.shape.dims();
                 if axis_idx >= dims.len() {
@@ -752,12 +758,15 @@ impl TensorOps for Tensor {
                 // Remove the summed axis from the shape
                 let mut result_dims = dims.to_vec();
                 result_dims.remove(axis_idx);
+                if keepdims {
+                    result_dims.insert(0, 1);
+                }
                 Shape::new(result_dims)?
             }
         };
 
         for backend in &BACKENDS[0..] {
-            match backend.sum(&self.storage, &self.shape, axis) {
+            match backend.sum(&self.storage, &self.shape, &result_shape, axis, keepdims) {
                 Ok(storage) => {
                     return Ok(Tensor {
                         storage,

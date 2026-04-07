@@ -48,7 +48,7 @@ pub trait TensorOps {
     /// let sum = tensor.sum(None).unwrap();
     /// assert_eq!(sum.to_vec().unwrap(), vec![10.0]);
     /// ```
-    fn sum(&self, axis: Option<usize>) -> Result<Self>
+    fn sum(&self, axis: Option<usize>, keepdims: bool) -> Result<Self>
     where
         Self: Sized;
 

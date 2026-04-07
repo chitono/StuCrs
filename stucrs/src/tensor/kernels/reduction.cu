@@ -25,53 +25,62 @@ __global__ void sum_kernel(const float* data, float* result, int size) {
     }
 }
 
-__global__ void sum_axis0_kernel(const float* input, float* output,
-                  int in_rows, int in_cols) {
-    extern __shared__ float sdata[];
 
-    int col_idx = blockIdx.x;
-    int tid = threadIdx.x;
+__global__ void sum_axis_kernel(const float* input, float* output,
+                    const int* in_shape, const int* out_shape,
+                    const int* in_strides, const int* out_strides,
+                    int in_ndim, int out_ndim,
+                    int in_n, int out_n, int axis) {
 
-    if (col_idx >= in_cols) {
+    
+
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= out_n) {
         return;
     }
 
-    float row_sum = 0.0f;
 
-    for (int row = tid; row<in_rows;row += blockDim.x) {
-        row_sum += input[row*in_cols+col_idx];
+    int output_coords[6] = {0};
+    int input_coords[6] = {0};
+
+    int tmp = idx;
+
+    for (int i = out_ndim -1; i >= 0; --i) {
+        output_coords[i] = tmp % out_shape[i];
+        tmp /= out_shape[i];
     }
-    sdata[tid] = row_sum;
 
-    __syncthreads();
-
-    for (unsigned int s = blockDim.x/2;s>0;s>>=1) {
-        if (tid < s) {
-            sdata[tid] += sdata[tid +s];
+    int current_out_dim = 0;
+    for (int i = 0; i < in_ndim; ++i) {
+        if (i == axis) {
+            input_coords[i] = 0;
+        }else{
+            if (current_out_dim < out_ndim) {
+                input_coords[i] = output_coords[current_out_dim];
+                current_out_dim++;
+            }else{
+                input_coords[i] = 0;
+            }
         }
-        __syncthreads();
     }
 
-    if (tid == 0) {
-        output[col_idx] = sdata[0];
+    int in_idx_base = 0;
+    for (int i = 0; i < in_n; ++i) {
+        in_idx_base += input_coords[i]*in_strides[i];
     }
 
-
-    
-}
-
-__global__ void sum_axis1_kernel(const float* input, float* output,
-                  int in_rows, int in_cols) {
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i >= in_rows) return;
-
+    int stride_for_axis = in_strides[axis];
+    int reduction_size = in_shape[axis];
 
     float sum = 0.0f;
-
-    for (int col = 0; col<in_cols; ++col) {
-        sum += input[i*in_cols+col];
+    for (int k = 0; k < reduction_size; ++k) {
+        int in_idx = in_idx_base + k * stride_for_axis;
+        if (in_idx >= 0 && in_idx < in_n) {
+            sum += input[in_idx];
+        }
     }
-    output[i] = sum;
+
+    output[idx] = sum;
 }
 
 

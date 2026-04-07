@@ -85,27 +85,41 @@ impl Backend for CpuBackend {
         Ok(Storage::Cpu(result))
     }
 
-    fn sum(&self, storage: &Storage, shape: &Shape, axis: Option<usize>) -> Result<Storage> {
-        fn array_sum(x_array: &ArrayViewD<f32>, axis: Option<usize>) -> ArrayD<f32> {
-            let y;
-
-            if let Some(axis_data) = axis {
-                if axis_data != 0 && axis_data != 1 {
-                    todo!("axisは0か1の値のみ指定できます error対応予定")
-                }
-
-                y = x_array.to_owned().sum_axis(Axis(axis_data as usize));
-            } else {
-                let scalar_y = x_array.to_owned().sum();
-                y = array![scalar_y].into_dyn();
-            }
-
-            y
-        }
-
+    fn sum(
+        &self,
+        storage: &Storage,
+        shape: &Shape,
+        _result_shape: &Shape,
+        axis: Option<usize>,
+        keepdims: bool,
+    ) -> Result<Storage> {
         let data = storage.to_ndarray()?;
 
-        let result = array_sum(&data.view(), axis);
+        let ndim = shape.ndim();
+
+        let result = if let Some(axis) = axis {
+            if ndim <= axis {
+                todo!("指定されたaxisは入力された行列の次元を超えています error対応予定")
+            }
+
+            let y = data.sum_axis(Axis(axis));
+
+            if keepdims {
+                y.insert_axis(Axis(axis))
+            } else {
+                y
+            }
+        } else {
+            let scalar = data.sum();
+            if keepdims {
+                let shape = vec![1; ndim];
+                ArrayD::from_elem(shape, scalar)
+            } else {
+                array![scalar].into_dyn()
+            }
+        };
+
+        println!("ndarrayのshape = {:?}", result.shape());
 
         Ok(Storage::Cpu(result))
     }
@@ -116,23 +130,19 @@ impl Backend for CpuBackend {
         _from_storage: &Shape,
         to_shape: &Shape,
     ) -> Result<Storage> {
-        let start = Instant::now();
         let data = storage.to_ndarray()?;
         let result = if let Some(array) = data.broadcast(IxDyn::from(to_shape)) {
             array.to_owned()
         } else {
             panic!("broadcast変換不可:error対応予定")
         };
-        let end = Instant::now();
-        let duration = end.duration_since(start);
-        println!("処理時間broadcastto = {:?}", duration);
         Ok(Storage::Cpu(result))
     }
 
     fn mean(&self, storage: &Storage, shape: &Shape, axis: Option<usize>) -> Result<Storage> {
         // Calculate sum first
         panic!("cpuでのmeanは未実装");
-        let sum_result = self.sum(storage, shape, axis)?;
+        let sum_result = self.sum(storage, shape, &Shape { dims: vec![1] }, axis, false)?;
 
         let sum_data = self.to_vec_f32(&sum_result)?;
 

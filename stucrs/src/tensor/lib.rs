@@ -229,7 +229,7 @@ mod tests {
     #[test]
     fn test_tensor_sum() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
-        let sum = tensor.sum(None).unwrap();
+        let sum = tensor.sum(None, false).unwrap();
         assert_eq!(sum.to_vec().unwrap(), vec![10.0]);
     }
 
@@ -243,7 +243,7 @@ mod tests {
     #[test]
     fn test_sum_ones() {
         let tensor = Tensor::ones(vec![3, 3]).unwrap();
-        let sum = tensor.sum(None).unwrap();
+        let sum = tensor.sum(None, false).unwrap();
         assert_eq!(sum.to_vec().unwrap(), vec![9.0]);
     }
 
@@ -480,19 +480,19 @@ mod tests {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]).unwrap();
 
         // Sum along axis 0 (columns): should give [5, 7, 9] with shape [3]
-        let sum_axis_0 = tensor.sum(Some(0)).unwrap();
+        let sum_axis_0 = tensor.sum(Some(0), false).unwrap();
         let result_0 = sum_axis_0.to_vec().unwrap();
         assert_eq!(result_0, vec![5.0, 7.0, 9.0]);
         assert_eq!(sum_axis_0.shape().dims(), &[3]);
 
         // Sum along axis 1 (rows): should give [6, 15] with shape [2]
-        let sum_axis_1 = tensor.sum(Some(1)).unwrap();
+        let sum_axis_1 = tensor.sum(Some(1), false).unwrap();
         let result_1 = sum_axis_1.to_vec().unwrap();
         assert_eq!(result_1, vec![6.0, 15.0]);
         assert_eq!(sum_axis_1.shape().dims(), &[2]);
 
         // Sum all elements: should give [21] with shape []
-        let sum_all = tensor.sum(None).unwrap();
+        let sum_all = tensor.sum(None, false).unwrap();
         let result_all = sum_all.to_vec().unwrap();
         assert_eq!(result_all, vec![21.0]);
         assert_eq!(sum_all.shape().dims(), &[] as &[usize]);
@@ -533,19 +533,19 @@ mod tests {
             Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], vec![2, 2, 2]).unwrap();
 
         // Sum along axis 0: shape [2, 2] -> [2, 2]
-        let sum_axis_0 = tensor.sum(Some(0)).unwrap();
+        let sum_axis_0 = tensor.sum(Some(0), false).unwrap();
         assert_eq!(sum_axis_0.shape().dims(), &[2, 2]);
         let result_0 = sum_axis_0.to_vec().unwrap();
         assert_eq!(result_0, vec![6.0, 8.0, 10.0, 12.0]); // [1+5, 2+6, 3+7, 4+8]
 
         // Sum along axis 1: shape [2, 2] -> [2, 2]
-        let sum_axis_1 = tensor.sum(Some(1)).unwrap();
+        let sum_axis_1 = tensor.sum(Some(1), false).unwrap();
         assert_eq!(sum_axis_1.shape().dims(), &[2, 2]);
         let result_1 = sum_axis_1.to_vec().unwrap();
         assert_eq!(result_1, vec![4.0, 6.0, 12.0, 14.0]); // [1+3, 2+4, 5+7, 6+8]
 
         // Sum along axis 2: shape [2, 2] -> [2, 2]
-        let sum_axis_2 = tensor.sum(Some(2)).unwrap();
+        let sum_axis_2 = tensor.sum(Some(2), false).unwrap();
         assert_eq!(sum_axis_2.shape().dims(), &[2, 2]);
         let result_2 = sum_axis_2.to_vec().unwrap();
         assert_eq!(result_2, vec![3.0, 7.0, 11.0, 15.0]); // [1+2, 3+4, 5+6, 7+8]
@@ -585,11 +585,11 @@ mod tests {
     #[test]
     fn tensor_div_test() {
         use std::time::Instant;
-        let a = Tensor::ones(Shape::new(vec![1000, 784]).unwrap()).unwrap();
-        let b = Tensor::from_vec(vec![2.0], vec![1]).unwrap();
-        let c = Tensor::from_vec(vec![3.0], vec![1]).unwrap();
+        let a = Tensor::ones(Shape::new(vec![1000, 1]).unwrap()).unwrap();
+        let _b = Tensor::from_vec(vec![2.0], vec![1]).unwrap();
+        let c = Tensor::from_vec(vec![3.0, 3.0], vec![1, 2]).unwrap();
         let start = Instant::now();
-        let result = (a + b).unwrap() * c;
+        let result = a / c;
         let end = Instant::now();
         let duration = end.duration_since(start);
         println!("処理時間 = {:?}", duration);
@@ -599,14 +599,14 @@ mod tests {
     #[test]
     fn tensor_div_cuda_test() {
         use std::time::Instant;
-        let a = Tensor::ones(Shape::new(vec![1000, 784]).unwrap())
+        let a = Tensor::ones(Shape::new(vec![1000, 1]).unwrap())
             .unwrap()
             .to_backend("CUDA")
             .expect("cudaだめ");
-        let b = Tensor::from_vec(vec![2.0], vec![1]).unwrap();
-        let c = Tensor::from_vec(vec![3.0], vec![1]).unwrap();
+        let _b = Tensor::from_vec(vec![2.0], vec![1]).unwrap();
+        let c = Tensor::from_vec(vec![3.0, 3.0], vec![1, 2]).unwrap();
         let start = Instant::now();
-        let result = (a + b).unwrap() * c;
+        let result = a * c;
         let end = Instant::now();
         let duration = end.duration_since(start);
         println!("処理時間gpu = {:?}", duration);
@@ -657,6 +657,46 @@ mod tests {
         let duration = end.duration_since(start);
         println!("処理時間gpu = {:?}", duration);
         println!("tensor_gpu_shape = {:?}", result.unwrap().shape());
+    }
+
+    #[test]
+    fn array_sum_test() {
+        use ndarray::{Array, Array2};
+        use std::time::Instant;
+        let a: Array2<f32> = Array::ones((100, 784));
+        let start = Instant::now();
+        let result1 = a.sum();
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間array_cpu = {:?}", duration);
+        println!("array = {:?}", result1);
+    }
+
+    #[test]
+    fn tensor_sum_test() {
+        use std::time::Instant;
+        let a = Tensor::ones(Shape::new(vec![100, 784]).unwrap()).unwrap();
+        let start = Instant::now();
+        let result = a.sum(None, false);
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
+        println!("tensor_cpu = {:?}", result.unwrap());
+    }
+
+    #[test]
+    fn tensor_sum_cuda_test() {
+        use std::time::Instant;
+        let a = Tensor::ones(Shape::new(vec![100, 784]).unwrap())
+            .unwrap()
+            .to_backend("CUDA")
+            .expect("a_cudaだめ");
+        let start = Instant::now();
+        let result = a.sum(None, true);
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間gpu = {:?}", duration);
+        println!("tensor_gpu = {}", result.unwrap());
     }
 
     #[test]

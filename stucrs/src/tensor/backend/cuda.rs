@@ -52,8 +52,7 @@ impl CudaBackend {
                 include_str!("../kernels/reduction.cu"),
                 vec![
                     "sum_kernel",
-                    "sum_axis0_kernel",
-                    "sum_axis1_kernel",
+                    "sum_axis_kernel",
                     "mean_kernel",
                     "broadcast_to_kernel",
                     "rows_slice_kernel",
@@ -386,7 +385,14 @@ impl Backend for CudaBackend {
         ))
     }
 
-    fn sum(&self, storage: &Storage, shape: &Shape, axis: Option<usize>) -> Result<Storage> {
+    fn sum(
+        &self,
+        storage: &Storage,
+        shape: &Shape,
+        result_shape: &Shape,
+        axis: Option<usize>,
+        _keepdims: bool,
+    ) -> Result<Storage> {
         #[cfg(feature = "cuda")]
         {
             match axis {
@@ -434,52 +440,40 @@ impl Backend for CudaBackend {
                     }
                 }
 
-                Some(axis_idx) => {
+                Some(axis) => {
                     // Sum all elements using CUDA kernel
                     let Storage::Cuda(cuda_storage) = storage else {
                         panic!("想定外のバックエンド: この関数はCUDA専用です");
                     };
                     {
-                        let rows = shape.dims()[0];
-                        let cols = shape.dims()[1];
+                        let in_shape = &shape.dims;
+                        let out_shape = &result_shape.dims;
+
+                        let in_strides = shape.strides();
+                        let out_strides = result_shape.strides();
+
+                        let in_ndim = in_shape.len();
+                        let out_ndim = out_shape.len();
+
+                        let in_n = shape.numel();
+                        let out_n = result_shape.numel();
 
                         let stream = self.context.default_stream();
 
-                        let mut result_buf;
+                        let mut result_buf = stream.alloc_zeros::<f32>(out_n).map_err(|e| {
+                            TensorError::BackendError(format!(
+                                "Failed to allocate CUDA result buffer: {}",
+                                e
+                            ))
+                        })?;
 
-                        let kernel;
-                        let grid_size;
-
-                        if axis_idx == 0 {
-                            result_buf = stream.alloc_zeros::<f32>(cols).map_err(|e| {
-                                TensorError::BackendError(format!(
-                                    "Failed to allocate CUDA result buffer: {}",
-                                    e
-                                ))
-                            })?;
-
-                            kernel = self.kernels.get("sum_axis0_kernel").ok_or_else(|| {
-                                TensorError::BackendError("sum_axis0_kernel not found".to_string())
-                            })?;
-                            grid_size = cols;
-                        } else if axis_idx == 1 {
-                            result_buf = stream.alloc_zeros::<f32>(rows).map_err(|e| {
-                                TensorError::BackendError(format!(
-                                    "Failed to allocate CUDA result buffer: {}",
-                                    e
-                                ))
-                            })?;
-                            kernel = self.kernels.get("sum_axis1_kernel").ok_or_else(|| {
-                                TensorError::BackendError("sum_axis1_kernel not found".to_string())
-                            })?;
-
-                            grid_size = rows;
-                        } else {
-                            panic!("axisは0か1のみ指定できます。");
-                        }
+                        let kernel = self.kernels.get("sum_axis_kernel").ok_or_else(|| {
+                            TensorError::BackendError("sum_axis_kernel not found".to_string())
+                        })?;
 
                         let size = cuda_storage.buffer.len();
                         let block_size = 256;
+                        let grid_size = (size + block_size - 1) / block_size;
 
                         let cfg = LaunchConfig {
                             grid_dim: (grid_size as u32, 1, 1),
@@ -487,14 +481,23 @@ impl Backend for CudaBackend {
                             shared_mem_bytes: (block_size * std::mem::size_of::<f32>()) as u32,
                         };
 
+                        let in_shape_buffer = stream.memcpy_stod(in_shape).unwrap();
+                        let out_shape_buffer = stream.memcpy_stod(out_shape).unwrap();
+                        let in_strides_buffer = stream.memcpy_stod(&in_strides).unwrap();
+                        let out_strides_buffer = stream.memcpy_stod(&out_strides).unwrap();
+
                         let mut builder = stream.launch_builder(kernel);
                         builder.arg(cuda_storage.buffer.as_ref());
                         builder.arg(&mut result_buf);
-                        let in_rows = rows as i32;
-                        let in_cols = cols as i32;
-
-                        builder.arg(&in_rows);
-                        builder.arg(&in_cols);
+                        builder.arg(&in_shape_buffer);
+                        builder.arg(&out_shape_buffer);
+                        builder.arg(&in_strides_buffer);
+                        builder.arg(&out_strides_buffer);
+                        builder.arg(&in_ndim);
+                        builder.arg(&out_ndim);
+                        builder.arg(&in_n);
+                        builder.arg(&out_n);
+                        builder.arg(&axis);
 
                         unsafe { builder.launch(cfg) }.map_err(|e| {
                             TensorError::BackendError(format!("Failed to launch sum kernel: {}", e))
@@ -617,7 +620,8 @@ impl Backend for CudaBackend {
                         panic!("想定外のバックエンド: この関数はCUDA専用です");
                     };
                     {
-                        let sum_result = self.sum(storage, shape, axis)?;
+                        // sumの引数あとで直す
+                        let sum_result = self.sum(storage, shape, &shape.clone(), axis, false)?;
 
                         let Storage::Cuda(sum_storage) = sum_result else {
                             panic!("想定外のバックエンド: この関数はCUDA専用です");
@@ -647,7 +651,9 @@ impl Backend for CudaBackend {
                     }
 
                     // First calculate sum, then divide by axis size
-                    let sum_result = self.sum(storage, shape, Some(axis_idx))?;
+                    // TODO:sumの引数を修正する
+                    let sum_result =
+                        self.sum(storage, shape, &shape.clone(), Some(axis_idx), false)?;
                     let sum_data = self.to_vec_f32(&sum_result)?;
                     let axis_size = dims[axis_idx] as f32;
                     let result: Vec<f32> = sum_data.iter().map(|&sum| sum / axis_size).collect();
