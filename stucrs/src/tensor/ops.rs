@@ -194,6 +194,7 @@ pub trait TensorOps {
         Self: Sized;
 
     /// Matrix multiplication for 2D tensors.
+    /// 2次元の行列積を求める関数。
     ///
     /// Performs matrix multiplication between two 2D tensors.
     /// The dimensions must be compatible: (M, K) × (K, N) → (M, N).
@@ -416,17 +417,30 @@ pub trait TensorOps {
     where
         Self: Sized;
 
+    /// max関数のバックプロパゲーション用関数
+    ///
+    /// 入力値がmaxより大きい場合は1.0を、それ以下は0.0を返す。
+    ///
     fn max_mask(&self, max: f32) -> Result<Self>
     where
         Self: Sized;
 
+    /// min関数のバックプロパゲーション用関数
+    ///
+    /// 入力値がminより小さい場合は1.0を、それ以上は0.0を返す。
+    ///
     fn min_mask(&self, min: f32) -> Result<Self>
     where
         Self: Sized;
 
+    /// relu関数のバックプロパゲーション用関数
+    ///
+    /// 入力値が0.0より大きい場合は1.0を、それ以下は0.0を返す。
+    ///
     fn mask_for_grad_relu(&self) -> Result<Self>
     where
         Self: Sized;
+
     /// Element-wise sigmoid activation function.
     ///
     /// Applies sigmoid: 1 / (1 + e^(-x)) to each element.
@@ -450,6 +464,8 @@ pub trait TensorOps {
 
     /// Element-wise hyperbolic tangent activation function.
     ///
+    /// 要素ごとにtanh関数を計算します。
+    ///
     /// Applies tanh(x) to each element.
     ///
     /// # Returns
@@ -469,6 +485,25 @@ pub trait TensorOps {
     where
         Self: Sized;
 
+    /// Element-wise hyperbolic sine activation function.
+    ///
+    /// 要素ごとにsinh関数を計算します。
+    ///
+    /// Applies sinh(x) to each element.
+    ///
+    /// # Returns
+    ///
+    /// A new tensor with tanh applied element-wise.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tensor_frame::{Tensor, TensorOps};
+    ///
+    /// let tensor = Tensor::from_vec(vec![-1.0, 0.0, 1.0], vec![3]).unwrap();
+    /// let result = tensor.tanh().unwrap();
+    /// // result ≈ [-0.762, 0.0, 0.762]
+    /// ```
     fn sinh(&self) -> Result<Self>
     where
         Self: Sized;
@@ -477,18 +512,34 @@ pub trait TensorOps {
     where
         Self: Sized;
 
+    /// clamp用関数
+    ///    
+    /// 入力された値maxよりも大きい場合はmaxを、それ以下はそのまま値を流す。
+    ///
     fn clamp_max(&self, max: f32) -> Result<Self>
     where
         Self: Sized;
 
+    /// clamp用関数
+    ///
+    /// 入力された値minよりも小さい場合はminを、それ以上はそのまま値を流す。
+    ///
     fn clamp_min(&self, min: f32) -> Result<Self>
     where
         Self: Sized;
 
+    /// clamp関数のバックプロパゲーション用関数
+    ///
+    /// 入力の要素が1.0より大きいときは1.0を、それ以下は0.0を返す。
+    ///
     fn max_for_clamp_grad(&self) -> Result<Self>
     where
         Self: Sized;
 
+    /// clamp関数のバックプロパゲーション用関数
+    ///
+    /// 入力の要素が0.0より大きいときは1.0を、それ以下は0.0を返す。
+    ///
     fn min_for_clamp_grad(&self) -> Result<Self>
     where
         Self: Sized;

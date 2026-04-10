@@ -1,10 +1,12 @@
+use std::result;
+
 use super::{Backend, Storage};
 
 #[cfg(feature = "cpu")]
 use crate::tensor::error::{Result, TensorError};
+use crate::tensor::ndarray_nn::ndarray_cnn::*;
 use crate::tensor::shape::Shape;
-use ndarray::{array, ArrayD, ArrayViewD, Axis, Ix1, Ix2, IxDyn};
-use std::time::Instant;
+use ndarray::{array, Array2, ArrayD, ArrayViewD, Axis, Ix1, Ix2, IxDyn};
 
 #[derive(Debug)]
 pub struct CpuBackend;
@@ -189,21 +191,10 @@ impl Backend for CpuBackend {
             ));
         }
 
-        let data = self.to_vec_f32(storage)?;
-        let rows = dims[0];
-        let cols = dims[1];
-        let mut result = vec![0.0; data.len()];
+        let data = storage.to_ndarray()?;
+        let result = data.t().to_owned();
 
-        for i in 0..rows {
-            for j in 0..cols {
-                result[j * rows + i] = data[i * cols + j];
-            }
-        }
-
-        //Ok(Storage::Cpu(result))
-        Err(TensorError::BackendError(
-            "cpuでのrow-sliceは未実装".to_string(),
-        ))
+        Ok(Storage::Cpu(result))
     }
 
     fn to_vec_f32(&self, storage: &Storage) -> Result<Vec<f32>> {
@@ -433,19 +424,35 @@ impl Backend for CpuBackend {
         Ok(Storage::Cpu(result))
     }
 
-    // 仮の処理 coshx関数を使っている
     fn one_hot_encode(
         &self,
         storage: &Storage,
         shape: &Shape,
         num_class: usize,
     ) -> Result<Storage> {
-        println!("argmax_axis_2dの関数がcpuで処理されています。この処理は未実装です。");
         let data = storage.to_ndarray()?;
-        let result = data.mapv(|x| x.cosh());
-        Ok(Storage::Cpu(result))
+
+        let mut result = Array2::zeros((data.shape()[0], num_class));
+        match shape.ndim() {
+            1 => {
+                for i in 0..data.len() {
+                let data_t = data[i];
+                result[[i, data_t as usize]] = 1.0;
+                }
+            },
+            2=> {
+                for i in 0..data.shape()[0] {
+                    let data_t = data[[i, 0]];
+                    result[[i, data_t as usize]] = 1.0;
+                }
+            },
+            _ => panic!("one_hot_encodeは2次元以下の行列に対応しています。1,2以外の次元の行列が入力されました。")
+        }
+        Ok(Storage::Cpu(result.into_dyn()))
     }
 }
+
+// ndarray用の処理をまとめた関数
 
 fn array_matmul(x_array: &ArrayViewD<f32>, w_array: &ArrayViewD<f32>) -> ArrayD<f32> {
     let y = match (x_array.ndim(), w_array.ndim()) {

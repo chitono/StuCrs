@@ -762,15 +762,18 @@ mod tests {
     #[test]
     fn one_hot_encode_test() {
         use crate::tensor::ops::TensorOps;
-
+        use std::time::Instant;
         // Create a 2x3 tensor: [[1, 2, 3], [4, 5, 6]]
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 0.0, 0.0, 2.0, 1.0], vec![6, 1])
             .unwrap()
             .to_backend("CUDA")
-            .expect("cudaだめ");
-
+            .unwrap();
+        let start = Instant::now();
         // Sum along axis 0 (columns): should give [5, 7, 9] with shape [3]
         let result = tensor.one_hot_encode(3).unwrap();
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
         println!(" = {}", result);
     }
 }

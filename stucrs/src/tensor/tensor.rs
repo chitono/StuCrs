@@ -1337,6 +1337,9 @@ impl TensorOps for Tensor {
     fn argmax_axis_2d(&self, axis: usize) -> Result<Self> {
         // Calculate the result shape
         let dims = self.shape.dims();
+        if dims.len() > 2 {
+            panic!("このメソッドは2")
+        }
         let result_shape = match axis {
             0 => Shape::new(vec![1, dims[1]])?,
             1 => Shape::new(vec![dims[0], 1])?,
@@ -1374,15 +1377,14 @@ impl TensorOps for Tensor {
                         shape: result_shape,
                     });
                 }
-                Err(_) => continue,
+                Err(e) => println!("{:?}", e),
             }
         }
         Err(TensorError::BackendError(
-            "No backend could perform min operation".to_string(),
+            "No backend could perform one_hot_encode operation".to_string(),
         ))
     }
 }
-
 impl fmt::Display for Tensor {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let data = self.to_vec().map_err(|_| fmt::Error)?;
