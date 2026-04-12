@@ -36,6 +36,7 @@
 
 開発した深層学習のフレームワーク「StuCrs」の実装までのコードの説明をこちらのドキュメントで見ることができます。これを読んでぜひ一からRustでフレームワークを実装してみましょう！
 - [『StuCrsドキュメント・基礎編』](https://chitono.github.io/StuCrs/book-basic/)
+- [『StuCrsドキュメント・CNN編』](https://chitono.github.io/StuCrs/book-cnn/)
 
 
 
