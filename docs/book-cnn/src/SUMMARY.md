@@ -3,7 +3,6 @@
 - [はじめに](./introduction.md)
 - [CNNの理論]()
   - [まえおき](./CNN_riron/cnn_riron_maeoki.md)
-  - [パディングとストライド](./CNN_riron/cnn_riron_pad_stride.md)
   - [conv2dの理論](./CNN_riron/cnn_riron_conv.md)
   - [maxpoolingの理論](./CNN_riron/cnn_riron_pool.md)
 - [CNNの実装]()
