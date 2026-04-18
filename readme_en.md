@@ -1,6 +1,6 @@
 # StuCrs: A Deep Learning Framework fully implemented from Scratch in Rust
 
-*This README is available in both Japanese and English to help bridge the gap between our local community and the global research landscape.   
+>*This README is available in both Japanese and English to help bridge the gap between our local community and the global research landscape.*   
 [日本語](README.md) / [English](readme_en.md)
 
 
