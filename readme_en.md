@@ -6,26 +6,54 @@
 
 ## Overview
 
-In this research, we developed "StuCrs," a deep learning framework implemented from scratch using the Rust programming language. StuCrs is characterized by its pure-Rust implementation and a simple structure designed to explore an intuitive understanding of the underlying principles.
-It serves as an educational resource, allowing users to implement deep learning from the ground up to deepen their understanding of its mechanics. It also serves as an excellent sample codebase for those looking to learn Rust.
+In this research, we developed "StuCrs," a deep learning framework implemented from scratch using the Rust programming language. StuCrs is characterized by its pure-Rust implementation and a simple structure designed to develop an intuitive understanding of the underlying principles.
+It serves as an educational resource designed for "learning through reimplementation and new perspectives" encouraging users to build deep learning systems from the ground up to deepen their understanding of its mechanics. It also serves as an excellent sample codebase for those looking to learn Rust.
 
 
 
 
 ## Philosophy
 
+
+*This project does not treat localization as a limitation,
+but as a source of new ideas and perspectives.*
+
+
+- **Learning Through Reimplementation**   
+  This project encourages users not just to use the framework, but to rebuild it from scratch. By reconstructing each component, learners can actively explore and internalize the fundamental principles of deep learning.
+  
+
+<br>
+
 - **Bridging the Language Gap in Technology**:    
-  Most major frameworks like TensorFlow or PyTorch rely heavily on English-centric documentation and communities. By providing high-quality Japanese explanations and a framework built with local developers in mind, this project aims to lower the barrier to entry and enable deeper conceptual understanding of deep learning.
+  Most major frameworks like TensorFlow or PyTorch rely heavily on English-centric documentation and communities. By providing high-quality Japanese explanations and a framework built with local developers in mind, this project aims to lower the barrier to entry and enable deeper conceptual understanding of deep learning.    
+
+
+<br>
 
 - **Pioneering Deep Learning in Rust:**    
-  While the machine learning ecosystem in Python and C++ is already mature, Rust introduces fundamentally different design principles such as ownership, memory safety, and zero-cost abstractions. This project explores how these characteristics can reshape the design and understanding of deep learning frameworks.
+  While the machine learning ecosystem in Python and C++ is already mature, Rust introduces fundamentally different design principles. This project aims to stimulate the growth of local ML communities in Rust and promote Rust-based development in Japan and beyond.   
 
-- **A "Laboratory" for New Theories:**    
-  StuCrs serves as an experimental playground. Its minimalist and modular design allows researchers and students to test new deep learning theories without the overhead of massive, complex codebases.
+
+<br> 
+
+- **A Foundation for Theoretical Exploration:**    
+  StuCrs is not only an implementation, but also a platform for exploring new theoretical perspectives in deep learning. Based on Rust’s design philosophy, this project explores whether different abstraction models and system constraints can lead to new theoretical insights.  
+
+<br> 
 
 >**Research Vision:**       
 >My goal is to foster a strong local research and developer ecosystem in Japan while contributing to the global Rust and ML communities. I believe that strengthening local research ecosystems is the first step toward meaningful global collaboration.
+
+
 ## Background
+
+- Most major frameworks (e.g., TensorFlow, PyTorch) are English-centric, which can be a barrier for non-English-speaking learners.
+
+- The Rust ecosystem for machine learning is still less mature compared to Python or C++.
+
+- This project explores whether implementing deep learning in a modern systems language can offer new perspectives.
+
 
 ## Acknowledgements
 
@@ -141,7 +169,7 @@ Performance benchmarks are available in
 
 
 ## Final Notes  
-This project was independently developed by high school students.
+This project was initiated as an independent research by high school students and it is still evolving.
 
 As such, there may be:
 - non-idiomatic Rust code
