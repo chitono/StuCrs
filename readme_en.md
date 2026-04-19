@@ -43,7 +43,7 @@ but as a source of new ideas and perspectives.*
 <br> 
 
 >**Research Vision:**       
->My goal is to foster a strong local research and developer ecosystem in Japan while contributing to the global Rust and ML communities. I believe that strengthening local research ecosystems is the first step toward meaningful global collaboration.
+>My goal is to foster a strong local research and developer ecosystem in Japan while contributing to the global Rust and ML communities and to introduce new theoretical perspectives in the field. I believe that strengthening local research ecosystems is the first step toward meaningful global collaboration.
 
 
 ## Background
