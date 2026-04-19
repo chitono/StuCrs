@@ -57,8 +57,12 @@ but as a source of new ideas and perspectives.*
 
 ## Acknowledgements
 
-<p><img width="280" height="134" alt="Image" src="https://github.com/user-attachments/assets/6c0ddf88-3371-40aa-a131-075947068e1b" /> &emsp;
-  <img width="100" height="142" alt="Image" src="https://github.com/user-attachments/assets/d5d1ca74-79cb-4de3-b55c-537c705788f7" />
+<div style="display:flex; gap:100px;">
+  <img style="width:31%;" alt="Image" src="https://github.com/user-attachments/assets/4bd79c56-4805-471d-af1c-af0c2fb5d890" />
+  <img style="width:15%;" alt="Image" src="https://github.com/user-attachments/assets/d5d1ca74-79cb-4de3-b55c-537c705788f7" />
+</div>   
+
+<br>
 
 This implementation is based on the book:  
 `"ゼロから作るDeep Learning ③ - フレームワーク編"` by Koki Saitoh   
