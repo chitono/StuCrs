@@ -2,11 +2,17 @@ use std::cell::RefCell;
 //use std::clone;
 use std::collections::HashSet;
 use std::fmt::Debug;
+
 use std::iter::zip;
 
-use ndarray::{array, ArrayBase, ArrayD, ArrayViewD, Dimension, IxDyn, OwnedRepr};
 use std::rc::{Rc, Weak};
 use std::vec;
+
+use crate::error::{FrameError, FrameResult};
+
+use crate::tensor::lib::TensorOps;
+use crate::tensor::shape::Shape;
+use crate::tensor::tensor::Tensor;
 
 use crate::config::{get_grad_status, id_generator, set_grad_false, set_grad_true};
 use crate::functions::math::exp;
@@ -14,7 +20,7 @@ use crate::functions::matrix::*;
 
 #[derive(Debug, Clone)]
 pub struct Variable {
-    pub data: ArrayD<f32>,
+    pub data: Tensor,
     grad: Option<RcVariable>,
     creator: Option<Rc<RefCell<dyn Function>>>,
     pub name: Option<String>,
@@ -22,7 +28,7 @@ pub struct Variable {
     pub id: usize,
 }
 impl Variable {
-    pub fn new_rc(data: ArrayD<f32>) -> Rc<RefCell<Self>> {
+    pub fn new_rc(data: Tensor) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Variable {
             data: data,
             grad: None,
@@ -38,7 +44,7 @@ impl Variable {
         self.generation = func.borrow().get_generation() + 1;
     }
 
-    fn backward(&self, double_grad: bool) {
+    fn backward(&self, double_grad: bool) -> FrameResult<()> {
         let mut funcs: Vec<Rc<RefCell<dyn Function>>> =
             vec![Rc::clone(self.creator.as_ref().unwrap())];
 
@@ -87,7 +93,7 @@ impl Variable {
             let y_grad: RcVariable;
 
             if last_variable {
-                y_grad = ArrayD::<f32>::ones(self.data.shape()).rv();
+                y_grad = Tensor::ones(self.data.shape().dims())?.rv();
 
                 last_variable = false;
             } else {
@@ -96,7 +102,7 @@ impl Variable {
                 y_grad = y.0.borrow().grad.as_ref().unwrap().clone();
             }
 
-            let xs_grad = f_borrowed.backward(&y_grad);
+            let xs_grad = f_borrowed.backward(&y_grad)?;
 
             for (x, x_grad) in zip(xs, &xs_grad) {
                 // gradをすでに保持しているなら、元のgradに新たなgradを足す。
@@ -118,71 +124,8 @@ impl Variable {
         } else {
             set_grad_false();
         }
+        Ok(())
     }
-
-    /*
-
-    fn clear_grad_backward(&mut self) {
-        let mut funcs: Vec<Rc<RefCell<dyn Function>>> =
-            vec![Rc::clone(self.creator.as_ref().unwrap())];
-
-        let mut seen_set = HashSet::new();
-
-        fn add_func(
-            funcs_list: &mut Vec<Rc<RefCell<dyn Function>>>,
-            seen_set: &mut HashSet<usize>,
-            f: Rc<RefCell<dyn Function>>,
-        ) {
-            if seen_set.insert(f.borrow().get_id()) {
-                funcs_list.push(Rc::clone(&f));
-                funcs_list.sort_by(|a, b| {
-                    a.borrow()
-                        .get_generation()
-                        .cmp(&b.borrow().get_generation())
-                });
-            }
-        }
-        //let first_grad = ArrayD::<f32>::ones(self.data.shape()).rv();
-
-        //&selfで最初の変数はborrowされるので場合分け
-        let mut last_variable = true;
-
-        while let Some(f_rc) = funcs.pop() {
-            let f_borrowed = f_rc.borrow();
-
-            let xs = f_borrowed.get_inputs();
-
-            let mut y = f_borrowed.get_output();
-
-            if last_variable {
-                self.cleargrad();
-
-                last_variable = false;
-            } else {
-                //関数の出力は一つだけなので、[1]は必要なし
-
-                y.cleargrad();
-            }
-
-            // gradを置き換えまたは足していくので、Noneか判別
-            let xs_0 = xs[0].as_ref().unwrap();
-
-            //xs[0]にcreatorがあるか確認、あったらfuncに追加
-            if let Some(func_creator) = &xs_0.0.borrow().creator {
-                add_func(&mut funcs, &mut seen_set, func_creator.clone());
-                //funcs.push(Rc::clone(&func_creator));
-            }
-
-            //xs[1]はfが一変数関数の時、NoneなのでNoneか判別
-            if let Some(xs_1) = &xs[1] {
-                //xs[1]にcreatorがあるか確認、あったらfuncに追加
-                if let Some(func_creator) = &xs_1.0.borrow().creator {
-                    add_func(&mut funcs, &mut seen_set, func_creator.clone());
-                    //funcs.push(Rc::clone(&func_creator));
-                }
-            }
-        }
-    }*/
 
     fn cleargrad(&mut self) {
         self.grad = None;
@@ -193,8 +136,8 @@ impl Variable {
 pub struct RcVariable(pub Rc<RefCell<Variable>>);
 
 impl RcVariable {
-    pub fn new(data: ArrayViewD<f32>) -> Self {
-        RcVariable(Variable::new_rc(data.to_owned()))
+    pub fn new(data: &Tensor) -> Self {
+        RcVariable(Variable::new_rc(data.clone()))
     }
 
     pub fn backward(&mut self, double_grad: bool) {
@@ -206,7 +149,7 @@ impl RcVariable {
         self.0.borrow_mut().clear_grad_backward();
     } */
 
-    pub fn data(&self) -> ArrayD<f32> {
+    pub fn data(&self) -> Tensor {
         self.0.borrow().data.clone()
     }
 
@@ -219,7 +162,7 @@ impl RcVariable {
     }
 
     pub fn len(&self) -> u32 {
-        self.data().shape()[0] as u32
+        self.data().shape().dims()[0] as u32
     }
 
     pub fn id(&self) -> usize {
@@ -234,7 +177,7 @@ impl RcVariable {
         Rc::downgrade(&self.0)
     }
 
-    pub fn pow(&self, c: f32) -> RcVariable {
+    pub fn pow(&self, c: f32) -> FrameResult<RcVariable> {
         let y = pow(&[self.clone()], c);
         y
     }
@@ -244,7 +187,7 @@ impl RcVariable {
         y
     }
 
-    pub fn reshape(&self, shape: IxDyn) -> RcVariable {
+    pub fn reshape(&self, shape: &Shape) -> FrameResult<RcVariable> {
         let y = reshape(self, shape);
         y
     }
@@ -266,11 +209,11 @@ impl RcVariable {
 }
 
 pub trait Function: Debug {
-    fn call(&mut self) -> RcVariable;
+    fn call(&mut self) -> FrameResult<RcVariable>;
 
     //  forward,backwardはVariableの数値のみを計算する
-    fn forward(&self, x: &[RcVariable]) -> RcVariable;
-    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable>;
+    fn forward(&self, x: &[RcVariable]) -> FrameResult<RcVariable>;
+    fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>>;
 
     //　関数クラス.inputs, .outputではvariableのbackwardの中でアクセスできないので、関数にして取得
     fn get_inputs(&self) -> &[RcVariable];
@@ -288,13 +231,17 @@ struct AddF {
 }
 
 impl Function for AddF {
-    fn call(&mut self) -> RcVariable {
+    fn call(&mut self) -> FrameResult<RcVariable> {
         let inputs = &self.inputs;
         if inputs.len() != 2 {
-            panic!("Addは二変数関数です。inputsの個数が二つではありません。")
+            return Err(FrameError::InvalidInputCount {
+                function: "Add",
+                expected: 2,
+                got: inputs.len(),
+            });
         }
 
-        let output = self.forward(inputs);
+        let output = self.forward(inputs)?;
 
         if get_grad_status() == true {
             //inputのgenerationで一番大きい値をFuncitonのgenerationとする
@@ -309,35 +256,46 @@ impl Function for AddF {
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
-        output
+        Ok(output)
     }
 
-    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+    fn forward(&self, xs: &[RcVariable]) -> FrameResult<RcVariable> {
         let x0 = &xs[0];
         let x1 = &xs[1];
-        let y_data = x0.data() + x1.data();
-
-        y_data.rv()
+        let y_data = (x0.data() + x1.data()).map_err(|e| FrameError::ForwardError {
+            function: "Add",
+            source: e,
+        })?;
+        Ok(y_data.rv())
     }
 
-    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+    fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
         let mut gx0 = gy.clone();
         let mut gx1 = gy.clone();
 
-        let x0 = &self.inputs[0];
-        let x1 = &self.inputs[1];
+        let x0_data = &self.inputs[0].data();
+        let x1_data = &self.inputs[1].data();
 
-        let x0_shape = IxDyn(x0.data().shape());
-        let x1_shape = IxDyn(x1.data().shape());
+        let x0_shape = x0_data.shape();
+        let x1_shape = x1_data.shape();
 
         if x0_shape != x1_shape {
-            gx0 = sum_to(&gx0, x0_shape);
-            gx1 = sum_to(&gx1, x1_shape);
+            gx0 = if let Ok(gx0) = sum_to(&gx0, x0_shape) {
+                gx0
+            } else {
+                return Err(FrameError::BackwardError { function: "Add" });
+            };
+
+            gx1 = if let Ok(gx1) = sum_to(&gx1, x1_shape) {
+                gx1
+            } else {
+                return Err(FrameError::BackwardError { function: "Add" });
+            };
         }
 
         let gxs = vec![gx0, gx1];
 
-        gxs
+        Ok(gxs)
     }
 
     fn get_inputs(&self) -> &[RcVariable] {
@@ -376,7 +334,7 @@ impl AddF {
     }
 }
 
-pub fn add(xs: &[RcVariable]) -> RcVariable {
+pub fn add(xs: &[RcVariable]) -> FrameResult<RcVariable> {
     AddF::new(xs).borrow_mut().call()
 }
 
@@ -389,13 +347,17 @@ struct MulF {
 }
 
 impl Function for MulF {
-    fn call(&mut self) -> RcVariable {
+    fn call(&mut self) -> FrameResult<RcVariable> {
         let inputs = &self.inputs;
         if inputs.len() != 2 {
-            panic!("Mulは二変数関数です。inputsの個数が二つではありません。")
+            return Err(FrameError::InvalidInputCount {
+                function: "Mul",
+                expected: 2,
+                got: inputs.len(),
+            });
         }
 
-        let output = self.forward(inputs);
+        let output = self.forward(inputs)?;
 
         if get_grad_status() == true {
             //inputsのgenerationで一番大きい値をFuncitonのgenerationとする
@@ -410,34 +372,49 @@ impl Function for MulF {
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
-        output
+        Ok(output)
     }
 
-    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+    fn forward(&self, xs: &[RcVariable]) -> FrameResult<RcVariable> {
         let x0 = &xs[0];
         let x1 = &xs[1];
-        let y_data = x0.data() * x1.data();
 
-        y_data.rv()
+        let y_data = (x0.data() * x1.data()).map_err(|e| FrameError::ForwardError {
+            function: "Mul",
+            source: e,
+        })?;
+        Ok(y_data.rv())
     }
 
-    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+    fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
         let x0 = &self.inputs[0];
         let x1 = &self.inputs[1];
 
         let mut gx0 = x1.clone() * gy.clone();
         let mut gx1 = x0.clone() * gy.clone();
 
-        let x0_shape = IxDyn(x0.data().shape());
-        let x1_shape = IxDyn(x1.data().shape());
+        let x0_data = &self.inputs[0].data();
+        let x1_data = &self.inputs[1].data();
+
+        let x0_shape = x0_data.shape();
+        let x1_shape = x1_data.shape();
 
         if x0_shape != x1_shape {
-            gx0 = sum_to(&gx0, x0_shape);
-            gx1 = sum_to(&gx1, x1_shape);
+            gx0 = if let Ok(gx0) = sum_to(&gx0, x0_shape) {
+                gx0
+            } else {
+                return Err(FrameError::BackwardError { function: "Mul" });
+            };
+
+            gx1 = if let Ok(gx1) = sum_to(&gx1, x1_shape) {
+                gx1
+            } else {
+                return Err(FrameError::BackwardError { function: "Mul" });
+            };
         }
 
         let gxs = vec![gx0, gx1];
-        gxs
+        Ok(gxs)
     }
 
     fn get_inputs(&self) -> &[RcVariable] {
@@ -476,7 +453,7 @@ impl MulF {
     }
 }
 
-pub fn mul(xs: &[RcVariable]) -> RcVariable {
+pub fn mul(xs: &[RcVariable]) -> FrameResult<RcVariable> {
     MulF::new(xs).borrow_mut().call()
 }
 
@@ -489,13 +466,17 @@ struct SubF {
 }
 
 impl Function for SubF {
-    fn call(&mut self) -> RcVariable {
+    fn call(&mut self) -> FrameResult<RcVariable> {
         let inputs = &self.inputs;
         if inputs.len() != 2 {
-            panic!("Subは二変数関数です。inputsの個数が二つではありません。")
+            return Err(FrameError::InvalidInputCount {
+                function: "Sub",
+                expected: 2,
+                got: inputs.len(),
+            });
         }
 
-        let output = self.forward(inputs);
+        let output = self.forward(inputs)?;
 
         if get_grad_status() == true {
             //inputのgenerationで一番大きい値をFuncitonのgenerationとする
@@ -510,35 +491,46 @@ impl Function for SubF {
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
-        output
+        Ok(output)
     }
 
-    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+    fn forward(&self, xs: &[RcVariable]) -> FrameResult<RcVariable> {
         let x0 = &xs[0];
         let x1 = &xs[1];
-        let y_data = x0.data() - x1.data();
-
-        y_data.rv()
+        let y_data = (x0.data() - x1.data()).map_err(|e| FrameError::ForwardError {
+            function: "Sub",
+            source: e,
+        })?;
+        Ok(y_data.rv())
     }
 
-    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+    fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
         let mut gx0 = gy.clone();
         let mut gx1 = -gy.clone();
 
-        let x0 = &self.inputs[0];
-        let x1 = &self.inputs[1];
+        let x0_data = &self.inputs[0].data();
+        let x1_data = &self.inputs[1].data();
 
-        let x0_shape = IxDyn(x0.data().shape());
-        let x1_shape = IxDyn(x1.data().shape());
+        let x0_shape = x0_data.shape();
+        let x1_shape = x1_data.shape();
 
         if x0_shape != x1_shape {
-            gx0 = sum_to(&gx0, x0_shape);
-            gx1 = sum_to(&gx1, x1_shape);
+            gx0 = if let Ok(gx0) = sum_to(&gx0, x0_shape) {
+                gx0
+            } else {
+                return Err(FrameError::BackwardError { function: "Sub" });
+            };
+
+            gx1 = if let Ok(gx1) = sum_to(&gx1, x1_shape) {
+                gx1
+            } else {
+                return Err(FrameError::BackwardError { function: "Sub" });
+            };
         }
 
         let gxs = vec![gx0, gx1];
 
-        gxs
+        Ok(gxs)
     }
 
     fn get_inputs(&self) -> &[RcVariable] {
@@ -577,7 +569,7 @@ impl SubF {
     }
 }
 
-pub fn sub(xs: &[RcVariable]) -> RcVariable {
+pub fn sub(xs: &[RcVariable]) -> FrameResult<RcVariable> {
     SubF::new(xs).borrow_mut().call()
 }
 
@@ -590,13 +582,17 @@ struct DivF {
 }
 
 impl Function for DivF {
-    fn call(&mut self) -> RcVariable {
+    fn call(&mut self) -> FrameResult<RcVariable> {
         let inputs = &self.inputs;
         if inputs.len() != 2 {
-            panic!("Divは二変数関数です。inputsの個数が二つではありません。")
+            return Err(FrameError::InvalidInputCount {
+                function: "Div",
+                expected: 2,
+                got: inputs.len(),
+            });
         }
 
-        let output = self.forward(inputs);
+        let output = self.forward(inputs)?;
 
         if get_grad_status() == true {
             //inputsのgenerationで一番大きい値をFuncitonのgenerationとする
@@ -611,35 +607,49 @@ impl Function for DivF {
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
-        output
+        Ok(output)
     }
 
-    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+    fn forward(&self, xs: &[RcVariable]) -> FrameResult<RcVariable> {
         let x0 = &xs[0];
         let x1 = &xs[1];
-        let y_data = x0.data() / x1.data();
-
-        y_data.rv()
+        let y_data = (x0.data() / x1.data()).map_err(|e| FrameError::ForwardError {
+            function: "Div",
+            source: e,
+        })?;
+        Ok(y_data.rv())
     }
 
-    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+    fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
         let x0 = &self.inputs[0];
         let x1 = &self.inputs[1];
 
         let mut gx0 = gy.clone() / x1.clone();
-        let mut gx1 = gy.clone() * (-x0.clone() / x1.pow(2.0));
+        let mut gx1 = gy.clone() * (-x0.clone() / (x1.pow(2.0))?);
 
-        let x0_shape = IxDyn(x0.data().shape());
-        let x1_shape = IxDyn(x1.data().shape());
+        let x0_data = &self.inputs[0].data();
+        let x1_data = &self.inputs[1].data();
+
+        let x0_shape = x0_data.shape();
+        let x1_shape = x1_data.shape();
 
         if x0_shape != x1_shape {
-            gx0 = sum_to(&gx0, x0_shape);
-            gx1 = sum_to(&gx1, x1_shape);
+            gx0 = if let Ok(gx0) = sum_to(&gx0, x0_shape) {
+                gx0
+            } else {
+                return Err(FrameError::BackwardError { function: "Div" });
+            };
+
+            gx1 = if let Ok(gx1) = sum_to(&gx1, x1_shape) {
+                gx1
+            } else {
+                return Err(FrameError::BackwardError { function: "Div" });
+            };
         }
 
         let gxs = vec![gx0, gx1];
 
-        gxs
+        Ok(gxs)
     }
 
     fn get_inputs(&self) -> &[RcVariable] {
@@ -678,7 +688,7 @@ impl DivF {
     }
 }
 
-pub fn div(xs: &[RcVariable]) -> RcVariable {
+pub fn div(xs: &[RcVariable]) -> FrameResult<RcVariable> {
     DivF::new(xs).borrow_mut().call()
 }
 
@@ -691,13 +701,17 @@ struct NegF {
 }
 
 impl Function for NegF {
-    fn call(&mut self) -> RcVariable {
+    fn call(&mut self) -> FrameResult<RcVariable> {
         let inputs = &self.inputs;
         if inputs.len() != 1 {
-            panic!("Negは一変数関数です。inputsの個数が一つではありません。")
+            return Err(FrameError::InvalidInputCount {
+                function: "Neg",
+                expected: 1,
+                got: inputs.len(),
+            });
         }
 
-        let output = self.forward(inputs);
+        let output = self.forward(inputs)?;
 
         if get_grad_status() == true {
             //inputのgenerationで一番大きい値をFuncitonのgenerationとする
@@ -712,20 +726,27 @@ impl Function for NegF {
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
-        output
+        Ok(output)
     }
 
-    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
-        let x = &xs[0];
-        let y_data = -x.data();
-
-        y_data.rv()
+    fn forward(&self, _xs: &[RcVariable]) -> FrameResult<RcVariable> {
+        //let x = &xs[0];
+        //let y_data = -x.data();
+        //y_data.rv()
+        Err(FrameError::Unimplemented {
+            context: "Tensorの-演算子が未実装なので、Neg構造体も未実装".to_string(),
+            source: None,
+        })
     }
 
-    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
-        let gxs = vec![-gy.clone()];
+    fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
+        //let gxs = vec![-gy.clone()];
 
-        gxs
+        //gxs
+        Err(FrameError::Unimplemented {
+            context: "Tensorの-演算子が未実装なので、Neg構造体も未実装".to_string(),
+            source: None,
+        })
     }
 
     fn get_inputs(&self) -> &[RcVariable] {
@@ -764,7 +785,7 @@ impl NegF {
     }
 }
 
-pub fn neg(xs: &[RcVariable]) -> RcVariable {
+pub fn neg(xs: &[RcVariable]) -> FrameResult<RcVariable> {
     NegF::new(xs).borrow_mut().call()
 }
 
@@ -778,13 +799,17 @@ struct Pow {
 }
 
 impl Function for Pow {
-    fn call(&mut self) -> RcVariable {
+    fn call(&mut self) -> FrameResult<RcVariable> {
         let inputs = &self.inputs;
         if inputs.len() != 1 {
-            panic!("Powは一変数関数です。inputsの個数が一つではありません。")
+            return Err(FrameError::InvalidInputCount {
+                function: "Pow",
+                expected: 1,
+                got: inputs.len(),
+            });
         }
 
-        let output = self.forward(inputs);
+        let output = self.forward(inputs)?;
 
         if get_grad_status() == true {
             //inputsのgenerationで一番大きい値をFuncitonのgenerationとする
@@ -799,25 +824,28 @@ impl Function for Pow {
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
-        output
+        Ok(output)
     }
 
-    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+    fn forward(&self, xs: &[RcVariable]) -> FrameResult<RcVariable> {
         let c = self.c;
         let x = &xs[0];
-        let y_data = x.data().mapv(|x| x.powf(c));
+        let y_data = x.data().pow(c).map_err(|e| FrameError::ForwardError {
+            function: "Pow",
+            source: e,
+        })?;
 
-        y_data.rv()
+        Ok(y_data.rv())
     }
 
-    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+    fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
         let x = &self.inputs[0];
 
         let c = self.c;
-        let gx = c.rv() * x.pow(c - 1.0f32) * gy.clone();
+        let gx = c.rv() * x.pow(c - 1.0f32)? * gy.clone();
         let gxs = vec![gx];
 
-        gxs
+        Ok(gxs)
     }
 
     fn get_inputs(&self) -> &[RcVariable] {
@@ -857,20 +885,18 @@ impl Pow {
     }
 }
 
-pub fn pow(xs: &[RcVariable], c: f32) -> RcVariable {
+pub fn pow(xs: &[RcVariable], c: f32) -> FrameResult<RcVariable> {
     Pow::new(xs, c).borrow_mut().call()
 }
 
-//演算子のオーバーロード
-
-//array型からRcVariable型を生成
-pub trait ArrayDToRcVariable {
+//Tensor型からRcVariable型を生成
+pub trait TensorToRcVariable {
     fn rv(&self) -> RcVariable;
 }
-//arrayは任意の次元に対応
-impl<D: Dimension> ArrayDToRcVariable for ArrayBase<OwnedRepr<f32>, D> {
+
+impl TensorToRcVariable for Tensor {
     fn rv(&self) -> RcVariable {
-        RcVariable::new(self.view().into_dyn())
+        RcVariable::new(self)
     }
 }
 
@@ -878,19 +904,14 @@ pub trait F32ToRcVariable {
     fn rv(&self) -> RcVariable;
 }
 
-//rustの数値のデフォルトがf64なので、f32に変換する
-//f32からarray型に変換し、rv()でRcVariableを生成
+//f32からTensor型に変換し、rv()でRcVariableを生成
 impl F32ToRcVariable for f32 {
     fn rv(&self) -> RcVariable {
-        let array = array![*self as f32];
-        array.rv()
+        let tensor = if let Ok(tensor) = Tensor::from_vec(vec![*self], vec![1]) {
+            tensor
+        } else {
+            panic!("f32からTensorを生成できませんでした。");
+        };
+        tensor.rv()
     }
 }
-
-/*
-//rustの数値のデフォルトがf64なので、f32に変換してからRcVariableを生成
-impl ArrayDToRcVariable for ArrayBase<OwnedRepr<f32>, Dim<[usize;1]>> {
-    fn rv(&self) -> RcVariable {
-        RcVariable::new(self.view().into_dyn())
-    }
-}*/
