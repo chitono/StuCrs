@@ -798,6 +798,23 @@ impl TensorOps for Tensor {
         ))
     }
 
+    fn sum_to(&self, to_shape: Shape) -> Result<Self> {
+        for backend in &BACKENDS[0..] {
+            match backend.sum_to(&self.storage, &self.shape, &to_shape) {
+                Ok(storage) => {
+                    return Ok(Tensor {
+                        storage,
+                        shape: to_shape,
+                    });
+                }
+                Err(_) => continue,
+            }
+        }
+        Err(TensorError::BackendError(
+            "No backend could perform sum_to operation".to_string(),
+        ))
+    }
+
     fn rows_slice(&self, indices: &[u32]) -> Result<Self> {
         let result_shape = Shape::new(vec![indices.len(), self.shape.dims()[1]]).unwrap();
         for backend in &BACKENDS[0..] {

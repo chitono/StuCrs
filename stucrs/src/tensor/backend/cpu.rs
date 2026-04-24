@@ -1,12 +1,12 @@
 use std::result;
 
 use super::{Backend, Storage};
-
 #[cfg(feature = "cpu")]
 use crate::tensor::error::{Result, TensorError};
 use crate::tensor::ndarray_nn::ndarray_cnn::*;
 use crate::tensor::shape::Shape;
 use ndarray::{array, Array2, ArrayD, ArrayViewD, Axis, Ix1, Ix2, IxDyn};
+use std::collections::HashSet;
 
 #[derive(Debug)]
 pub struct CpuBackend;
@@ -138,6 +138,31 @@ impl Backend for CpuBackend {
         } else {
             panic!("broadcast変換不可:error対応予定")
         };
+        Ok(Storage::Cpu(result))
+    }
+
+    fn sum_to(&self, storage: &Storage, _from_shape: &Shape, to_shape: &Shape) -> Result<Storage> {
+        let data = storage.to_ndarray()?;
+        let x_shape = data.shape();
+        let mut axes_to_sum = HashSet::new();
+
+        // 合計する軸を特定する
+        for i in 0..x_shape.len() {
+            if i >= to_shape.ndim() || x_shape[i] != to_shape.dims()[i] {
+                axes_to_sum.insert(i);
+            }
+        }
+
+        let mut result = data;
+
+        let mut sorted_axes: Vec<_> = axes_to_sum.into_iter().collect();
+        sorted_axes.sort_unstable();
+
+        // 特定した軸を合計する
+        for &axis in sorted_axes.iter().rev() {
+            result = result.sum_axis(Axis(axis)).insert_axis(Axis(axis));
+        }
+
         Ok(Storage::Cpu(result))
     }
 

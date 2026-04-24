@@ -516,6 +516,13 @@ impl Backend for CudaBackend {
         ))
     }
 
+    fn sum_to(&self, storage: &Storage, from_shape: &Shape, to_shape: &Shape) -> Result<Storage> {
+        #[cfg(not(feature = "cuda"))]
+        Err(TensorError::BackendError(
+            "CUDA has not support sum_to yet".to_string(),
+        ))
+    }
+
     fn broadcast_to(
         &self,
         storage: &Storage,

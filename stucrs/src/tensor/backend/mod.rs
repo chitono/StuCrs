@@ -81,6 +81,8 @@ pub trait Backend: Debug + Send + Sync {
         keepdims: bool,
     ) -> Result<Storage>;
 
+    fn sum_to(&self, storage: &Storage, from_shape: &Shape, to_shape: &Shape) -> Result<Storage>;
+
     fn broadcast_to(
         &self,
         storage: &Storage,
