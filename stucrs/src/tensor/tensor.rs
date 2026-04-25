@@ -3,6 +3,7 @@
 //! This module provides the [`Tensor`] struct which is the central data structure
 //! in the library, along with its associated operations and traits.
 
+use crate::error::FrameError;
 use crate::tensor::backend::{Storage, BACKENDS};
 use crate::tensor::error::{Result, TensorError};
 //use broadcast::broadcast_data;
@@ -982,6 +983,56 @@ impl TensorOps for Tensor {
         }
         Err(TensorError::BackendError(
             "No backend could perform matrix multiplication".to_string(),
+        ))
+    }
+
+    fn tensordot(&self, other: &Self) -> Result<Self> {
+        let x_shape = self.shape().dims();
+        let w_shape = other.shape().dims();
+        let result_shape = match (self.ndim(), other.ndim()) {
+            (3, 2) => {
+                if x_shape[2] != w_shape[0] {
+                    return Err(TensorError::InvalidShape(
+                        "3次元のxと2次元のwの次元が適合しません。".to_string(),
+                    ));
+                } else {
+                    Shape::new(vec![x_shape[0], x_shape[1], w_shape[1]])?
+                }
+            }
+            (2, 3) => {
+                if x_shape[1] != w_shape[1] {
+                    return Err(TensorError::InvalidShape(
+                        "2次元のxと3次元のwの次元が適合しません。".to_string(),
+                    ));
+                } else {
+                    Shape::new(vec![w_shape[0], x_shape[0], w_shape[2]])?
+                }
+            }
+            (3, 3) => {
+                return Err(TensorError::UnimplementedTensor(
+                    "3次元同士ののテンソル積は今後対応".to_string(),
+                ));
+            }
+            _ => {
+                return Err(TensorError::UnimplementedTensor(
+                    "4次元以上のテンソル積は非対応".to_string(),
+                ));
+            }
+        };
+
+        for backend in &BACKENDS[0..] {
+            match backend.tensordot(&self.storage, &other.storage, &self.shape, &other.shape) {
+                Ok(storage) => {
+                    return Ok(Tensor {
+                        storage,
+                        shape: result_shape,
+                    });
+                }
+                Err(_) => continue,
+            }
+        }
+        Err(TensorError::BackendError(
+            "No backend could perform TensorDot".to_string(),
         ))
     }
 

@@ -110,6 +110,15 @@ pub trait Backend: Debug + Send + Sync {
         rhs_shape: &Shape,
     ) -> Result<Storage>;
 
+    /// Matrix multiplication for 3D tensors.
+    fn tensordot(
+        &self,
+        lhs: &Storage,
+        rhs: &Storage,
+        lhs_shape: &Shape,
+        rhs_shape: &Shape,
+    ) -> Result<Storage>;
+
     /// Batched matrix multiplication for 3D tensors.
     fn bmm(
         &self,

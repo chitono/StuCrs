@@ -231,7 +231,7 @@ pub trait TensorOps {
     where
         Self: Sized;
 
-    /// Batched matrix multiplication for 3D tensors.
+    /// Batched matrix multiplication for 2D tensors.
     ///
     /// Performs matrix multiplication on batches of 2D tensors.
     /// The dimensions must be compatible: (B, M, K) × (B, K, N) → (B, M, N).
@@ -261,6 +261,9 @@ pub trait TensorOps {
     /// let result = a.bmm(&b).unwrap();
     /// assert_eq!(result.shape().dims(), &[2, 3, 5]); // 2 batches of 3x5 matrices
     /// ```
+    fn tensordot(&self, other: &Self) -> Result<Self>
+    where
+        Self: Sized;
     fn bmm(&self, other: &Self) -> Result<Self>
     where
         Self: Sized;
@@ -268,23 +271,7 @@ pub trait TensorOps {
     fn neg(&self) -> Result<Self>
     where
         Self: Sized;
-    /// Element-wise exponential function.
-    ///
-    /// Applies the exponential function (e^x) to each element.
-    ///
-    /// # Returns
-    ///
-    /// A new tensor with the exponential applied element-wise.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use tensor_frame::{Tensor, TensorOps};
-    ///
-    /// let tensor = Tensor::from_vec(vec![0.0, 1.0, 2.0], vec![3]).unwrap();
-    /// let result = tensor.exp().unwrap();
-    /// // result ≈ [1.0, 2.718, 7.389]
-    /// ```
+
     fn exp(&self) -> Result<Self>
     where
         Self: Sized;

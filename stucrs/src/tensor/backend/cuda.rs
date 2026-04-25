@@ -944,6 +944,18 @@ impl Backend for CudaBackend {
         ))
     }
 
+    fn tensordot(
+        &self,
+        storage: &Storage,
+        from_shape: &Shape,
+        to_shape: &Shape,
+    ) -> Result<Storage> {
+        #[cfg(not(feature = "cuda"))]
+        Err(TensorError::BackendError(
+            "CUDA has not support tensordot yet".to_string(),
+        ))
+    }
+
     fn bmm(
         &self,
         lhs: &Storage,

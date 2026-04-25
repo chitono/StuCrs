@@ -74,6 +74,8 @@ pub enum TensorError {
         /// The actual number of dimensions
         got: usize,
     },
+
+    UnimplementedTensor(String),
 }
 
 impl fmt::Display for TensorError {
@@ -91,6 +93,7 @@ impl fmt::Display for TensorError {
             TensorError::DimensionMismatch { expected, got } => {
                 write!(f, "Dimension mismatch: expected {expected}, got {got}")
             }
+            TensorError::UnimplementedTensor(msg) => write!(f, "Unimplemented Tensor error: {msg}"),
         }
     }
 }
