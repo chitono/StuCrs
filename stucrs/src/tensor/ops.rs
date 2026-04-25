@@ -143,6 +143,9 @@ pub trait TensorOps {
     where
         Self: Sized;
 
+    fn permuted_axes(&self, axes: &Vec<usize>) -> Result<Self>
+    where
+        Self: Sized;
     /// Removes dimensions of size 1 from the tensor shape.
     ///
     /// # Arguments

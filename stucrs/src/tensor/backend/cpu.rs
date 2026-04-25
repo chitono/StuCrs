@@ -222,6 +222,18 @@ impl Backend for CpuBackend {
         Ok(Storage::Cpu(result))
     }
 
+    fn permuted_axes(
+        &self,
+        storage: &Storage,
+        _shape: &Shape,
+        axes: &Vec<usize>,
+    ) -> Result<Storage> {
+        let data = storage.to_ndarray()?;
+        let result = data.permuted_axes(axes.clone());
+
+        Ok(Storage::Cpu(result))
+    }
+
     fn to_vec_f32(&self, storage: &Storage) -> Result<Vec<f32>> {
         match storage {
             #[cfg(feature = "cpu")]

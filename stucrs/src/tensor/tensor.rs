@@ -908,6 +908,31 @@ impl TensorOps for Tensor {
         ))
     }
 
+    fn permuted_axes(&self, axes: &Vec<usize>) -> Result<Self> {
+        if self.ndim() != axes.len() {
+            return Err(TensorError::InvalidShape(
+                "行列の次元数と入力された配置の長さが一致しません".to_string(),
+            ));
+        }
+        for backend in &BACKENDS[0..] {
+            match backend.permuted_axes(&self.storage, &self.shape, axes) {
+                Ok(storage) => {
+                    let dims = self.shape.dims();
+                    let new_shape_vec: Vec<usize> = axes.iter().map(|&i| dims[i]).collect();
+                    let new_shape = Shape::new(new_shape_vec)?;
+                    return Ok(Tensor {
+                        storage,
+                        shape: new_shape,
+                    });
+                }
+                Err(_) => continue,
+            }
+        }
+        Err(TensorError::BackendError(
+            "No backend could perform permuted_axes operation".to_string(),
+        ))
+    }
+
     fn squeeze(&self, axis: Option<usize>) -> Result<Self> {
         let dims = self.shape.dims();
         let new_dims = if let Some(axis) = axis {

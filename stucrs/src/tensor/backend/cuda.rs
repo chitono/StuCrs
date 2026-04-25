@@ -515,7 +515,7 @@ impl Backend for CudaBackend {
             "CUDA support not compiled in".to_string(),
         ))
     }
-
+    // TODO:sum_to cuda未対応
     fn sum_to(&self, storage: &Storage, from_shape: &Shape, to_shape: &Shape) -> Result<Storage> {
         #[cfg(not(feature = "cuda"))]
         Err(TensorError::BackendError(
@@ -746,6 +746,19 @@ impl Backend for CudaBackend {
         ))
     }
 
+    // TODO:permuted_axes cuda未対応
+    fn permuted_axes(
+        &self,
+        storage: &Storage,
+        shape: &Shape,
+        axes: &Vec<usize>,
+    ) -> Result<Storage> {
+        #[cfg(not(feature = "cuda"))]
+        Err(TensorError::BackendError(
+            "CUDA has not support permuted_axes yet".to_string(),
+        ))
+    }
+
     fn rows_slice(&self, storage: &Storage, shape: &Shape, indices: &[u32]) -> Result<Storage> {
         #[cfg(feature = "cuda")]
         {
@@ -944,6 +957,7 @@ impl Backend for CudaBackend {
         ))
     }
 
+    // TODO:tensordot cuda未対応
     fn tensordot(
         &self,
         storage: &Storage,

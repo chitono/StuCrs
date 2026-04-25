@@ -98,6 +98,9 @@ pub trait Backend: Debug + Send + Sync {
     /// Transposes a 2D tensor.
     fn transpose(&self, storage: &Storage, shape: &Shape) -> Result<Storage>;
 
+    fn permuted_axes(&self, storage: &Storage, shape: &Shape, axes: &Vec<usize>)
+        -> Result<Storage>;
+
     /// Converts the storage to a vector of f32 values.
     fn to_vec_f32(&self, storage: &Storage) -> Result<Vec<f32>>;
 
