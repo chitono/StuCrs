@@ -9,7 +9,7 @@ use crate::tensor::error::{Result, TensorError};
 //use broadcast::broadcast_data;
 use crate::tensor::ops::TensorOps;
 use crate::tensor::shape::{self, Shape};
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, Div, Mul, Neg, Sub};
 use std::time::Instant;
 use std::{fmt, vec};
 
@@ -733,6 +733,29 @@ impl Div for Tensor {
 
         Err(TensorError::BackendError(
             "No backend could perform div operation".to_string(),
+        ))
+    }
+}
+
+impl Neg for Tensor {
+    type Output = Result<Tensor>;
+
+    fn neg(self) -> Self::Output {
+        // broadcastが生じる場合
+        for backend in &BACKENDS[0..] {
+            match backend.neg(&self.storage) {
+                Ok(storage) => {
+                    return Ok(Tensor {
+                        storage,
+                        shape: self.shape.clone(),
+                    });
+                }
+                Err(_) => continue,
+            }
+        }
+
+        Err(TensorError::BackendError(
+            "No backend could perform neg operation".to_string(),
         ))
     }
 }
