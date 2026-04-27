@@ -19,8 +19,10 @@ use std::vec;
 
 use crate::config::{get_grad_status, id_generator};
 use crate::core_new::*;
+use crate::error::{FrameError, FrameResult};
 
 use crate::functions::matrix::*;
+use crate::tensor::lib::TensorOps;
 
 #[derive(Debug, Clone)]
 pub struct Square {
@@ -31,13 +33,17 @@ pub struct Square {
 }
 
 impl Function for Square {
-    fn call(&mut self) -> RcVariable {
+    fn call(&mut self) -> FrameResult<RcVariable> {
         let inputs = &self.inputs;
         if inputs.len() != 1 {
-            panic!("Squareは一変数関数です。inputsの個数が一つではありません。")
+            return Err(FrameError::InvalidInputCount {
+                function: "Square",
+                expected: 1,
+                got: inputs.len(),
+            });
         }
 
-        let output = self.forward(inputs);
+        let output = self.forward(inputs)?;
 
         if get_grad_status() == true {
             //inputのgenerationで一番大きい値をFuncitonのgenerationとする
@@ -52,23 +58,26 @@ impl Function for Square {
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
-        output
+        Ok(output)
     }
 
-    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+    fn forward(&self, xs: &[RcVariable]) -> FrameResult<RcVariable> {
         let x = &xs[0];
 
-        let y_data = x.data().mapv(|x| x.powf(2.0));
+        let y_data = x.data().pow(2.0).map_err(|e| FrameError::ForwardError {
+            function: "Square",
+            source: e,
+        })?;
 
-        y_data.rv()
+        Ok(y_data.rv())
     }
 
-    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+    fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
         let x = &self.inputs[0];
         let gx = 2.0.rv() * x.clone() * gy.clone();
         let gxs = vec![gx];
 
-        gxs
+        Ok(gxs)
     }
 
     fn get_inputs(&self) -> &[RcVariable] {
@@ -109,12 +118,12 @@ impl Square {
 
 //fn square(input_x:&Rc<RefCell<Variable>>)
 
-pub fn square(x: &RcVariable) -> RcVariable {
+pub fn square(x: &RcVariable) -> FrameResult<RcVariable> {
     let y = square_f(&[x.clone()]);
     y
 }
 
-fn square_f(xs: &[RcVariable]) -> RcVariable {
+fn square_f(xs: &[RcVariable]) -> FrameResult<RcVariable> {
     Square::new(xs).borrow_mut().call()
 }
 
@@ -127,13 +136,17 @@ pub struct Exp {
 }
 
 impl Function for Exp {
-    fn call(&mut self) -> RcVariable {
+    fn call(&mut self) -> FrameResult<RcVariable> {
         let inputs = &self.inputs;
         if inputs.len() != 1 {
-            panic!("Expは一変数関数です。inputsの個数が一つではありません。")
+            return Err(FrameError::InvalidInputCount {
+                function: "Exp",
+                expected: 1,
+                got: inputs.len(),
+            });
         }
 
-        let output = self.forward(inputs);
+        let output = self.forward(inputs)?;
 
         if get_grad_status() == true {
             //inputのgenerationで一番大きい値をFuncitonのgenerationとする
@@ -148,22 +161,25 @@ impl Function for Exp {
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
-        output
+        Ok(output)
     }
 
-    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+    fn forward(&self, xs: &[RcVariable]) -> FrameResult<RcVariable> {
         let x = &xs[0];
-        let y_data = x.data().mapv(|x| x.exp());
+        let y_data = x.data().exp().map_err(|e| FrameError::ForwardError {
+            function: "Exp",
+            source: e,
+        })?;
 
-        y_data.rv()
+        Ok(y_data.rv())
     }
 
-    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+    fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
         let x = &self.inputs[0];
-        let gx = x.exp().clone() * gy.clone();
+        let gx = x.exp()? * gy.clone();
 
         let gxs = vec![gx];
-        gxs
+        Ok(gxs)
     }
 
     fn get_inputs(&self) -> &[RcVariable] {
@@ -202,12 +218,12 @@ impl Exp {
     }
 }
 
-pub fn exp(x: &RcVariable) -> RcVariable {
+pub fn exp(x: &RcVariable) -> FrameResult<RcVariable> {
     let y = exp_f(&[x.clone()]);
     y
 }
 
-fn exp_f(xs: &[RcVariable]) -> RcVariable {
+fn exp_f(xs: &[RcVariable]) -> FrameResult<RcVariable> {
     Exp::new(xs).borrow_mut().call()
 }
 
@@ -220,13 +236,17 @@ pub struct Sin {
 }
 
 impl Function for Sin {
-    fn call(&mut self) -> RcVariable {
+    fn call(&mut self) -> FrameResult<RcVariable> {
         let inputs = &self.inputs;
         if inputs.len() != 1 {
-            panic!("Sinは一変数関数です。inputsの個数が一つではありません。")
+            return Err(FrameError::InvalidInputCount {
+                function: "Sin",
+                expected: 1,
+                got: inputs.len(),
+            });
         }
 
-        let output = self.forward(inputs);
+        let output = self.forward(inputs)?;
 
         if get_grad_status() == true {
             //inputのgenerationで一番大きい値をFuncitonのgenerationとする
@@ -241,21 +261,24 @@ impl Function for Sin {
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
-        output
+        Ok(output)
     }
 
-    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+    fn forward(&self, xs: &[RcVariable]) -> FrameResult<RcVariable> {
         let x = &xs[0];
-        let y_data = x.data().mapv(|x| x.sin());
+        let y_data = x.data().sin().map_err(|e| FrameError::ForwardError {
+            function: "Sin",
+            source: e,
+        })?;
 
-        y_data.rv()
+        Ok(y_data.rv())
     }
 
-    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+    fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
         let x = &self.inputs[0];
-        let gx = cos(x) * gy.clone();
+        let gx = cos(x)? * gy.clone();
         let gxs = vec![gx];
-        gxs
+        Ok(gxs)
     }
 
     fn get_inputs(&self) -> &[RcVariable] {
@@ -294,12 +317,12 @@ impl Sin {
     }
 }
 
-pub fn sin(x: &RcVariable) -> RcVariable {
+pub fn sin(x: &RcVariable) -> FrameResult<RcVariable> {
     let y = sin_f(&[x.clone()]);
     y
 }
 
-fn sin_f(xs: &[RcVariable]) -> RcVariable {
+fn sin_f(xs: &[RcVariable]) -> FrameResult<RcVariable> {
     Sin::new(xs).borrow_mut().call()
 }
 
@@ -312,13 +335,17 @@ pub struct Cos {
 }
 
 impl Function for Cos {
-    fn call(&mut self) -> RcVariable {
+    fn call(&mut self) -> FrameResult<RcVariable> {
         let inputs = &self.inputs;
         if inputs.len() != 1 {
-            panic!("Cosは一変数関数です。inputsの個数が一つではありません。")
+            return Err(FrameError::InvalidInputCount {
+                function: "Reshape",
+                expected: 1,
+                got: inputs.len(),
+            });
         }
 
-        let output = self.forward(inputs);
+        let output = self.forward(inputs)?;
 
         if get_grad_status() == true {
             //inputのgenerationで一番大きい値をFuncitonのgenerationとする
@@ -333,24 +360,27 @@ impl Function for Cos {
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
-        output
+        Ok(output)
     }
 
-    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+    fn forward(&self, xs: &[RcVariable]) -> FrameResult<RcVariable> {
         let x = &xs[0];
-        let y_data = x.data().mapv(|x| x.cos());
+        let y_data = x.data().cos().map_err(|e| FrameError::ForwardError {
+            function: "Reshape",
+            source: e,
+        })?;
 
-        y_data.rv()
+        Ok(y_data.rv())
     }
 
-    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+    fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
         let x = &self.inputs[0];
 
-        let gx = -sin(x) * gy.clone();
+        let gx = -sin(x)? * gy.clone();
 
         let gxs = vec![gx];
 
-        gxs
+        Ok(gxs)
     }
 
     fn get_inputs(&self) -> &[RcVariable] {
@@ -389,12 +419,12 @@ impl Cos {
     }
 }
 
-pub fn cos(x: &RcVariable) -> RcVariable {
+pub fn cos(x: &RcVariable) -> FrameResult<RcVariable> {
     let y = cos_f(&[x.clone()]);
     y
 }
 
-fn cos_f(xs: &[RcVariable]) -> RcVariable {
+fn cos_f(xs: &[RcVariable]) -> FrameResult<RcVariable> {
     Cos::new(xs).borrow_mut().call()
 }
 
@@ -407,13 +437,17 @@ pub struct Tanh {
 }
 
 impl Function for Tanh {
-    fn call(&mut self) -> RcVariable {
+    fn call(&mut self) -> FrameResult<RcVariable> {
         let inputs = &self.inputs;
         if inputs.len() != 1 {
-            panic!("Tanhは一変数関数です。inputsの個数が一つではありません。")
+            return Err(crate::error::FrameError::InvalidInputCount {
+                function: "Tanh",
+                expected: 1,
+                got: inputs.len(),
+            });
         }
 
-        let output = self.forward(inputs);
+        let output = self.forward(inputs)?;
 
         if get_grad_status() == true {
             //inputのgenerationで一番大きい値をFuncitonのgenerationとする
@@ -428,24 +462,27 @@ impl Function for Tanh {
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
-        output
+        Ok(output)
     }
 
-    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+    fn forward(&self, xs: &[RcVariable]) -> FrameResult<RcVariable> {
         let x = &xs[0];
-        let y_data = x.data().mapv(|x| x.tanh());
+        let y_data = x.data().tanh().map_err(|e| FrameError::ForwardError {
+            function: "Tanh",
+            source: e,
+        })?;
 
-        y_data.rv()
+        Ok(y_data.rv())
     }
 
-    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+    fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
         let x = &self.inputs[0];
 
-        let gx = gy.clone() / cosh(x).pow(2.0);
+        let gx = gy.clone() / cosh(x)?.pow(2.0)?;
 
         let gxs = vec![gx];
 
-        gxs
+        Ok(gxs)
     }
 
     fn get_inputs(&self) -> &[RcVariable] {
@@ -484,12 +521,12 @@ impl Tanh {
     }
 }
 
-pub fn tanh(x: &RcVariable) -> RcVariable {
+pub fn tanh(x: &RcVariable) -> FrameResult<RcVariable> {
     let y = tanh_f(&[x.clone()]);
     y
 }
 
-fn tanh_f(xs: &[RcVariable]) -> RcVariable {
+fn tanh_f(xs: &[RcVariable]) -> FrameResult<RcVariable> {
     Tanh::new(xs).borrow_mut().call()
 }
 
@@ -502,13 +539,17 @@ pub struct Sinh {
 }
 
 impl Function for Sinh {
-    fn call(&mut self) -> RcVariable {
+    fn call(&mut self) -> FrameResult<RcVariable> {
         let inputs = &self.inputs;
         if inputs.len() != 1 {
-            panic!("Sinhは一変数関数です。inputsの個数が一つではありません。")
+            return Err(crate::error::FrameError::InvalidInputCount {
+                function: "Sinh",
+                expected: 1,
+                got: inputs.len(),
+            });
         }
 
-        let output = self.forward(inputs);
+        let output = self.forward(inputs)?;
 
         if get_grad_status() == true {
             //inputのgenerationで一番大きい値をFuncitonのgenerationとする
@@ -523,22 +564,25 @@ impl Function for Sinh {
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
-        output
+        Ok(output)
     }
 
-    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+    fn forward(&self, xs: &[RcVariable]) -> FrameResult<RcVariable> {
         let x = &xs[0];
-        let y_data = x.data().mapv(|x| x.sinh());
+        let y_data = x.data().sinh().map_err(|e| FrameError::ForwardError {
+            function: "Sinh",
+            source: e,
+        })?;
 
-        y_data.rv()
+        Ok(y_data.rv())
     }
 
-    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+    fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
         let x = &self.inputs[0];
-        let gx = cosh(x) * gy.clone();
+        let gx = cosh(x)? * gy.clone();
         let gxs = vec![gx];
 
-        gxs
+        Ok(gxs)
     }
 
     fn get_inputs(&self) -> &[RcVariable] {
@@ -577,12 +621,12 @@ impl Sinh {
     }
 }
 
-pub fn sinh(x: &RcVariable) -> RcVariable {
+pub fn sinh(x: &RcVariable) -> FrameResult<RcVariable> {
     let y = sinh_f(&[x.clone()]);
     y
 }
 
-fn sinh_f(xs: &[RcVariable]) -> RcVariable {
+fn sinh_f(xs: &[RcVariable]) -> FrameResult<RcVariable> {
     Sinh::new(xs).borrow_mut().call()
 }
 
@@ -595,13 +639,16 @@ pub struct Cosh {
 }
 
 impl Function for Cosh {
-    fn call(&mut self) -> RcVariable {
+    fn call(&mut self) -> FrameResult<RcVariable> {
         let inputs = &self.inputs;
         if inputs.len() != 1 {
-            panic!("Coshは一変数関数です。inputsの個数が一つではありません。")
+            return Err(crate::error::FrameError::InvalidInputCount {
+                function: "Cosh",
+                expected: 1,
+                got: inputs.len(),
+            });
         }
-
-        let output = self.forward(inputs);
+        let output = self.forward(inputs)?;
 
         if get_grad_status() == true {
             //inputのgenerationで一番大きい値をFuncitonのgenerationとする
@@ -616,21 +663,24 @@ impl Function for Cosh {
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
-        output
+        Ok(output)
     }
 
-    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+    fn forward(&self, xs: &[RcVariable]) -> FrameResult<RcVariable> {
         let x = &xs[0];
-        let y_data = x.data().mapv(|x| x.cosh());
+        let y_data = x.data().cosh().map_err(|e| FrameError::ForwardError {
+            function: "Cosh",
+            source: e,
+        })?;
 
-        y_data.rv()
+        Ok(y_data.rv())
     }
 
-    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+    fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
         let x = &self.inputs[0];
-        let gx = sinh(x) * gy.clone();
+        let gx = sinh(x)? * gy.clone();
         let gxs = vec![gx];
-        gxs
+        Ok(gxs)
     }
 
     fn get_inputs(&self) -> &[RcVariable] {
@@ -669,12 +719,12 @@ impl Cosh {
     }
 }
 
-pub fn cosh(x: &RcVariable) -> RcVariable {
+pub fn cosh(x: &RcVariable) -> FrameResult<RcVariable> {
     let y = cosh_f(&[x.clone()]);
     y
 }
 
-fn cosh_f(xs: &[RcVariable]) -> RcVariable {
+fn cosh_f(xs: &[RcVariable]) -> FrameResult<RcVariable> {
     Cosh::new(xs).borrow_mut().call()
 }
 
@@ -688,13 +738,17 @@ struct Log {
 }
 
 impl Function for Log {
-    fn call(&mut self) -> RcVariable {
+    fn call(&mut self) -> FrameResult<RcVariable> {
         let inputs = &self.inputs;
         if inputs.len() != 1 {
-            panic!("Logは一変数関数です。inputsの個数が一つではありません。")
+            return Err(FrameError::InvalidInputCount {
+                function: "Log",
+                expected: 1,
+                got: inputs.len(),
+            });
         }
 
-        let output = self.forward(inputs);
+        let output = self.forward(inputs)?;
 
         if get_grad_status() == true {
             //inputのgenerationで一番大きい値をFuncitonのgenerationとする
@@ -709,24 +763,31 @@ impl Function for Log {
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
-        output
+        Ok(output)
     }
 
-    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+    fn forward(&self, xs: &[RcVariable]) -> FrameResult<RcVariable> {
         let base = self.base;
         let x = &xs[0];
         let y_data;
 
         //baseがeか他の値かで場合分け(eの場合、baseはNone)
-        if let Some(base_data) = base {
-            y_data = x.data().mapv(|x| x.log(base_data));
+        // TODO:Logの底指定未対応
+        if let Some(_base_data) = base {
+            return Err(FrameError::Unimplemented {
+                context: "Log関数構造体の底指定は今後対応".to_string(),
+                source: None,
+            });
         } else {
-            y_data = x.data().mapv(|x| x.ln());
+            y_data = x.data().log().map_err(|e| FrameError::ForwardError {
+                function: "Log",
+                source: e,
+            })?;
         }
-        y_data.rv()
+        Ok(y_data.rv())
     }
 
-    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+    fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
         let x = &self.inputs[0];
         let gx;
 
@@ -739,7 +800,7 @@ impl Function for Log {
             gx = (1.0.rv() / x.clone()) * gy.clone();
         }
         let gxs = vec![gx];
-        gxs
+        Ok(gxs)
     }
 
     fn get_inputs(&self) -> &[RcVariable] {
@@ -779,14 +840,16 @@ impl Log {
     }
 }
 
-pub fn log(x: &RcVariable, base: Option<f32>) -> RcVariable {
+pub fn log(x: &RcVariable, base: Option<f32>) -> FrameResult<RcVariable> {
     let y = log_f(&[x.clone()], base);
     y
 }
 
-fn log_f(xs: &[RcVariable], base: Option<f32>) -> RcVariable {
+fn log_f(xs: &[RcVariable], base: Option<f32>) -> FrameResult<RcVariable> {
     Log::new(xs, base).borrow_mut().call()
 }
+
+/*
 
 /// 最大値を返す関数。
 /// 現在は3次元までの行列の最大値に対応。また軸の指定にも対応.
@@ -802,13 +865,17 @@ pub struct Max {
 }
 
 impl Function for Max {
-    fn call(&mut self) -> RcVariable {
+    fn call(&mut self) -> FrameResult<RcVariable> {
         let inputs = &self.inputs;
         if inputs.len() != 1 {
-            panic!("Maxは一変数関数です。inputsの個数が一つではありません。")
+            return Err(FrameError::InvalidInputCount {
+                function: "Max",
+                expected: 1,
+                got: inputs.len(),
+            });
         }
 
-        let output = self.forward(inputs);
+        let output = self.forward(inputs)?;
 
         if get_grad_status() == true {
             //inputのgenerationで一番大きい値をFuncitonのgenerationとする
@@ -823,10 +890,10 @@ impl Function for Max {
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
-        output
+        Ok(output)
     }
 
-    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+    fn forward(&self, xs: &[RcVariable]) -> FrameResult<RcVariable> {
         let x_array = xs[0].data();
 
         let y_data = match x_array.ndim() {
@@ -916,7 +983,7 @@ impl Function for Max {
         y_data.rv()
     }
 
-    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+    fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
         let x_data = &self.inputs[0].data();
         let x_shape = x_data.shape();
         let mut mask_array = ArrayD::<f32>::zeros(x_shape);
@@ -988,7 +1055,7 @@ impl Function for Max {
         let gx = mask_array.rv() * broadcasted_gy;
 
         let gxs = vec![gx];
-        gxs
+        Ok(gxs)
     }
 
     fn get_inputs(&self) -> &[RcVariable] {
@@ -1031,14 +1098,16 @@ impl Max {
 /// 現在は3次元までの行列の最大値に対応。また軸の指定にも対応.
 /// 軸指定は一部の軸のみ、今後拡張予定。
 /// 返す行列はinputの行列と同じ次元数。
-pub fn max(x: &RcVariable, axis: Option<u16>) -> RcVariable {
+pub fn max(x: &RcVariable, axis: Option<u16>) -> FrameResult<RcVariable> {
     let y = max_f(&[x.clone()], axis);
     y
 }
 
-fn max_f(xs: &[RcVariable], axis: Option<u16>) -> RcVariable {
+fn max_f(xs: &[RcVariable], axis: Option<u16>) -> FrameResult<RcVariable> {
     Max::new(xs, axis).borrow_mut().call()
 }
+
+*/
 
 /// Clamp関数は入力値xを設定された値、min,maxに収める関数。
 /// xがminより小さいならminを、maxより大きいならmaxを、min以上max以下ならxの値をそのまま返す。
@@ -1053,13 +1122,17 @@ pub struct Clamp {
 }
 
 impl Function for Clamp {
-    fn call(&mut self) -> RcVariable {
+    fn call(&mut self) -> FrameResult<RcVariable> {
         let inputs = &self.inputs;
         if inputs.len() != 1 {
-            panic!("Clampは一変数関数です。inputsの個数が一つではありません。")
+            return Err(FrameError::InvalidInputCount {
+                function: "Clamp",
+                expected: 1,
+                got: inputs.len(),
+            });
         }
 
-        let output = self.forward(inputs);
+        let output = self.forward(inputs)?;
 
         if get_grad_status() == true {
             //inputのgenerationで一番大きい値をFuncitonのgenerationとする
@@ -1074,32 +1147,42 @@ impl Function for Clamp {
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
-        output
+        Ok(output)
     }
 
-    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+    fn forward(&self, xs: &[RcVariable]) -> FrameResult<RcVariable> {
         let x_data = xs[0].data();
 
         //最大値をはじめに調整
-        let mut y_data = x_data.mapv(|x| if x > self.max { self.max } else { x });
+        let mut y_data = x_data
+            .clamp_max(self.max)
+            .map_err(|e| FrameError::ForwardError {
+                function: "Clamp_max in Clamp",
+                source: e,
+            })?;
 
         //最小値を調整
-        y_data = y_data.mapv(|x| if x < self.min { self.min } else { x });
-        y_data.rv()
+        y_data = y_data
+            .clamp_min(self.min)
+            .map_err(|e| FrameError::ForwardError {
+                function: "Clamp_min in Clamp",
+                source: e,
+            })?;
+        Ok(y_data.rv())
     }
 
-    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+    fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
         let x = &self.inputs[0];
 
-        let min_mask = x.data().mapv(|x| if x >= self.min { 1.0f32 } else { 0.0 });
-        let max_mask = x.data().mapv(|x| if x <= self.max { 1.0f32 } else { 0.0 });
+        let min_mask = x.data().max_for_clamp_grad()?;
+        let max_mask = x.data().min_for_clamp_grad()?;
 
-        let mask = (min_mask * max_mask).rv();
+        let mask = (min_mask * max_mask)?.rv();
 
         let gx = gy.clone() * mask;
 
         let gxs = vec![gx];
-        gxs
+        Ok(gxs)
     }
 
     fn get_inputs(&self) -> &[RcVariable] {
@@ -1141,11 +1224,11 @@ impl Clamp {
 
 /// Clamp関数は入力値xを設定された値、min,maxに収める関数。
 /// xがminより小さいならminを、maxより大きいならmaxを、min以上max以下ならxの値をそのまま返す。
-pub fn clamp(x: &RcVariable, min: f32, max: f32) -> RcVariable {
+pub fn clamp(x: &RcVariable, min: f32, max: f32) -> FrameResult<RcVariable> {
     let y = clamp_f(&[x.clone()], min, max);
     y
 }
 
-fn clamp_f(xs: &[RcVariable], min: f32, max: f32) -> RcVariable {
+fn clamp_f(xs: &[RcVariable], min: f32, max: f32) -> FrameResult<RcVariable> {
     Clamp::new(xs, min, max).borrow_mut().call()
 }

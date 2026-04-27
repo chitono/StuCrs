@@ -1,7 +1,7 @@
 use core::panic;
 use std::cell::RefCell;
 //use std::clone;
-use std::collections::HashSet;
+
 use std::fmt::Debug;
 
 //use std::sync::Mutex;
@@ -19,24 +19,31 @@ use std::vec;
 
 use crate::config::{get_grad_status, id_generator};
 use crate::core_new::*;
+use crate::error::{FrameError, FrameResult};
+use crate::tensor::lib::TensorOps;
+use crate::tensor::shape::Shape;
 
 #[derive(Debug, Clone)]
 struct Reshape {
     inputs: Vec<RcVariable>,
     output: Option<Weak<RefCell<Variable>>>,
-    shape: IxDyn,
+    shape: Shape,
     generation: i32,
     id: usize,
 }
 
 impl Function for Reshape {
-    fn call(&mut self) -> RcVariable {
+    fn call(&mut self) -> FrameResult<RcVariable> {
         let inputs = &self.inputs;
         if inputs.len() != 1 {
-            panic!("Reshapeは一変数関数です。inputsの個数が一つではありません。")
+            return Err(crate::error::FrameError::InvalidInputCount {
+                function: "Reshape",
+                expected: 1,
+                got: inputs.len(),
+            });
         }
 
-        let output = self.forward(inputs);
+        let output = self.forward(inputs)?;
 
         if get_grad_status() == true {
             //inputのgenerationで一番大きい値をFuncitonのgenerationとする
@@ -51,24 +58,33 @@ impl Function for Reshape {
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
-        output
+        Ok(output)
     }
 
-    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+    fn forward(&self, xs: &[RcVariable]) -> FrameResult<RcVariable> {
         let x = &xs[0];
-        let y_shape = self.shape.clone();
-        let y_data = x.data().to_shape(y_shape).unwrap().to_owned();
+        let y_data =
+            x.data()
+                .reshape(self.shape.dims.clone())
+                .map_err(|e| FrameError::ForwardError {
+                    function: "Reshape",
+                    source: e,
+                })?;
 
-        y_data.rv()
+        Ok(y_data.rv())
     }
 
-    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+    fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
         let x = &self.inputs[0];
-        let x_shape = IxDyn(x.data().shape());
-        let gx = reshape(gy, x_shape);
-        let gxs = vec![gx];
+        let gx = reshape(gy, &x.data().shape());
 
-        gxs
+        if let Ok(gx) = gx {
+            return Ok(vec![gx]);
+        } else {
+            return Err(FrameError::BackwardError {
+                function: "Reshape",
+            });
+        }
     }
 
     fn get_inputs(&self) -> &[RcVariable] {
@@ -97,22 +113,22 @@ impl Function for Reshape {
     }
 }
 impl Reshape {
-    fn new(inputs: &[RcVariable], shape: IxDyn) -> Rc<RefCell<Self>> {
+    fn new(inputs: &[RcVariable], shape: &Shape) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self {
             inputs: inputs.to_vec(),
             output: None,
-            shape: shape,
+            shape: shape.clone(),
             generation: 0,
             id: id_generator(),
         }))
     }
 }
 
-fn reshape_f(xs: &[RcVariable], shape: IxDyn) -> RcVariable {
+fn reshape_f(xs: &[RcVariable], shape: &Shape) -> FrameResult<RcVariable> {
     Reshape::new(xs, shape).borrow_mut().call()
 }
 
-pub fn reshape(x: &RcVariable, shape: IxDyn) -> RcVariable {
+pub fn reshape(x: &RcVariable, shape: &Shape) -> FrameResult<RcVariable> {
     let y = reshape_f(&[x.clone()], shape);
     y
 }
@@ -126,13 +142,17 @@ struct Transpose {
 }
 
 impl Function for Transpose {
-    fn call(&mut self) -> RcVariable {
+    fn call(&mut self) -> FrameResult<RcVariable> {
         let inputs = &self.inputs;
         if inputs.len() != 1 {
-            panic!("Transposeは一変数関数です。inputsの個数が一つではありません。")
+            return Err(crate::error::FrameError::InvalidInputCount {
+                function: "Transpose",
+                expected: 1,
+                got: inputs.len(),
+            });
         }
 
-        let output = self.forward(inputs);
+        let output = self.forward(inputs)?;
 
         if get_grad_status() == true {
             //inputのgenerationで一番大きい値をFuncitonのgenerationとする
@@ -147,20 +167,27 @@ impl Function for Transpose {
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
-        output
+        Ok(output)
     }
 
-    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+    fn forward(&self, xs: &[RcVariable]) -> FrameResult<RcVariable> {
         let x = &xs[0];
-        let y_data = x.data().t().to_owned();
+        let y_data = x.data().transpose().map_err(|e| FrameError::ForwardError {
+            function: "Transpose",
+            source: e,
+        })?;
 
-        y_data.rv()
+        Ok(y_data.rv())
     }
 
-    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
-        let gxs = vec![gy.t().to_owned()];
-
-        gxs
+    fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
+        if let Ok(gx) = gy.t() {
+            return Ok(vec![gx]);
+        } else {
+            return Err(FrameError::BackwardError {
+                function: "Transpose",
+            });
+        }
     }
 
     fn get_inputs(&self) -> &[RcVariable] {
@@ -199,11 +226,11 @@ impl Transpose {
     }
 }
 
-fn transpose_f(xs: &[RcVariable]) -> RcVariable {
+fn transpose_f(xs: &[RcVariable]) -> FrameResult<RcVariable> {
     Transpose::new(xs).borrow_mut().call()
 }
 
-pub fn transpose(x: &RcVariable) -> RcVariable {
+pub fn transpose(x: &RcVariable) -> FrameResult<RcVariable> {
     let y = transpose_f(&[x.clone()]);
     y
 }
@@ -218,13 +245,17 @@ struct PermuteAxes {
 }
 
 impl Function for PermuteAxes {
-    fn call(&mut self) -> RcVariable {
+    fn call(&mut self) -> FrameResult<RcVariable> {
         let inputs = &self.inputs;
         if inputs.len() != 1 {
-            panic!("PermuteAxesは一変数関数です。inputsの個数が一つではありません。")
+            return Err(crate::error::FrameError::InvalidInputCount {
+                function: "PermuteAxes",
+                expected: 1,
+                got: inputs.len(),
+            });
         }
 
-        let output = self.forward(inputs);
+        let output = self.forward(inputs)?;
 
         if get_grad_status() == true {
             //inputのgenerationで一番大きい値をFuncitonのgenerationとする
@@ -239,19 +270,25 @@ impl Function for PermuteAxes {
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
-        output
+        Ok(output)
     }
 
-    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+    fn forward(&self, xs: &[RcVariable]) -> FrameResult<RcVariable> {
         let x = &xs[0];
         let axes = self.axes.clone();
 
-        let y_data = x.data().permuted_axes(axes);
+        let y_data = x
+            .data()
+            .permuted_axes(&axes)
+            .map_err(|e| FrameError::ForwardError {
+                function: "PermuteAxes",
+                source: e,
+            })?;
 
-        y_data.rv()
+        Ok(y_data.rv())
     }
 
-    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+    fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
         let axes_len = self.axes.len();
         let new_axes: Vec<usize> = self
             .axes
@@ -262,10 +299,13 @@ impl Function for PermuteAxes {
         let mut idx: Vec<usize> = (0..axes_len).collect();
         idx.sort_by_key(|&i| new_axes[i]);
 
-        let gx = permute_axes(gy, idx);
-        let gxs = vec![gx];
-
-        gxs
+        if let Ok(gx) = permute_axes(gy, idx) {
+            return Ok(vec![gx]);
+        } else {
+            return Err(FrameError::BackwardError {
+                function: "PermuteAxes",
+            });
+        }
     }
 
     fn get_inputs(&self) -> &[RcVariable] {
@@ -305,11 +345,11 @@ impl PermuteAxes {
     }
 }
 
-fn permute_axes_f(xs: &[RcVariable], axes: Vec<usize>) -> RcVariable {
+fn permute_axes_f(xs: &[RcVariable], axes: Vec<usize>) -> FrameResult<RcVariable> {
     PermuteAxes::new(xs, axes).borrow_mut().call()
 }
 
-pub fn permute_axes(x: &RcVariable, axes: Vec<usize>) -> RcVariable {
+pub fn permute_axes(x: &RcVariable, axes: Vec<usize>) -> FrameResult<RcVariable> {
     let y = permute_axes_f(&[x.clone()], axes);
     y
 }
@@ -318,19 +358,23 @@ pub fn permute_axes(x: &RcVariable, axes: Vec<usize>) -> RcVariable {
 struct Sum {
     inputs: Vec<RcVariable>,
     output: Option<Weak<RefCell<Variable>>>,
-    axis: Option<u16>,
+    axis: Option<usize>,
     generation: i32,
     id: usize,
 }
 
 impl Function for Sum {
-    fn call(&mut self) -> RcVariable {
+    fn call(&mut self) -> FrameResult<RcVariable> {
         let inputs = &self.inputs;
         if inputs.len() != 1 {
-            panic!("Sumは一変数関数です。inputsの個数が一つではありません。")
+            return Err(crate::error::FrameError::InvalidInputCount {
+                function: "Sum",
+                expected: 1,
+                got: inputs.len(),
+            });
         }
 
-        let output = self.forward(inputs);
+        let output = self.forward(inputs)?;
 
         if get_grad_status() == true {
             //inputのgenerationで一番大きい値をFuncitonのgenerationとする
@@ -345,39 +389,32 @@ impl Function for Sum {
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
-        output
+        Ok(output)
     }
 
-    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+    fn forward(&self, xs: &[RcVariable]) -> FrameResult<RcVariable> {
         let x = &xs[0];
         let axis = self.axis;
 
-        let y_data;
+        let y_data = x
+            .data()
+            .sum(axis, false)
+            .map_err(|e| FrameError::ForwardError {
+                function: "Sum",
+                source: e,
+            })?;
 
-        if let Some(axis_data) = axis {
-            if axis_data != 0 && axis_data != 1 {
-                panic!("axisは0か1の値のみ指定できます")
-            }
-
-            y_data = x
-                .data()
-                .sum_axis(Axis(axis_data as usize))
-                .insert_axis(Axis(axis_data as usize));
-        } else {
-            let scalar_y = x.data().sum();
-            y_data = array![scalar_y].into_dyn();
-        }
-
-        y_data.rv()
+        Ok(y_data.rv())
     }
 
-    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+    fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
         let x = &self.inputs[0];
-        let x_shape = IxDyn(x.data().shape());
-        let gx = broadcast_to(gy, x_shape);
-        let gxs = vec![gx];
-
-        gxs
+        let gx = broadcast_to(gy, x.data().shape());
+        if let Ok(gx) = gx {
+            return Ok(vec![gx]);
+        } else {
+            return Err(FrameError::BackwardError { function: "Sum" });
+        }
     }
 
     fn get_inputs(&self) -> &[RcVariable] {
@@ -406,12 +443,11 @@ impl Function for Sum {
     }
 }
 impl Sum {
-    fn new(inputs: &[RcVariable], axis: Option<u16>) -> Rc<RefCell<Self>> {
+    fn new(inputs: &[RcVariable], axis: Option<usize>) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self {
             inputs: inputs.to_vec(),
             output: None,
             axis: axis,
-
             generation: 0,
             id: id_generator(),
         }))
@@ -435,11 +471,11 @@ pub fn array_sum(x_array: &ArrayViewD<f32>, axis: Option<u16>) -> ArrayD<f32> {
     y
 }
 
-fn sum_f(xs: &[RcVariable], axis: Option<u16>) -> RcVariable {
+fn sum_f(xs: &[RcVariable], axis: Option<usize>) -> FrameResult<RcVariable> {
     Sum::new(xs, axis).borrow_mut().call()
 }
 
-pub fn sum(x: &RcVariable, axis: Option<u16>) -> RcVariable {
+pub fn sum(x: &RcVariable, axis: Option<usize>) -> FrameResult<RcVariable> {
     let y = sum_f(&[x.clone()], axis);
     y
 }
@@ -448,19 +484,23 @@ pub fn sum(x: &RcVariable, axis: Option<u16>) -> RcVariable {
 struct BroadcastTo {
     inputs: Vec<RcVariable>,
     output: Option<Weak<RefCell<Variable>>>,
-    shape: IxDyn,
+    shape: Shape,
     generation: i32,
     id: usize,
 }
 
 impl Function for BroadcastTo {
-    fn call(&mut self) -> RcVariable {
+    fn call(&mut self) -> FrameResult<RcVariable> {
         let inputs = &self.inputs;
         if inputs.len() != 1 {
-            panic!("BroadcastToは一変数関数です。inputsの個数が一つではありません。")
+            return Err(crate::error::FrameError::InvalidInputCount {
+                function: "BroadcastTo",
+                expected: 1,
+                got: inputs.len(),
+            });
         }
 
-        let output = self.forward(inputs);
+        let output = self.forward(inputs)?;
 
         if get_grad_status() == true {
             //inputのgenerationで一番大きい値をFuncitonのgenerationとする
@@ -475,29 +515,38 @@ impl Function for BroadcastTo {
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
-        output
+        Ok(output)
     }
 
-    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+    fn forward(&self, xs: &[RcVariable]) -> FrameResult<RcVariable> {
         let x = &xs[0];
 
         let y_shape = self.shape.clone();
 
-        // 実際の形状を `IxDynImpl` からスライスとして抽出
+        let y_data = x
+            .data()
+            .broadcast_to(y_shape)
+            .map_err(|e| FrameError::ForwardError {
+                function: "BroadcastTo",
+                source: e,
+            })?;
 
-        let y_data = x.data().broadcast(y_shape).unwrap().mapv(|x| x.clone());
-
-        y_data.rv()
+        Ok(y_data.rv())
     }
 
-    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
-        let x = &self.inputs[0];
-        let x_shape = IxDyn(x.data().shape());
+    fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
+        let x_data = self.inputs[0].data();
+        let x_shape = x_data.shape();
 
         let gx = sum_to(gy, x_shape);
-        let gxs = vec![gx];
 
-        gxs
+        if let Ok(gx) = gx {
+            return Ok(vec![gx]);
+        } else {
+            return Err(FrameError::BackwardError {
+                function: "BroadcastTo",
+            });
+        }
     }
 
     fn get_inputs(&self) -> &[RcVariable] {
@@ -526,22 +575,22 @@ impl Function for BroadcastTo {
     }
 }
 impl BroadcastTo {
-    fn new(inputs: &[RcVariable], shape: IxDyn) -> Rc<RefCell<Self>> {
+    fn new(inputs: &[RcVariable], shape: &Shape) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self {
             inputs: inputs.to_vec(),
             output: None,
-            shape: shape,
+            shape: shape.clone(),
             generation: 0,
             id: id_generator(),
         }))
     }
 }
 
-fn broadcast_to_f(xs: &[RcVariable], shape: IxDyn) -> RcVariable {
+fn broadcast_to_f(xs: &[RcVariable], shape: &Shape) -> FrameResult<RcVariable> {
     BroadcastTo::new(xs, shape).borrow_mut().call()
 }
 
-pub fn broadcast_to(x: &RcVariable, shape: IxDyn) -> RcVariable {
+pub fn broadcast_to(x: &RcVariable, shape: &Shape) -> FrameResult<RcVariable> {
     let y = broadcast_to_f(&[x.clone()], shape);
     y
 }
@@ -550,19 +599,23 @@ pub fn broadcast_to(x: &RcVariable, shape: IxDyn) -> RcVariable {
 struct SumTo {
     inputs: Vec<RcVariable>,
     output: Option<Weak<RefCell<Variable>>>,
-    shape: IxDyn,
+    shape: Shape,
     generation: i32,
     id: usize,
 }
 
 impl Function for SumTo {
-    fn call(&mut self) -> RcVariable {
+    fn call(&mut self) -> FrameResult<RcVariable> {
         let inputs = &self.inputs;
         if inputs.len() != 1 {
-            panic!("SumToは一変数関数です。inputsの個数が一つではありません。")
+            return Err(crate::error::FrameError::InvalidInputCount {
+                function: "SumTo",
+                expected: 1,
+                got: inputs.len(),
+            });
         }
 
-        let output = self.forward(inputs);
+        let output = self.forward(inputs)?;
 
         if get_grad_status() == true {
             //inputのgenerationで一番大きい値をFuncitonのgenerationとする
@@ -577,26 +630,32 @@ impl Function for SumTo {
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
-        output
+        Ok(output)
     }
 
-    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+    fn forward(&self, xs: &[RcVariable]) -> FrameResult<RcVariable> {
         let x = &xs[0];
         let y_shape = self.shape.clone();
-        let y_data = array_sum_to(&x.data().view(), y_shape);
+        let y_data = x
+            .data()
+            .sum_to(y_shape)
+            .map_err(|e| FrameError::ForwardError {
+                function: "SumTo",
+                source: e,
+            })?;
 
-        y_data.rv()
+        Ok(y_data.rv())
     }
 
-    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+    fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
         let x = &self.inputs[0];
 
-        let x_shape = IxDyn(x.data().shape());
-
-        let gx = broadcast_to(gy, x_shape);
-        let gxs = vec![gx];
-
-        gxs
+        let gx = broadcast_to(gy, x.data().shape());
+        if let Ok(gx) = gx {
+            return Ok(vec![gx]);
+        } else {
+            return Err(FrameError::BackwardError { function: "SumTo" });
+        }
     }
 
     fn get_inputs(&self) -> &[RcVariable] {
@@ -625,57 +684,27 @@ impl Function for SumTo {
     }
 }
 impl SumTo {
-    fn new(inputs: &[RcVariable], shape: IxDyn) -> Rc<RefCell<Self>> {
+    fn new(inputs: &[RcVariable], shape: &Shape) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self {
             inputs: inputs.to_vec(),
             output: None,
-            shape: shape,
+            shape: shape.clone(),
             generation: 0,
             id: id_generator(),
         }))
     }
 }
 
-fn array_sum_to(x_array: &ArrayViewD<f32>, shape: IxDyn) -> ArrayD<f32> {
-    let x_shape = x_array.shape();
-
-    let mut axes_to_sum = HashSet::new();
-
-    // 合計する軸を特定する
-    for i in 0..x_shape.len() {
-        if i >= shape.ndim() || x_shape[i] != shape[i] {
-            axes_to_sum.insert(i);
-        }
-    }
-
-    let mut y = x_array.to_owned();
-
-    // HashSetの要素をVecに収集し、ソートして逆順にイテレーションする
-    let mut sorted_axes: Vec<_> = axes_to_sum.into_iter().collect();
-    sorted_axes.sort_unstable();
-
-    // 特定した軸を合計する
-    for &axis in sorted_axes.iter().rev() {
-        y = y.sum_axis(Axis(axis)).insert_axis(Axis(axis));
-    }
-
-    y
-}
-
-fn sum_to_f(xs: &[RcVariable], shape: IxDyn) -> RcVariable {
+fn sum_to_f(xs: &[RcVariable], shape: &Shape) -> FrameResult<RcVariable> {
     SumTo::new(xs, shape).borrow_mut().call()
 }
 
-pub fn sum_to(x: &RcVariable, shape: IxDyn) -> RcVariable {
-    let y;
-    let x_shape = IxDyn(x.data().shape());
-    if x_shape == shape {
-        y = x.clone();
+pub fn sum_to(x: &RcVariable, shape: &Shape) -> FrameResult<RcVariable> {
+    if x.data().shape() == shape {
+        Ok(x.clone())
     } else {
-        y = sum_to_f(&[x.clone()], shape);
+        sum_to_f(&[x.clone()], shape)
     }
-
-    y
 }
 
 #[derive(Debug, Clone)]
@@ -687,13 +716,16 @@ struct MatMul {
 }
 
 impl Function for MatMul {
-    fn call(&mut self) -> RcVariable {
+    fn call(&mut self) -> FrameResult<RcVariable> {
         let inputs = &self.inputs;
         if inputs.len() != 2 {
-            panic!("Matmulは二変数関数です。inputsの個数が二つではありません。")
+            return Err(crate::error::FrameError::InvalidInputCount {
+                function: "MatMul",
+                expected: 2,
+                got: inputs.len(),
+            });
         }
-
-        let output = self.forward(inputs);
+        let output = self.forward(inputs)?;
 
         if get_grad_status() == true {
             //inputのgenerationで一番大きい値をFuncitonのgenerationとする
@@ -708,10 +740,10 @@ impl Function for MatMul {
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
-        output
+        Ok(output)
     }
 
-    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+    fn forward(&self, xs: &[RcVariable]) -> FrameResult<RcVariable> {
         //xs[0]の方をX, xs[1]の方をWとする
         let x = &xs[0];
         let w = &xs[1];
@@ -719,21 +751,28 @@ impl Function for MatMul {
         let x_data = x.data();
         let w_data = w.data();
 
-        //match以降の場合分けを関数にしたい
-        let y_data = array_matmul(&x_data.view(), &w_data.view());
+        let y_data = x_data
+            .matmul(&w_data)
+            .map_err(|e| FrameError::ForwardError {
+                function: "MatMul",
+                source: e,
+            })?;
 
-        y_data.rv()
+        Ok(y_data.rv())
     }
 
-    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+    fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
         let x = &self.inputs[0];
         let w = &self.inputs[1];
 
-        let gx = matmul(gy, &w.t());
-        let gw = matmul(&x.t(), gy);
-        let gxs = vec![gx, gw];
+        let gx = matmul(gy, &w.t()?);
+        let gw = matmul(&x.t()?, gy);
 
-        gxs
+        if let (Ok(gx), Ok(gw)) = (gx, gw) {
+            Ok(vec![gx, gw])
+        } else {
+            return Err(FrameError::BackwardError { function: "MatMul" });
+        }
     }
 
     fn get_inputs(&self) -> &[RcVariable] {
@@ -772,54 +811,11 @@ impl MatMul {
     }
 }
 
-pub fn array_matmul(x_array: &ArrayViewD<f32>, w_array: &ArrayViewD<f32>) -> ArrayD<f32> {
-    let y = match (x_array.ndim(), w_array.ndim()) {
-        // 1D × 1D → スカラー出力
-        (1, 1) => {
-            let x = x_array.clone().into_dimensionality::<Ix1>().unwrap();
-            let w = w_array.clone().into_dimensionality::<Ix1>().unwrap();
-
-            let y = x.dot(&w);
-            ArrayD::from_elem(ndarray::IxDyn(&[]), y) // スカラーとして返す
-        }
-
-        // 2D × 1D
-        (2, 1) => {
-            let x = x_array.clone().into_dimensionality::<Ix2>().unwrap();
-            let w = w_array.clone().into_dimensionality::<Ix1>().unwrap();
-            let y = x.dot(&w);
-            y.into_dyn()
-        }
-
-        // 1D × 2D
-        (1, 2) => {
-            let x = x_array.clone().into_dimensionality::<Ix1>().unwrap();
-            let w = w_array.clone().into_dimensionality::<Ix2>().unwrap();
-            let y = x.dot(&w);
-            y.into_dyn()
-        }
-
-        // 2D × 2D
-        (2, 2) => {
-            let x = x_array.clone().into_dimensionality::<Ix2>().unwrap();
-            let w = w_array.clone().into_dimensionality::<Ix2>().unwrap();
-            let y = x.dot(&w);
-            y.into_dyn()
-        }
-
-        _ => {
-            panic!("3次元以上の行列積は未実装");
-        }
-    };
-
-    y
-}
-
-fn matmul_f(xs: &[RcVariable]) -> RcVariable {
+fn matmul_f(xs: &[RcVariable]) -> FrameResult<RcVariable> {
     MatMul::new(xs).borrow_mut().call()
 }
 
-pub fn matmul(x: &RcVariable, w: &RcVariable) -> RcVariable {
+pub fn matmul(x: &RcVariable, w: &RcVariable) -> FrameResult<RcVariable> {
     let y = matmul_f(&[x.clone(), w.clone()]);
     y
 }
@@ -834,13 +830,16 @@ struct TensorDot {
 }
 
 impl Function for TensorDot {
-    fn call(&mut self) -> RcVariable {
+    fn call(&mut self) -> FrameResult<RcVariable> {
         let inputs = &self.inputs;
         if inputs.len() != 2 {
-            panic!("TensorDotは二変数関数です。inputsの個数が二つではありません。")
+            return Err(crate::error::FrameError::InvalidInputCount {
+                function: "TensorDot",
+                expected: 2,
+                got: inputs.len(),
+            });
         }
-
-        let output = self.forward(inputs);
+        let output = self.forward(inputs)?;
 
         if get_grad_status() == true {
             //inputのgenerationで一番大きい値をFuncitonのgenerationとする
@@ -855,10 +854,10 @@ impl Function for TensorDot {
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
-        output
+        Ok(output)
     }
 
-    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+    fn forward(&self, xs: &[RcVariable]) -> FrameResult<RcVariable> {
         //xs[0]の方をX, xs[1]の方をWとする
         let x = &xs[0];
         let w = &xs[1];
@@ -866,20 +865,25 @@ impl Function for TensorDot {
         let x_data = x.data();
         let w_data = w.data();
 
-        //match以降の場合分けを関数にしたい
-        let y_data = array_tensordot(x_data.view(), w_data.view());
+        let y_data = x_data
+            .tensordot(&w_data)
+            .map_err(|e| FrameError::ForwardError {
+                function: "TensorDot",
+                source: e,
+            })?;
 
-        y_data.rv()
+        Ok(y_data.rv())
     }
 
-    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+    fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
         let x = &self.inputs[0];
         let w = &self.inputs[1];
 
-        let (gx, gw) = tensordot_backward(gy, x, w);
+        // TODO:Tensorにtensordotを実装してから修正
+        let (gx, gw) = tensordot_backward(gy, x, w)?;
         let gxs = vec![gx, gw];
 
-        gxs
+        Ok(gxs)
     }
 
     fn get_inputs(&self) -> &[RcVariable] {
@@ -978,21 +982,26 @@ fn array_tensordot(x_array: ArrayViewD<f32>, w_array: ArrayViewD<f32>) -> ArrayD
     y
 }
 
-fn tensordot_backward(gy: &RcVariable, x: &RcVariable, w: &RcVariable) -> (RcVariable, RcVariable) {
+fn tensordot_backward(
+    gy: &RcVariable,
+    x: &RcVariable,
+    w: &RcVariable,
+) -> FrameResult<(RcVariable, RcVariable)> {
     let (gx, gw) = match (x.data().ndim(), w.data().ndim()) {
         // 3D × 2D
         //(N,k,l) ×　(l,m) -> (N,k,m)の場合
         (3, 2) => {
-            let n = x.data().shape()[0];
-            let k = x.data().shape()[1];
-            let l = x.data().shape()[2];
-            let m = w.data().shape()[1];
+            let n = x.data().shape().dims()[0];
+            let k = x.data().shape().dims()[1];
+            let l = x.data().shape().dims()[2];
+            let m = w.data().shape().dims()[1];
 
-            let gx = tensordot(gy, &w.t());
+            let gx = tensordot(gy, &w.t()?)?;
+
             let gw = matmul(
-                &x.reshape(IxDyn(&[n * k, l])).t(),
-                &gy.reshape(IxDyn(&[n * k, m])),
-            );
+                &x.reshape(&Shape::new(vec![n * k, l])?)?.t()?,
+                &gy.reshape(&Shape::new(vec![n * k, m])?)?,
+            )?;
 
             (gx, gw)
         }
@@ -1000,20 +1009,20 @@ fn tensordot_backward(gy: &RcVariable, x: &RcVariable, w: &RcVariable) -> (RcVar
         // 2D × 3D
         //(k,l) ×　(N,l,m) -> (N,k,m)
         (2, 3) => {
-            let k = x.data().shape()[0];
-            let l = x.data().shape()[1];
-            let n = w.data().shape()[0];
-            let m = w.data().shape()[2];
+            let k = x.data().shape().dims()[0];
+            let l = x.data().shape().dims()[1];
+            let n = w.data().shape().dims()[0];
+            let m = w.data().shape().dims()[2];
 
             //(n,k,m) -> (k,n,m) -> (k,n*m)
-            let gy1 = permute_axes(&gy, vec![1, 0, 2]).reshape(IxDyn(&[k, n * m]));
+            let gy1 = permute_axes(&gy, vec![1, 0, 2])?.reshape(&Shape::new(vec![k, n * m])?)?;
             //(n,l,m) -> (l,n,m) -> (l,n*m) -> (n*m,l)
-            let w1 = permute_axes(&w, vec![1, 0, 2])
-                .reshape(IxDyn(&[l, n * m]))
-                .t();
-            let gx = matmul(&gy1, &w1); //(k,n*m) @ (n*m,l) -> (k,l)
+            let w1 = permute_axes(&w, vec![1, 0, 2])?
+                .reshape(&Shape::new(vec![n * k, l])?)?
+                .t()?;
+            let gx = matmul(&gy1, &w1)?; //(k,n*m) @ (n*m,l) -> (k,l)
 
-            let gw = tensordot(&x.t(), gy); //(l,k) @' (n,k,m) -> (n,l,m)
+            let gw = tensordot(&x.t()?, gy)?; //(l,k) @' (n,k,m) -> (n,l,m)
 
             (gx, gw)
         }
@@ -1028,16 +1037,16 @@ fn tensordot_backward(gy: &RcVariable, x: &RcVariable, w: &RcVariable) -> (RcVar
         }
     };
 
-    (gx, gw)
+    Ok((gx, gw))
 }
 
-fn tensordot_f(xs: &[RcVariable]) -> RcVariable {
+fn tensordot_f(xs: &[RcVariable]) -> FrameResult<RcVariable> {
     TensorDot::new(xs).borrow_mut().call()
 }
 
 /// 2次元と3次元の行列積の関数
 /// (2D×3D), (3D×2D), (3D×3D)に対応
-pub fn tensordot(x: &RcVariable, w: &RcVariable) -> RcVariable {
+pub fn tensordot(x: &RcVariable, w: &RcVariable) -> FrameResult<RcVariable> {
     let y = tensordot_f(&[x.clone(), w.clone()]);
     y
 }

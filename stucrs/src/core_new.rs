@@ -182,7 +182,7 @@ impl RcVariable {
         y
     }
 
-    pub fn exp(&self) -> RcVariable {
+    pub fn exp(&self) -> FrameResult<RcVariable> {
         let y = exp(&self);
         y
     }
@@ -192,17 +192,17 @@ impl RcVariable {
         y
     }
 
-    pub fn t(&self) -> RcVariable {
+    pub fn t(&self) -> FrameResult<RcVariable> {
         let y = transpose(self);
         y
     }
 
-    pub fn permute_axes(&self, axes: Vec<usize>) -> RcVariable {
+    pub fn permute_axes(&self, axes: Vec<usize>) -> FrameResult<RcVariable> {
         let y = permute_axes(self, axes);
         y
     }
 
-    pub fn sum(&self, axis: Option<u16>) -> RcVariable {
+    pub fn sum(&self, axis: Option<usize>) -> FrameResult<RcVariable> {
         let y = sum(self, axis);
         y
     }
@@ -729,24 +729,19 @@ impl Function for NegF {
         Ok(output)
     }
 
-    fn forward(&self, _xs: &[RcVariable]) -> FrameResult<RcVariable> {
-        //let x = &xs[0];
-        //let y_data = -x.data();
-        //y_data.rv()
-        Err(FrameError::Unimplemented {
-            context: "Tensorの-演算子が未実装なので、Neg構造体も未実装".to_string(),
-            source: None,
-        })
+    fn forward(&self, xs: &[RcVariable]) -> FrameResult<RcVariable> {
+        let x = &xs[0];
+        let y_data = (-x.data()).map_err(|e| FrameError::ForwardError {
+            function: "Neg",
+            source: e,
+        })?;
+        Ok(y_data.rv())
     }
 
     fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
-        //let gxs = vec![-gy.clone()];
+        let gxs = vec![-gy.clone()];
 
-        //gxs
-        Err(FrameError::Unimplemented {
-            context: "Tensorの-演算子が未実装なので、Neg構造体も未実装".to_string(),
-            source: None,
-        })
+        Ok(gxs)
     }
 
     fn get_inputs(&self) -> &[RcVariable] {
