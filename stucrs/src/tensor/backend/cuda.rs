@@ -1366,6 +1366,20 @@ impl Backend for CudaBackend {
         ))
     }
 
+    // TODO:max cuda未対応
+    fn max(
+        &self,
+        storage: &Storage,
+        shape: &Shape,
+        result_shape: &Shape,
+        axis: Option<usize>,
+    ) -> Result<Storage> {
+        #[cfg(not(feature = "cuda"))]
+        Err(TensorError::BackendError(
+            "CUDA has not support max yet".to_string(),
+        ))
+    }
+
     fn clamp_max(&self, storage: &Storage, max: f32) -> Result<Storage> {
         #[cfg(feature = "cuda")]
         {

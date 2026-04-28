@@ -506,6 +506,17 @@ pub trait TensorOps {
     where
         Self: Sized;
 
+    /// 入力された行列の最大値を返す   
+    ///
+    ///
+    /// 軸指定にも対応   
+    ///
+    /// 現在3次元までの行列に対応        
+    ///
+    fn max(&self, axis: Option<usize>) -> Result<Self>
+    where
+        Self: Sized;
+
     /// clamp用関数
     ///    
     /// 入力された値maxよりも大きい場合はmaxを、それ以下はそのまま値を流す。

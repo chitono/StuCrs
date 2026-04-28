@@ -5,7 +5,8 @@ use super::{Backend, Storage};
 use crate::tensor::error::{Result, TensorError};
 use crate::tensor::ndarray_nn::ndarray_cnn::*;
 use crate::tensor::shape::Shape;
-use ndarray::{array, s, Array2, Array3, ArrayD, ArrayViewD, Axis, Ix1, Ix2, Ix3, IxDyn};
+use ndarray::{array, s, Array1, Array2, Array3, ArrayD, ArrayViewD, Axis, Ix1, Ix2, Ix3, IxDyn};
+use ndarray_stats::QuantileExt;
 use std::collections::HashSet;
 
 #[derive(Debug)]
@@ -442,6 +443,102 @@ impl Backend for CpuBackend {
         let data = storage.to_ndarray()?;
         let result = data.mapv(|x| x.cosh());
         Ok(Storage::Cpu(result))
+    }
+
+    fn max(
+        &self,
+        storage: &Storage,
+        _shape: &Shape,
+        _result_shape: &Shape,
+        axis: Option<usize>,
+    ) -> Result<Storage> {
+        //TODO:ndarrayのerrorにも対応予定
+        let data = storage.to_ndarray().unwrap();
+
+        let y_data = match data.ndim() {
+            1 => {
+                let x_data = data
+                    .max()
+                    .expect("max関数で1次元の行列の最大値の取得に失敗しました。")
+                    .clone();
+
+                array![x_data].into_dyn()
+            }
+
+            2 => {
+                let x_array = data.into_dimensionality::<Ix2>().unwrap();
+
+                let y_data = match axis {
+                    Some(0) => {
+                        let y_data: Array1<f32> = x_array
+                            .axis_iter(Axis(1))
+                            .map(|col| col.max().unwrap().clone())
+                            .collect();
+                        let y_data = y_data.insert_axis(Axis(0));
+                        y_data.into_dyn()
+                    }
+                    Some(1) => {
+                        let y_data: Array1<f32> = x_array
+                            .axis_iter(Axis(0))
+                            .map(|row| row.max().unwrap().clone())
+                            .collect();
+                        let y_data = y_data.insert_axis(Axis(1));
+                        y_data.into_dyn()
+                    }
+
+                    None => {
+                        let y_data = x_array.max().unwrap().clone();
+                        array![y_data].into_dyn()
+                    }
+
+                    _ => {
+                        unimplemented!("指定した軸には対応していません。")
+                    }
+                };
+
+                y_data.into_dyn()
+            }
+
+            3 => {
+                let x_array = data.into_dimensionality::<Ix3>().unwrap();
+
+                // 3次元での軸指定は2のみ対応。今後拡張予定。
+                let y_data = match axis {
+                    Some(0) => {
+                        todo!("3次元のmaxの軸0は未実装。")
+                    }
+                    Some(1) => {
+                        todo!("3次元のmaxの軸1は未実装。")
+                    }
+                    Some(2) => {
+                        let n = x_array.shape()[0];
+                        let h = x_array.shape()[1];
+
+                        let mut y_data = Array2::<f32>::zeros((n, h));
+                        for b in 0..n {
+                            let x_matrix = x_array.slice(s![b, .., ..]);
+
+                            let result: Array1<f32> = x_matrix
+                                .axis_iter(Axis(0))
+                                .map(|row| row.max().unwrap().clone())
+                                .collect();
+
+                            y_data.slice_mut(s![b, ..]).assign(&result);
+                        }
+                        let y_data = y_data.insert_axis(Axis(2));
+                        y_data
+                    }
+                    _ => {
+                        unimplemented!("指定した軸は未対応。");
+                    }
+                };
+                y_data.into_dyn()
+            }
+            _ => {
+                unimplemented!("1,2,3次元以外の行列は未対応。");
+            }
+        };
+        Ok(Storage::Cpu(y_data))
     }
 
     fn clamp_max(&self, storage: &Storage, max: f32) -> Result<Storage> {
