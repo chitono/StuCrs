@@ -1418,6 +1418,23 @@ impl TensorOps for Tensor {
         ))
     }
 
+    fn max_backward(&self, axis: Option<usize>) -> Result<Self> {
+        for backend in &BACKENDS[0..] {
+            match backend.max_backward(&self.storage, &self.shape, axis) {
+                Ok(storage) => {
+                    return Ok(Tensor {
+                        storage,
+                        shape: self.shape.clone(),
+                    });
+                }
+                Err(_) => continue,
+            }
+        }
+        Err(TensorError::BackendError(
+            "No backend could perform max_backward operation".to_string(),
+        ))
+    }
+
     fn clamp_max(&self, max: f32) -> Result<Self> {
         for backend in &BACKENDS[0..] {
             match backend.clamp_max(&self.storage, max) {

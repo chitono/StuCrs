@@ -170,13 +170,18 @@ pub trait Backend: Debug + Send + Sync {
 
     fn cosh(&self, storage: &Storage) -> Result<Storage>;
 
-    /// 要素の最大値を返す.
-    /// 軸指定可能
     fn max(
         &self,
         storage: &Storage,
         shape: &Shape,
         result_shape: &Shape,
+        axis: Option<usize>,
+    ) -> Result<Storage>;
+
+    fn max_backward(
+        &self,
+        storage: &Storage,
+        shape: &Shape,
         axis: Option<usize>,
     ) -> Result<Storage>;
 

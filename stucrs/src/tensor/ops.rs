@@ -517,6 +517,15 @@ pub trait TensorOps {
     where
         Self: Sized;
 
+    /// Max関数のバックプロパゲーション用関数
+    ///
+    /// Maxのバックプロパゲーションで使用するmaskをMax関数のinputの行列から生成する
+    ///
+    /// Max関数のinputの行列にこのメソッドを用いる
+    fn max_backward(&self, axis: Option<usize>) -> Result<Self>
+    where
+        Self: Sized;
+
     /// clamp用関数
     ///    
     /// 入力された値maxよりも大きい場合はmaxを、それ以下はそのまま値を流す。

@@ -1,6 +1,7 @@
 use std::result;
 
 use super::{Backend, Storage};
+use crate::functions::matrix::argmax_array;
 #[cfg(feature = "cpu")]
 use crate::tensor::error::{Result, TensorError};
 use crate::tensor::ndarray_nn::ndarray_cnn::*;
@@ -454,7 +455,7 @@ impl Backend for CpuBackend {
     ) -> Result<Storage> {
         //TODO:ndarrayのerrorにも対応予定
         let data = storage.to_ndarray().unwrap();
-
+        // TODO:処理要改善 map_axis()などを用いる
         let y_data = match data.ndim() {
             1 => {
                 let x_data = data
@@ -541,6 +542,82 @@ impl Backend for CpuBackend {
         Ok(Storage::Cpu(y_data))
     }
 
+    fn max_backward(
+        &self,
+        storage: &Storage,
+        _shape: &Shape,
+        axis: Option<usize>,
+    ) -> Result<Storage> {
+        // TODO:処理要改善 map_axis()などを用いる
+        let x_data = storage.to_ndarray()?;
+        let x_shape = x_data.shape();
+
+        let mut mask_array = ArrayD::<f32>::zeros(x_shape);
+        // TODO:axisがNoneの場合の対応は後で
+        let x_argmax_array = argmax_array(x_data.view(), axis.unwrap());
+
+        match x_shape.len() {
+            1 => {
+                mask_array[x_argmax_array[0]] = 1.0;
+            }
+            2 => match axis {
+                None => {
+                    todo!("2次元のmax関数のbackwardでの軸を指定なしは後で対応")
+                }
+                Some(0) => {
+                    for (i, index) in x_argmax_array.iter().enumerate() {
+                        mask_array[[index.clone(), i]] = 1.0;
+                    }
+                }
+                Some(1) => {
+                    for (i, index) in x_argmax_array.iter().enumerate() {
+                        mask_array[[i, index.clone()]] = 1.0;
+                    }
+                }
+                _ => {
+                    unimplemented!("指定した軸は未対応。")
+                }
+            },
+            3 => match axis {
+                None => {
+                    todo!("3次元のmax関数のbackwardでの軸を指定なしは後で対応")
+                }
+                Some(0) => {
+                    todo!("3次元のmax関数のbackwardの軸0はまだ未対応")
+                }
+                Some(1) => {
+                    let n = x_shape[0];
+                    let w = x_shape[2];
+
+                    for b in 0..n {
+                        for width in 0..w {
+                            let max_h_index = x_argmax_array[[b, width]];
+                            mask_array[[b, max_h_index, width]] = 1.0;
+                        }
+                    }
+                }
+                Some(2) => {
+                    let n = x_shape[0];
+                    let h = x_shape[1];
+
+                    for b in 0..n {
+                        for height in 0..h {
+                            let max_w_index = x_argmax_array[[b, height]];
+                            mask_array[[b, height, max_w_index]] = 1.0;
+                        }
+                    }
+                }
+                _ => {
+                    unimplemented!("指定した軸は未対応。")
+                }
+            },
+            _ => {
+                unimplemented!("1-3次元以外の次元には対応していません.")
+            }
+        }
+
+        Ok(Storage::Cpu(mask_array))
+    }
     fn clamp_max(&self, storage: &Storage, max: f32) -> Result<Storage> {
         let data = storage.to_ndarray()?;
         let result = data.mapv(|x| if x > max { max } else { x });
