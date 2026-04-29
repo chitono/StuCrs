@@ -694,6 +694,22 @@ impl Backend for CpuBackend {
 
         Ok(Storage::Cpu(result.into_dyn()))
     }
+
+    fn col2im(
+        &self,
+        storage: &Storage,
+        _shape: &Shape,
+        im_shape: [usize; 4],
+        kernel_size: (usize, usize),
+        stride_size: (usize, usize),
+        pad_size: (usize, usize),
+    ) -> Result<Storage> {
+        let input = storage.to_ndarray()?.into_dimensionality::<Ix3>().unwrap();
+
+        let result = col2im_array(input.view(), im_shape, kernel_size, stride_size, pad_size);
+
+        Ok(Storage::Cpu(result.into_dyn()))
+    }
 }
 
 // ndarray用の処理をまとめた関数

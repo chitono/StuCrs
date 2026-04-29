@@ -574,4 +574,14 @@ pub trait TensorOps {
     ) -> Result<Self>
     where
         Self: Sized;
+
+    fn col2im(
+        &self,
+        im_shape: [usize; 4],
+        kernel_size: (usize, usize),
+        stride_size: (usize, usize),
+        pad_size: (usize, usize),
+    ) -> Result<Self>
+    where
+        Self: Sized;
 }

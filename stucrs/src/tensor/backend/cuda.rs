@@ -1723,4 +1723,20 @@ impl Backend for CudaBackend {
             "CUDA has not support im2col".to_string(),
         ))
     }
+
+    // TODO:col2im cuda未対応
+    fn col2im(
+        &self,
+        storage: &Storage,
+        _shape: &Shape,
+        im_shape: [usize; 4],
+        kernel_size: (usize, usize),
+        stride_size: (usize, usize),
+        pad_size: (usize, usize),
+    ) -> Result<Storage> {
+        #[cfg(not(feature = "cuda"))]
+        Err(TensorError::BackendError(
+            "CUDA has not support col2im".to_string(),
+        ))
+    }
 }

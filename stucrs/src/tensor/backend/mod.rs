@@ -206,6 +206,16 @@ pub trait Backend: Debug + Send + Sync {
         stride_size: (usize, usize),
         pad_size: (usize, usize),
     ) -> Result<Storage>;
+
+    fn col2im(
+        &self,
+        storage: &Storage,
+        shape: &Shape,
+        im_shape: [usize; 4],
+        kernel_size: (usize, usize),
+        stride_size: (usize, usize),
+        pad_size: (usize, usize),
+    ) -> Result<Storage>;
 }
 
 /// Backend-specific storage for tensor data.

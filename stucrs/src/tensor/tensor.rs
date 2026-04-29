@@ -1593,6 +1593,37 @@ impl TensorOps for Tensor {
             "No backend could perform im2col operation".to_string(),
         ))
     }
+
+    fn col2im(
+        &self,
+        im_shape: [usize; 4],
+        kernel_size: (usize, usize),
+        stride_size: (usize, usize),
+        pad_size: (usize, usize),
+    ) -> Result<Self> {
+        let result_shape = Shape::new(im_shape.to_vec())?;
+        for backend in &BACKENDS[0..] {
+            match backend.col2im(
+                &self.storage,
+                &self.shape,
+                im_shape,
+                kernel_size,
+                stride_size,
+                pad_size,
+            ) {
+                Ok(storage) => {
+                    return Ok(Tensor {
+                        storage,
+                        shape: result_shape,
+                    });
+                }
+                Err(_) => continue,
+            }
+        }
+        Err(TensorError::BackendError(
+            "No backend could perform col2im operation".to_string(),
+        ))
+    }
 }
 impl fmt::Display for Tensor {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
