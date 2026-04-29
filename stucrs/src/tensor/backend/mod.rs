@@ -197,6 +197,15 @@ pub trait Backend: Debug + Send + Sync {
 
     fn one_hot_encode(&self, storage: &Storage, shape: &Shape, num_class: usize)
         -> Result<Storage>;
+
+    fn im2col(
+        &self,
+        storage: &Storage,
+        shape: &Shape,
+        kernel_size: (usize, usize),
+        stride_size: (usize, usize),
+        pad_size: (usize, usize),
+    ) -> Result<Storage>;
 }
 
 /// Backend-specific storage for tensor data.

@@ -7,6 +7,7 @@ use crate::error::FrameError;
 use crate::tensor::backend::{Storage, BACKENDS};
 use crate::tensor::error::{Result, TensorError};
 //use broadcast::broadcast_data;
+use crate::functions_cnn::get_conv_outsize;
 use crate::tensor::ops::TensorOps;
 use crate::tensor::shape::{self, Shape};
 use std::ops::{Add, Div, Mul, Neg, Sub};
@@ -1551,6 +1552,45 @@ impl TensorOps for Tensor {
         }
         Err(TensorError::BackendError(
             "No backend could perform one_hot_encode operation".to_string(),
+        ))
+    }
+
+    fn im2col(
+        &self,
+        kernel_size: (usize, usize),
+        stride_size: (usize, usize),
+        pad_size: (usize, usize),
+    ) -> Result<Self> {
+        let n = self.shape().dims()[0]; //バッチ数
+        let c = self.shape().dims()[1]; //チャンネル数
+        let h = self.shape().dims()[2]; //縦
+        let w = self.shape().dims()[3]; //横
+
+        let (kh, kw) = kernel_size;
+        let (stride_h, stride_w) = stride_size;
+        let (pad_h, pad_w) = pad_size;
+
+        let (oh, ow) = get_conv_outsize((h, w), (kh, kw), (stride_h, stride_w), (pad_h, pad_w));
+        let result_shape = Shape::new(vec![n, c * kh * kw, oh * ow])?;
+        for backend in &BACKENDS[0..] {
+            match backend.im2col(
+                &self.storage,
+                &self.shape,
+                kernel_size,
+                stride_size,
+                pad_size,
+            ) {
+                Ok(storage) => {
+                    return Ok(Tensor {
+                        storage,
+                        shape: result_shape,
+                    });
+                }
+                Err(_) => continue,
+            }
+        }
+        Err(TensorError::BackendError(
+            "No backend could perform im2col operation".to_string(),
         ))
     }
 }

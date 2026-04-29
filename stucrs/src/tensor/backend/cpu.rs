@@ -4,9 +4,11 @@ use super::{Backend, Storage};
 use crate::functions::matrix::argmax_array;
 #[cfg(feature = "cpu")]
 use crate::tensor::error::{Result, TensorError};
-use crate::tensor::ndarray_nn::ndarray_cnn::*;
+use crate::tensor::ndarray_nn::ndarray_cnn::{col2im_array, im2col_array};
 use crate::tensor::shape::Shape;
-use ndarray::{array, s, Array1, Array2, Array3, ArrayD, ArrayViewD, Axis, Ix1, Ix2, Ix3, IxDyn};
+use ndarray::{
+    array, s, Array1, Array2, Array3, ArrayD, ArrayViewD, Axis, Ix1, Ix2, Ix3, Ix4, IxDyn,
+};
 use ndarray_stats::QuantileExt;
 use std::collections::HashSet;
 
@@ -674,6 +676,22 @@ impl Backend for CpuBackend {
             },
             _ => panic!("one_hot_encodeは2次元以下の行列に対応しています。1,2以外の次元の行列が入力されました。")
         }
+        Ok(Storage::Cpu(result.into_dyn()))
+    }
+
+    fn im2col(
+        &self,
+        storage: &Storage,
+        _shape: &Shape,
+        kernel_size: (usize, usize),
+        stride_size: (usize, usize),
+        pad_size: (usize, usize),
+    ) -> Result<Storage> {
+        // TODO:ndarrayのエラーにも対応予定
+        let input = storage.to_ndarray()?.into_dimensionality::<Ix4>().unwrap();
+
+        let result = im2col_array(input.view(), kernel_size, stride_size, pad_size);
+
         Ok(Storage::Cpu(result.into_dyn()))
     }
 }

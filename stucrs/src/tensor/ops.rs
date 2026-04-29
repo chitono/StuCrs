@@ -565,4 +565,13 @@ pub trait TensorOps {
     fn one_hot_encode(&self, num_class: usize) -> Result<Self>
     where
         Self: Sized;
+
+    fn im2col(
+        &self,
+        kernel_size: (usize, usize),
+        stride_size: (usize, usize),
+        pad_size: (usize, usize),
+    ) -> Result<Self>
+    where
+        Self: Sized;
 }
