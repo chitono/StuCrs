@@ -10,6 +10,8 @@ use crate::tensor::error::{Result, TensorError};
 use crate::functions_cnn::get_conv_outsize;
 use crate::tensor::ops::TensorOps;
 use crate::tensor::shape::{self, Shape};
+use rand::thread_rng;
+use rand_distr::{Distribution, StandardNormal};
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use std::time::Instant;
 use std::{fmt, vec};
@@ -144,6 +146,19 @@ impl Tensor {
         Err(TensorError::BackendError(
             "No backend could create tensor from vector".to_string(),
         ))
+    }
+
+    pub fn standard_normal(shape: impl Into<Shape>) -> Result<Self> {
+        let mut rng = thread_rng();
+        let shape: Shape = shape.into();
+        let numel = shape.numel();
+
+        let vec: Vec<f32> = (0..numel)
+            .map(|_| StandardNormal.sample(&mut rng))
+            .collect();
+
+        let tensor = Tensor::from_vec(vec, shape)?;
+        Ok(tensor)
     }
 
     /// Returns a reference to the tensor's shape.
