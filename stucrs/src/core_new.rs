@@ -884,6 +884,8 @@ pub fn pow(xs: &[RcVariable], c: f32) -> FrameResult<RcVariable> {
     Pow::new(xs, c).borrow_mut().call()
 }
 
+// TODO: Tensor,RcVariable生成系、Result対応予定
+
 //Tensor型からRcVariable型を生成
 pub trait TensorToRcVariable {
     fn rv(&self) -> RcVariable;
@@ -902,11 +904,23 @@ pub trait F32ToRcVariable {
 //f32からTensor型に変換し、rv()でRcVariableを生成
 impl F32ToRcVariable for f32 {
     fn rv(&self) -> RcVariable {
+        let tensor = self.ts();
+        tensor.rv()
+    }
+}
+
+pub trait F32ToTensor {
+    fn ts(&self) -> Tensor;
+}
+
+//f32からTensor型に変換
+impl F32ToTensor for f32 {
+    fn ts(&self) -> Tensor {
         let tensor = if let Ok(tensor) = Tensor::from_vec(vec![*self], vec![1]) {
             tensor
         } else {
             panic!("f32からTensorを生成できませんでした。");
         };
-        tensor.rv()
+        tensor
     }
 }
