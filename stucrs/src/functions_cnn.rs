@@ -10,9 +10,13 @@ use std::rc::{Rc, Weak};
 use std::{usize, vec};
 
 use crate::config::{get_grad_status, id_generator};
-use crate::core_new::{ArrayDToRcVariable, Function, RcVariable, Variable};
+use crate::core_new::{Function, RcVariable, TensorToRcVariable, Variable};
+use crate::error::{FrameError, FrameResult};
 use crate::functions::math::max;
 use crate::functions::matrix::{permute_axes, tensordot};
+use crate::tensor::lib::TensorOps;
+use crate::tensor::shape::Shape;
+
 pub fn get_conv_outsize(
     input_size: (usize, usize),
     kernel_size: (usize, usize),
@@ -31,12 +35,12 @@ pub fn conv2d_simple(
     _bias: Option<RcVariable>,
     stride_size: (usize, usize),
     pad_size: (usize, usize),
-) -> RcVariable {
+) -> FrameResult<RcVariable> {
     let input_data = input.data();
     let weight_data = weight.data();
 
-    let input_shape = input_data.shape();
-    let weight_shape = weight_data.shape();
+    let input_shape = input_data.shape().dims();
+    let weight_shape = weight_data.shape().dims();
 
     let n = input_shape[0];
     let c = input_shape[1];
@@ -56,15 +60,15 @@ pub fn conv2d_simple(
 
     let (oh, ow) = get_conv_outsize((h, w), (kh, kw), stride_size, pad_size);
 
-    let cols = im2col_simple(input, (kh, kw), stride_size, pad_size);
+    let cols = im2col_simple(input, (kh, kw), stride_size, pad_size)?;
 
-    let weights_2d = weight.reshape(IxDyn(&[oc, c * kh * kw]));
+    let weights_2d = weight.reshape(&Shape::new(vec![oc, c * kh * kw])?)?;
 
-    let out = tensordot(&weights_2d, &cols);
+    let out = tensordot(&weights_2d, &cols)?;
 
-    let out4d = out.reshape(IxDyn(&[n, oc, oh, ow]));
+    let out4d = out.reshape(&Shape::new(vec![n, oc, oh, ow])?)?;
 
-    out4d
+    Ok(out4d)
 }
 
 pub fn max_pool2d_simple(
@@ -72,10 +76,10 @@ pub fn max_pool2d_simple(
     kernel_size: (usize, usize),
     stride_size: (usize, usize),
     pad_size: (usize, usize),
-) -> RcVariable {
+) -> FrameResult<RcVariable> {
     let input_data = input.data();
 
-    let input_shape = input_data.shape();
+    let input_shape = input_data.shape().dims();
 
     let n = input_shape[0];
     let c = input_shape[1];
@@ -86,19 +90,19 @@ pub fn max_pool2d_simple(
 
     let (oh, ow) = get_conv_outsize((h, w), kernel_size, stride_size, pad_size);
 
-    let cols = im2col_simple(input, kernel_size, stride_size, pad_size);
+    let cols = im2col_simple(input, kernel_size, stride_size, pad_size)?;
 
-    let cols = permute_axes(&cols, vec![0, 2, 1]);
+    let cols = permute_axes(&cols, vec![0, 2, 1])?;
 
-    let cols = cols.reshape(IxDyn(&[n, c * oh * ow, kh * kw]));
+    let cols = cols.reshape(&Shape::new(vec![n, c * oh * ow, kh * kw])?)?;
 
-    let y = max(&cols, Some(2));
+    let y = max(&cols, Some(2))?;
 
     let output = y
-        .reshape(IxDyn(&[n, oh, ow, c]))
-        .permute_axes(vec![0, 3, 1, 2]);
+        .reshape(&Shape::new(vec![n, oh, ow, c])?)?
+        .permute_axes(vec![0, 3, 1, 2])?;
 
-    output
+    Ok(output)
 }
 
 pub fn conv2d_array(
@@ -218,13 +222,17 @@ struct Im2col {
 }
 
 impl Function for Im2col {
-    fn call(&mut self) -> RcVariable {
+    fn call(&mut self) -> FrameResult<RcVariable> {
         let inputs = &self.inputs;
         if inputs.len() != 1 {
-            panic!("Im2colは一変数関数です。inputsの個数が一つではありません。")
+            return Err(crate::error::FrameError::InvalidInputCount {
+                function: "Im2col",
+                expected: 1,
+                got: inputs.len(),
+            });
         }
 
-        let output = self.forward(inputs);
+        let output = self.forward(inputs)?;
 
         if get_grad_status() == true {
             //inputのgenerationで一番大きい値をFuncitonのgenerationとする
@@ -239,27 +247,25 @@ impl Function for Im2col {
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
-        output
+        Ok(output)
     }
 
-    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+    fn forward(&self, xs: &[RcVariable]) -> FrameResult<RcVariable> {
         let x = &xs[0];
-        //ここは後に動的のままim2colに渡す予定。
-        let x_data = x.data().into_dimensionality::<Ix4>().unwrap();
+        let y_data = x
+            .data()
+            .im2col(self.kernel_size, self.stride_size, self.pad_size)
+            .map_err(|e| FrameError::ForwardError {
+                function: "Im2col",
+                source: e,
+            })?;
 
-        let y_data = im2col_array(
-            x_data.view(),
-            self.kernel_size,
-            self.stride_size,
-            self.pad_size,
-        );
-
-        y_data.rv()
+        Ok(y_data.rv())
     }
 
-    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+    fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
         let x_data = &self.inputs[0].data();
-        let x_shape = x_data.shape();
+        let x_shape = x_data.shape().dims();
         let x_shape = x_shape
             .try_into()
             .expect("Im2colのxの次元が4ではありません。");
@@ -271,9 +277,12 @@ impl Function for Im2col {
             self.stride_size,
             self.pad_size,
         );
-        let gxs = vec![gx];
 
-        gxs
+        if let Ok(gx) = gx {
+            return Ok(vec![gx]);
+        } else {
+            return Err(FrameError::BackwardError { function: "Im2col" });
+        }
     }
 
     fn get_inputs(&self) -> &[RcVariable] {
@@ -325,7 +334,7 @@ fn im2col_f(
     kernel_size: (usize, usize),
     stride_size: (usize, usize),
     pad_size: (usize, usize),
-) -> RcVariable {
+) -> FrameResult<RcVariable> {
     Im2col::new(xs, kernel_size, stride_size, pad_size)
         .borrow_mut()
         .call()
@@ -336,7 +345,7 @@ pub fn im2col_simple(
     kernel_size: (usize, usize),
     stride_size: (usize, usize),
     pad_size: (usize, usize),
-) -> RcVariable {
+) -> FrameResult<RcVariable> {
     let y = im2col_f(&[x.clone()], kernel_size, stride_size, pad_size);
     y
 }
@@ -354,13 +363,16 @@ struct Col2im {
 }
 
 impl Function for Col2im {
-    fn call(&mut self) -> RcVariable {
+    fn call(&mut self) -> FrameResult<RcVariable> {
         let inputs = &self.inputs;
         if inputs.len() != 1 {
-            panic!("Col2imは一変数関数です。inputsの個数が一つではありません。")
+            return Err(crate::error::FrameError::InvalidInputCount {
+                function: "Col2im",
+                expected: 1,
+                got: inputs.len(),
+            });
         }
-
-        let output = self.forward(inputs);
+        let output = self.forward(inputs)?;
 
         if get_grad_status() == true {
             //inputのgenerationで一番大きい値をFuncitonのgenerationとする
@@ -375,30 +387,36 @@ impl Function for Col2im {
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
-        output
+        Ok(output)
     }
 
-    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+    fn forward(&self, xs: &[RcVariable]) -> FrameResult<RcVariable> {
         let x = &xs[0];
-        //ここは後に動的のままcol2imに渡す予定。
-        let x_data = x.data().into_dimensionality::<Ix3>().unwrap();
 
-        let y_data = col2im_array(
-            x_data.view(),
-            self.input_shape,
-            self.kernel_size,
-            self.stride_size,
-            self.pad_size,
-        );
+        let y_data = x
+            .data()
+            .col2im(
+                self.input_shape,
+                self.kernel_size,
+                self.stride_size,
+                self.pad_size,
+            )
+            .map_err(|e| FrameError::ForwardError {
+                function: "Col2im",
+                source: e,
+            })?;
 
-        y_data.rv()
+        Ok(y_data.rv())
     }
 
-    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+    fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
         let gx = im2col_simple(gy, self.kernel_size, self.stride_size, self.pad_size);
-        let gxs = vec![gx];
 
-        gxs
+        if let Ok(gx) = gx {
+            return Ok(vec![gx]);
+        } else {
+            return Err(FrameError::BackwardError { function: "Im2col" });
+        }
     }
 
     fn get_inputs(&self) -> &[RcVariable] {
@@ -453,7 +471,7 @@ fn col2im_f(
     kernel_size: (usize, usize),
     stride_size: (usize, usize),
     pad_size: (usize, usize),
-) -> RcVariable {
+) -> FrameResult<RcVariable> {
     Col2im::new(xs, input_shape, kernel_size, stride_size, pad_size)
         .borrow_mut()
         .call()
@@ -465,7 +483,7 @@ pub fn col2im_simple(
     kernel_size: (usize, usize),
     stride_size: (usize, usize),
     pad_size: (usize, usize),
-) -> RcVariable {
+) -> FrameResult<RcVariable> {
     let y = col2im_f(
         &[x.clone()],
         input_shape,
@@ -597,3 +615,16 @@ pub fn col2im_array(
     }
     imgs
 }
+
+/*
+#[derive(Debug, Clone)]
+pub enum CNNError {
+    Im2colError(String),
+}
+
+impl std::error::Error for CNNError {}
+
+impl fmt::Display for CNNError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {}
+}
+*/
