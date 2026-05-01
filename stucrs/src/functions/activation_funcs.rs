@@ -18,8 +18,10 @@ use std::vec;
 use crate::config::{get_grad_status, id_generator};
 use crate::core_new::*;
 
+use crate::error::{FrameError, FrameResult};
 use crate::functions::math::*;
 use crate::functions::matrix::*;
+use crate::tensor::lib::TensorOps;
 
 #[derive(Debug, Clone)]
 pub struct Relu {
@@ -30,13 +32,17 @@ pub struct Relu {
 }
 
 impl Function for Relu {
-    fn call(&mut self) -> RcVariable {
+    fn call(&mut self) -> FrameResult<RcVariable> {
         let inputs = &self.inputs;
         if inputs.len() != 1 {
-            panic!("Reluは一変数関数です。inputsの個数が一つではありません。")
+            return Err(FrameError::InvalidInputCount {
+                function: "Relu",
+                expected: 1,
+                got: inputs.len(),
+            });
         }
 
-        let output = self.forward(inputs);
+        let output = self.forward(inputs)?;
 
         if get_grad_status() == true {
             //inputのgenerationで一番大きい値をFuncitonのgenerationとする
@@ -51,23 +57,30 @@ impl Function for Relu {
             output.0.borrow_mut().set_creator(self_f.clone());
         }
 
-        output
+        Ok(output)
     }
 
-    fn forward(&self, xs: &[RcVariable]) -> RcVariable {
+    fn forward(&self, xs: &[RcVariable]) -> FrameResult<RcVariable> {
         let x = &xs[0];
-        let y_data = x.data().mapv(|x| if x > 0.0 { x } else { 0.0 });
+        let y_data = x.data().relu().map_err(|e| FrameError::ForwardError {
+            function: "Relu",
+            source: e,
+        })?;
 
-        y_data.rv()
+        Ok(y_data.rv())
     }
 
-    fn backward(&self, gy: &RcVariable) -> Vec<RcVariable> {
+    fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
         let x = &self.inputs[0];
         //xが0以上なら微分の値は1で、0以下なら0になる。
-        let gx = x.data().mapv(|x| if x > 0.0 { 1.0 } else { 0.0 }).rv() * gy.clone();
+        //let gx = x.data().mapv(|x| if x > 0.0 { 1.0 } else { 0.0 }).rv() * gy.clone();
+
+        let mask = x.data().max_mask(0.0f32)?.rv();
+
+        let gx = gy.clone() * mask;
         let gxs = vec![gx];
 
-        gxs
+        Ok(gxs)
     }
 
     fn get_inputs(&self) -> &[RcVariable] {
@@ -106,26 +119,26 @@ impl Relu {
     }
 }
 
-pub fn relu(x: &RcVariable) -> RcVariable {
+pub fn relu(x: &RcVariable) -> FrameResult<RcVariable> {
     let y = relu_f(&[x.clone()]);
     y
 }
 
-fn relu_f(xs: &[RcVariable]) -> RcVariable {
+fn relu_f(xs: &[RcVariable]) -> FrameResult<RcVariable> {
     Relu::new(xs).borrow_mut().call()
 }
 
-pub fn sigmoid_simple(x: &RcVariable) -> RcVariable {
+pub fn sigmoid_simple(x: &RcVariable) -> FrameResult<RcVariable> {
     let mainasu_x = -x.clone();
-    let y = 1.0f32.rv() / (1.0f32.rv() + exp(&mainasu_x));
-    y
+    let y = 1.0f32.rv() / (1.0f32.rv() + exp(&mainasu_x)?);
+    Ok(y)
 }
 
-pub fn softmax_simple(x: &RcVariable) -> RcVariable {
-    let exp_y = exp(&x);
+pub fn softmax_simple(x: &RcVariable) -> FrameResult<RcVariable> {
+    let exp_y = exp(&x)?;
 
-    let sum_y = sum(&exp_y, Some(1));
+    let sum_y = sum(&exp_y, Some(1))?;
 
     let y = exp_y.clone() / sum_y.clone();
-    y
+    Ok(y)
 }

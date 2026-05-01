@@ -1055,96 +1055,12 @@ pub fn tensordot(x: &RcVariable, w: &RcVariable) -> FrameResult<RcVariable> {
 /// 軸指定可能。
 /// 1次元から3次元まで対応。
 /// まだ一部の軸しか対応していない。
-pub fn argmax_array(x_array: ArrayViewD<f32>, axis: Option<u16>) -> ArrayD<usize> {
-    let y_array: ArrayD<usize> = match x_array.ndim() {
-        1 => {
-            let x_array = x_array.into_dimensionality::<Ix1>().unwrap();
-            let index = x_array.argmax().unwrap();
-            array![index].into_dyn()
-        }
-        2 => {
-            let y_data = match axis {
-                None => {
-                    todo!("2次元のargmax関数の軸を指定なしは後で対応")
-                }
-                Some(0) => {
-                    let x_array = x_array.into_dimensionality::<Ix2>().unwrap();
-                    let max_array: Array1<usize> = x_array
-                        .axis_iter(Axis(1))
-                        .map(|row: ArrayBase<ViewRepr<&f32>, Dim<[usize; 1]>>| {
-                            row.argmax().unwrap()
-                        })
-                        .collect();
-                    max_array.into_dyn()
-                }
-                Some(1) => {
-                    let x_array = x_array.into_dimensionality::<Ix2>().unwrap();
-                    let max_array: Array1<usize> = x_array
-                        .axis_iter(Axis(0))
-                        .map(|row: ArrayBase<ViewRepr<&f32>, Dim<[usize; 1]>>| {
-                            row.argmax().unwrap()
-                        })
-                        .collect();
-                    max_array.into_dyn()
-                }
-                _ => {
-                    unimplemented!("指定した軸には対応していません。")
-                }
-            };
-            y_data
-        }
-        3 => {
-            let x_array = x_array.into_dimensionality::<Ix3>().unwrap();
-            let y_array: Array2<usize> = match axis {
-                None => {
-                    todo!("3次元のargmax関数の軸を指定なしは後で対応")
-                }
-                Some(0) => {
-                    todo!("3次元の軸0はまだ未対応")
-                }
-                Some(1) => {
-                    let n = x_array.shape()[0];
-                    let w = x_array.shape()[2];
-
-                    let mut y_array = Array2::<usize>::zeros((n, w));
-                    for b in 0..n {
-                        let matrix = x_array.slice(s![b, .., ..]);
-                        let max_array: Array1<usize> = matrix
-                            .axis_iter(Axis(1))
-                            .map(|col: ArrayBase<ViewRepr<&f32>, Dim<[usize; 1]>>| {
-                                col.argmax().unwrap()
-                            })
-                            .collect();
-                        y_array.slice_mut(s![b, ..]).assign(&max_array);
-                    }
-                    y_array
-                }
-                Some(2) => {
-                    let n = x_array.shape()[0];
-                    let h = x_array.shape()[1];
-
-                    let mut y_array = Array2::<usize>::zeros((n, h));
-                    for b in 0..n {
-                        let matrix = x_array.slice(s![b, .., ..]);
-                        let max_array: Array1<usize> = matrix
-                            .axis_iter(Axis(0))
-                            .map(|row: ArrayBase<ViewRepr<&f32>, Dim<[usize; 1]>>| {
-                                row.argmax().unwrap()
-                            })
-                            .collect();
-                        y_array.slice_mut(s![b, ..]).assign(&max_array);
-                    }
-                    y_array
-                }
-                _ => {
-                    unimplemented!("その他の軸は対応していません")
-                }
-            };
-            y_array.into_dyn()
-        }
-        _ => {
-            unimplemented!("1-3次元以外の次元には対応していません")
-        }
-    };
-    y_array
+pub fn argmax_array(x_array: ArrayViewD<f32>, axis: usize) -> ArrayD<usize> {
+    x_array.map_axis(Axis(axis), |view| {
+        view.iter()
+            .enumerate()
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+            .map(|(index, _)| index)
+            .unwrap()
+    })
 }

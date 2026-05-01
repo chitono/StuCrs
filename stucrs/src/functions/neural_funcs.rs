@@ -19,10 +19,16 @@ use std::vec;
 use crate::config::get_test_flag_status;
 use crate::core_new::*;
 use crate::datasets::arr1d_to_one_hot;
+use crate::error::{FrameError, FrameResult};
 use crate::functions::matrix::matmul;
+use crate::tensor::lib::{Tensor, TensorOps};
 
-pub fn linear_simple(x: &RcVariable, w: &RcVariable, b: &Option<RcVariable>) -> RcVariable {
-    let t = matmul(&x, &w);
+pub fn linear_simple(
+    x: &RcVariable,
+    w: &RcVariable,
+    b: &Option<RcVariable>,
+) -> FrameResult<RcVariable> {
+    let t = matmul(&x, &w)?;
 
     let y;
 
@@ -32,24 +38,29 @@ pub fn linear_simple(x: &RcVariable, w: &RcVariable, b: &Option<RcVariable>) -> 
         y = t;
     }
 
-    y
+    Ok(y)
 }
 
-pub fn dropout(x: &RcVariable, ratio: f32) -> RcVariable {
+pub fn dropout(x: &RcVariable, ratio: f32) -> FrameResult<RcVariable> {
     if get_test_flag_status() == false {
-        let random_array: Array<f32, IxDyn> = Array::random(x.data().shape(), Standard);
-        let mask = random_array
+        let random_tensor = Tensor::standard_normal(x.data().shape().dims.clone())?;
+        //let random_array: Array<f32, IxDyn> = Array::random(x.data().shape(), Standard);
+        /*
+        let mask = random_tensor
             .mapv(|x| if x > ratio { 1.0f32 } else { 0.0f32 })
             .rv();
-        let scale = array![1.0f32 - ratio].rv();
+        */
+        let mask = random_tensor.max_mask(ratio)?.rv();
+        let scale = (1.0f32 - ratio).rv();
+
         let y = x.clone() * mask / scale;
-        y
+        Ok(y)
     } else {
-        x.clone()
+        Ok(x.clone())
     }
 }
 
-pub fn accuracy(y: ArrayView2<f32>, t: ArrayView2<f32>) -> f32 {
+pub fn accuracy(y: ArrayView2<f32>, t: ArrayView2<f32>) -> FrameResult<f32> {
     if y.shape() != t.shape() {
         panic!("交差エントロピー誤差でのxとtの形状が異なります。tがone-hotベクトルでない可能性があります。")
     }
@@ -68,5 +79,5 @@ pub fn accuracy(y: ArrayView2<f32>, t: ArrayView2<f32>) -> f32 {
 
     let accuracy = acc_matrix.sum() / data_size;
 
-    accuracy
+    Ok(accuracy)
 }
