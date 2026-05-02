@@ -1,3 +1,5 @@
+use crate::error::FrameResult;
+use crate::tensor::tensor::Tensor;
 use ndarray::{array, Array1, Array2, ArrayView1, ArrayView2, Axis};
 
 use rand::seq::SliceRandom;
@@ -6,8 +8,6 @@ use rand::{thread_rng, Rng};
 use rand_distr::StandardNormal;
 
 use mnist::*;
-
-use ndarray::prelude::*;
 
 pub trait Dataset {
     /*
@@ -18,8 +18,8 @@ pub trait Dataset {
 }
 
 pub struct Spiral {
-    pub data: Array2<f32>,
-    pub label: Array1<u32>,
+    pub data: Tensor,  //2次元
+    pub label: Tensor, //1次元
 }
 
 impl Dataset for Spiral {
@@ -31,24 +31,24 @@ impl Dataset for Spiral {
     }
     */
     fn len(&self) -> usize {
-        self.data.shape()[0]
+        self.data.shape().dims()[0]
     }
 }
 
 impl Spiral {
-    pub fn new() -> Self {
-        let data_label = get_spiral_data();
+    pub fn new() -> FrameResult<Self> {
+        let data_label = get_spiral_data()?;
         let data = data_label.0;
         let label = data_label.1;
         let spiral = Self {
             data: data,
             label: label,
         };
-        spiral
+        Ok(spiral)
     }
 }
-
-fn get_spiral_data() -> (Array2<f32>, Array1<u32>) {
+/// Array型でデータを生成してから、Tensorに変換
+fn get_spiral_data() -> FrameResult<(Tensor, Tensor)> {
     let data_len = 100;
     let num_class = 3;
     let input_dim = 2;
@@ -82,15 +82,24 @@ fn get_spiral_data() -> (Array2<f32>, Array1<u32>) {
 
     //(x, t)
     //println!("x = {:?}", t.clone());
-    double_matrix_shuffle_rows_immutable(x.view(), t.view())
+    let (x_array, t_array) = double_matrix_shuffle_rows_immutable(x.view(), t.view());
+    let x_shape = x_array.shape().to_vec();
+    let t_shape = t_array.shape().to_vec();
+
+    let t_f32_vec = t_array.iter().map(|value| *value as f32).collect();
+
+    let x_tensor = Tensor::from_vec(x_array.iter().copied().collect(), x_shape)?;
+    let t_tensor = Tensor::from_vec(t_f32_vec, t_shape)?;
+
+    Ok((x_tensor, t_tensor))
 }
 
 #[derive(Clone)]
 pub struct MNIST {
-    pub train_img: Array4<f32>,
-    pub train_label: Array2<f32>,
-    pub test_img: Array4<f32>,
-    pub test_label: Array2<f32>,
+    pub train_img: Tensor,   //4次元
+    pub train_label: Tensor, //2次元
+    pub test_img: Tensor,    //4次元
+    pub test_label: Tensor,  //2次元
 }
 
 impl Dataset for MNIST {
@@ -102,24 +111,24 @@ impl Dataset for MNIST {
     }
     */
     fn len(&self) -> usize {
-        self.train_img.shape()[0]
+        self.train_img.shape().dims()[0]
     }
 }
 
 impl MNIST {
-    pub fn new() -> Self {
-        let (train_img, train_label, test_img, test_label) = get_mnist_data();
+    pub fn new() -> FrameResult<Self> {
+        let (train_img, train_label, test_img, test_label) = get_mnist_data()?;
         let mnist = Self {
             train_img: train_img,
             train_label: train_label,
             test_img: test_img,
             test_label: test_label,
         };
-        mnist
+        Ok(mnist)
     }
 }
 
-fn get_mnist_data() -> (Array4<f32>, Array2<f32>, Array4<f32>, Array2<f32>) {
+fn get_mnist_data() -> FrameResult<(Tensor, Tensor, Tensor, Tensor)> {
     // Deconstruct the returned Mnist struct.
     let Mnist {
         trn_img,
@@ -135,25 +144,30 @@ fn get_mnist_data() -> (Array4<f32>, Array2<f32>, Array4<f32>, Array2<f32>) {
         .finalize();
 
     // Can use an Array2 or Array3 here (Array3 for visualization)
-    let train_data = Array4::from_shape_vec((50_000, 1, 28, 28), trn_img)
-        .expect("Error converting images to Array3 struct")
-        .map(|x| *x as f32 / 256.0);
+    let train_data = Tensor::from_vec(
+        trn_img.iter().map(|x| *x as f32 / 256.0).collect(),
+        vec![50_000, 1, 28, 28],
+    )
+    .expect("Error converting images to Array3 struct");
+
     //println!("{:#.1?}\n",train_data.slice(s![image_num, .., ..]));
 
     // Convert the returned Mnist struct to Array2 format
-    let train_labels: Array2<f32> = Array2::from_shape_vec((50_000, 1), trn_lbl)
-        .expect("Error converting training labels to Array2 struct")
-        .map(|x| *x as f32);
+    let train_labels =
+        Tensor::from_vec(trn_lbl.iter().map(|x| *x as f32).collect(), vec![50_000, 1])
+            .expect("Error converting training labels to Array2 struct");
     //println!("The first digit is a {:?}",train_labels.slice(s![image_num, ..]) );
 
-    let test_data = Array4::from_shape_vec((10_000, 1, 28, 28), tst_img)
-        .expect("Error converting images to Array3 struct")
-        .map(|x| *x as f32 / 256.);
+    let test_data = Tensor::from_vec(
+        tst_img.iter().map(|x| *x as f32 / 256.0).collect(),
+        vec![10_000, 1, 28, 28],
+    )
+    .expect("Error converting images to Array3 struct");
 
-    let test_labels: Array2<f32> = Array2::from_shape_vec((10_000, 1), tst_lbl)
-        .expect("Error converting testing labels to Array2 struct")
-        .map(|x| *x as f32);
-    (train_data, train_labels, test_data, test_labels)
+    let test_labels =
+        Tensor::from_vec(tst_lbl.iter().map(|x| *x as f32).collect(), vec![10_000, 1])
+            .expect("Error converting testing labels to Tensor struct");
+    Ok((train_data, train_labels, test_data, test_labels))
 }
 
 //一つ2次元の行列と一次元の行列の対となる行が同じ位置に来るようにシャッフルして新しい二つの行列を返す
