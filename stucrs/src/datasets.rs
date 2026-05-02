@@ -1,11 +1,12 @@
-use crate::error::FrameResult;
+use crate::error::{FrameError, FrameResult};
+use crate::tensor::error::TensorError;
 use crate::tensor::tensor::Tensor;
 use ndarray::{array, Array1, Array2, ArrayView1, ArrayView2, Axis};
-
 use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
 
 use rand_distr::StandardNormal;
+use thiserror::Error;
 
 use mnist::*;
 
@@ -148,25 +149,47 @@ fn get_mnist_data() -> FrameResult<(Tensor, Tensor, Tensor, Tensor)> {
         trn_img.iter().map(|x| *x as f32 / 256.0).collect(),
         vec![50_000, 1, 28, 28],
     )
-    .expect("Error converting images to Array3 struct");
+    .map_err(|e| {
+        FrameError::DatasetError(DatasetError::ConvertError {
+            dataset: "MNIST",
+            source: e,
+        })
+    })?;
 
     //println!("{:#.1?}\n",train_data.slice(s![image_num, .., ..]));
 
     // Convert the returned Mnist struct to Array2 format
     let train_labels =
-        Tensor::from_vec(trn_lbl.iter().map(|x| *x as f32).collect(), vec![50_000, 1])
-            .expect("Error converting training labels to Array2 struct");
+        Tensor::from_vec(trn_lbl.iter().map(|x| *x as f32).collect(), vec![50_000, 1]).map_err(
+            |e| {
+                FrameError::DatasetError(DatasetError::ConvertError {
+                    dataset: "MNIST",
+                    source: e,
+                })
+            },
+        )?;
     //println!("The first digit is a {:?}",train_labels.slice(s![image_num, ..]) );
 
     let test_data = Tensor::from_vec(
         tst_img.iter().map(|x| *x as f32 / 256.0).collect(),
         vec![10_000, 1, 28, 28],
     )
-    .expect("Error converting images to Array3 struct");
+    .map_err(|e| {
+        FrameError::DatasetError(DatasetError::ConvertError {
+            dataset: "MNIST",
+            source: e,
+        })
+    })?;
 
     let test_labels =
-        Tensor::from_vec(tst_lbl.iter().map(|x| *x as f32).collect(), vec![10_000, 1])
-            .expect("Error converting testing labels to Tensor struct");
+        Tensor::from_vec(tst_lbl.iter().map(|x| *x as f32).collect(), vec![10_000, 1]).map_err(
+            |e| {
+                FrameError::DatasetError(DatasetError::ConvertError {
+                    dataset: "MNIST",
+                    source: e,
+                })
+            },
+        )?;
     Ok((train_data, train_labels, test_data, test_labels))
 }
 
@@ -223,4 +246,14 @@ pub fn arr2d_to_one_hot(data: ArrayView2<u32>, num_class: usize) -> Array2<f32> 
         init_matrix[[i, data_t as usize]] = 1.0;
     }
     init_matrix
+}
+
+#[derive(Debug, Error)]
+pub enum DatasetError {
+    #[error("データセット:{dataset}でデータをTensorに変換できませんでした")]
+    ConvertError {
+        dataset: &'static str,
+        #[source]
+        source: TensorError,
+    },
 }
