@@ -1,14 +1,14 @@
 use crate::core_new::RcVariable;
 use crate::core_new::Variable;
+use crate::error::FrameResult;
 use crate::layers::Layer;
-//use crate::optimizers::SGD;
 
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
 pub trait Model {
     fn stack(&mut self, layer: impl Layer + 'static);
-    fn forward(&mut self, x: &RcVariable) -> RcVariable;
+    fn forward(&mut self, x: &RcVariable) -> FrameResult<RcVariable>;
     fn layers(&self) -> Rc<RefCell<Vec<Box<dyn Layer + 'static>>>>;
     fn layers_mut(&mut self) -> Rc<RefCell<Vec<Box<dyn Layer + 'static>>>>;
     fn cleargrad(&mut self);
@@ -40,19 +40,17 @@ impl Model for BaseModel {
         self.layers.clone()
     }
 
-    fn forward(&mut self, x: &RcVariable) -> RcVariable {
+    fn forward(&mut self, x: &RcVariable) -> FrameResult<RcVariable> {
         let mut y = x.clone();
 
         for layer in self.layers.borrow_mut().iter_mut() {
             let t = y;
-            y = layer.call(&t);
+            y = layer.call(&t)?;
         }
 
-        y
+        Ok(y)
     }
 }
-
-//loss: Loss, optimizer: Optimizer, learning_rate: f32
 
 impl BaseModel {
     pub fn new() -> Self {
@@ -63,10 +61,10 @@ impl BaseModel {
         }
     }
 
-    pub fn call(&mut self, input: &RcVariable) -> RcVariable {
+    pub fn call(&mut self, input: &RcVariable) -> FrameResult<RcVariable> {
         // inputのvariableからdataを取り出す
 
-        let output = self.forward(input);
+        let output = self.forward(input)?;
 
         //　inputsを覚える
         self.input = Some(input.downgrade());
@@ -74,7 +72,7 @@ impl BaseModel {
         //  outputを弱参照(downgrade)で覚える
         self.output = Some(output.downgrade());
 
-        output
+        Ok(output)
     }
 
     /*
