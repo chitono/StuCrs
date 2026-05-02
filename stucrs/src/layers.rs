@@ -1,21 +1,23 @@
 use crate::config::id_generator;
-use crate::core_new::ArrayDToRcVariable;
+use crate::core_new::{F32ToTensor, TensorToRcVariable};
 use crate::core_new::{RcVariable, Variable};
+use crate::error::{FrameError, FrameResult};
 use crate::functions::activation_funcs::{relu, sigmoid_simple};
 use crate::functions::math::tanh;
 use crate::functions::matrix::reshape;
 use crate::functions::neural_funcs::{dropout, linear_simple};
 use crate::functions_cnn::{conv2d_simple, max_pool2d_simple};
+use crate::tensor::lib::{Shape, Tensor, TensorError};
 
 use fxhash::FxHashMap;
-use ndarray::{Array, ArrayBase, Dim, IxDyn, OwnedRepr};
-use ndarray_rand::rand_distr::StandardNormal;
-use ndarray_rand::RandomExt;
+
 use std::cell::RefCell;
+
+use thiserror::Error;
 
 use std::fmt::Debug;
 
-use std::rc::{Rc, Weak};
+use std::rc::Weak;
 
 ///Model構造体が保持するLayerを表すトレイト。
 ///
@@ -26,27 +28,29 @@ use std::rc::{Rc, Weak};
 ///
 /// ## 実装上の注意
 /// 重みをもたないLayerも作成可能(Maxpool2dや活性化関数のLayerなど)。
-/// その場合、set_params(),params()やcleargrad()の関数は不要なので、unimplemented!()にする。
+/// その場合、set_params(),params()やcleargrad()の関数は不要なので、LayerErrorのNoParameterErrorを用いる。
 /// Maxpool2dを参照。
 pub trait Layer: Debug {
-    fn set_params(&mut self, param: &RcVariable);
+    fn set_params(&mut self, param: &RcVariable) -> FrameResult<()>;
 
     fn get_input(&self) -> RcVariable;
     fn get_output(&self) -> RcVariable;
-    fn call(&mut self, input: &RcVariable) -> RcVariable;
+    fn call(&mut self, input: &RcVariable) -> FrameResult<RcVariable>;
     fn get_generation(&self) -> i32;
     fn get_id(&self) -> usize;
-    fn params(&mut self) -> &mut FxHashMap<usize, RcVariable>;
+    fn params(&mut self) -> FrameResult<&mut FxHashMap<usize, RcVariable>>;
     fn cleargrad(&mut self);
     fn has_params(&self) -> bool;
 }
 
 ///線形変換(Linear)を処理するLayer構造体
 ///
+/// new()よる呼び出しでResult型で返す
+///
 /// # Examples
 ///
 ///     let mut model = BaseModel::new();
-///     model.stack(L::Linear::new(10, true, None));
+///     model.stack(L::Linear::new(10, true, None)?);
 ///
 #[derive(Debug, Clone)]
 pub struct Linear {
@@ -61,8 +65,9 @@ pub struct Linear {
 }
 
 impl Layer for Linear {
-    fn set_params(&mut self, param: &RcVariable) {
+    fn set_params(&mut self, param: &RcVariable) -> FrameResult<()> {
         self.params.insert(param.id(), param.clone());
+        Ok(())
     }
     fn get_input(&self) -> RcVariable {
         let input = self
@@ -90,10 +95,10 @@ impl Layer for Linear {
         RcVariable(output)
     }
 
-    fn call(&mut self, input: &RcVariable) -> RcVariable {
+    fn call(&mut self, input: &RcVariable) -> FrameResult<RcVariable> {
         // inputのvariableからdataを取り出す
 
-        let output = self.forward(input);
+        let output = self.forward(input)?;
 
         //ここから下の処理はbackwardするときだけ必要。
 
@@ -103,7 +108,7 @@ impl Layer for Linear {
         //  outputを弱参照(downgrade)で覚える
         self.output = Some(output.downgrade());
 
-        output
+        Ok(output)
     }
 
     fn get_generation(&self) -> i32 {
@@ -112,8 +117,8 @@ impl Layer for Linear {
     fn get_id(&self) -> usize {
         self.id
     }
-    fn params(&mut self) -> &mut FxHashMap<usize, RcVariable> {
-        &mut self.params
+    fn params(&mut self) -> FrameResult<&mut FxHashMap<usize, RcVariable>> {
+        Ok(&mut self.params)
     }
 
     fn cleargrad(&mut self) {
@@ -128,16 +133,18 @@ impl Layer for Linear {
 }
 
 impl Linear {
-    fn forward(&mut self, x: &RcVariable) -> RcVariable {
+    fn forward(&mut self, x: &RcVariable) -> FrameResult<RcVariable> {
         if let None = &self.w_id {
-            let i = x.data().shape()[1];
+            let i = x.data().shape().dims()[1];
             let o = self.out_size as usize;
             let i_f32 = i as f32;
 
+            let w_data = Tensor::standard_normal(vec![i, o])? / ((1.0f32 / i_f32).sqrt()).ts();
+            /*
             let w_data: ArrayBase<OwnedRepr<f32>, Dim<[usize; 2]>> =
                 &Array::random((i, o), StandardNormal) * ((1.0f32 / i_f32).sqrt());
-
-            let w = w_data.rv();
+            */
+            let w = w_data?.rv();
 
             self.w_id = Some(w.id());
             self.set_params(&w.clone());
@@ -155,12 +162,12 @@ impl Linear {
             b = None;
         }
 
-        let y = linear_simple(&x, &w, &b);
+        let y = linear_simple(&x, &w, &b)?;
 
-        y
+        Ok(y)
     }
 
-    pub fn new(out_size: u32, biased: bool, opt_in_size: Option<u32>) -> Self {
+    pub fn new(out_size: u32, biased: bool, opt_in_size: Option<usize>) -> FrameResult<Self> {
         let mut linear = Self {
             input: None,
             output: None,
@@ -180,39 +187,32 @@ impl Linear {
 
             let i_f32 = in_size as f32;
 
-            let w_data: ArrayBase<OwnedRepr<f32>, Dim<[usize; 2]>> =
-                &Array::random((i, o), StandardNormal) * ((1.0f32 / i_f32).sqrt());
+            let w_data = Tensor::standard_normal(vec![i, o])? / ((1.0f32 / i_f32).sqrt()).ts();
 
-            let w = w_data.rv();
+            let w = w_data?.rv();
 
             linear.w_id = Some(w.id());
             linear.set_params(&w.clone());
         }
 
         if biased == true {
-            let b = Array::zeros(out_size as usize).rv();
+            let b = Tensor::zeros(vec![out_size as usize])?.rv();
             linear.b_id = Some(b.id());
             linear.set_params(&b.clone());
         }
 
-        linear
-    }
-
-    pub fn update_params(&mut self, lr: f32) {
-        for (_id, param) in self.params.iter() {
-            let param_data = param.data();
-            let current_grad = param.grad().as_ref().unwrap().data();
-            param.0.borrow_mut().data = param_data - lr * current_grad;
-        }
+        Ok(linear)
     }
 }
 
 ///線形変換(Linear)と活性化関数をまとめて計算するLayer構造体
 ///
+/// new()よる呼び出しでResult型で返す
+///
 /// # Examples
 ///
 ///     let mut model = BaseModel::new();
-///     model.stack(L::Dense::new(1000, true, None, Activation::Sigmoid));
+///     model.stack(L::Dense::new(1000, true, None, Activation::Sigmoid)?);
 ///
 #[derive(Debug, Clone)]
 pub struct Dense {
@@ -228,8 +228,9 @@ pub struct Dense {
 }
 
 impl Layer for Dense {
-    fn set_params(&mut self, param: &RcVariable) {
+    fn set_params(&mut self, param: &RcVariable) -> FrameResult<()> {
         self.params.insert(param.id(), param.clone());
+        Ok(())
     }
     fn get_input(&self) -> RcVariable {
         let input = self
@@ -257,10 +258,10 @@ impl Layer for Dense {
         RcVariable(output)
     }
 
-    fn call(&mut self, input: &RcVariable) -> RcVariable {
+    fn call(&mut self, input: &RcVariable) -> FrameResult<RcVariable> {
         // inputのvariableからdataを取り出す
 
-        let output = self.forward(input);
+        let output = self.forward(input)?;
 
         //ここから下の処理はbackwardするときだけ必要。
 
@@ -272,7 +273,7 @@ impl Layer for Dense {
         //  outputを弱参照(downgrade)で覚える
         self.output = Some(output.downgrade());
 
-        output
+        Ok(output)
     }
 
     fn get_generation(&self) -> i32 {
@@ -281,8 +282,8 @@ impl Layer for Dense {
     fn get_id(&self) -> usize {
         self.id
     }
-    fn params(&mut self) -> &mut FxHashMap<usize, RcVariable> {
-        &mut self.params
+    fn params(&mut self) -> FrameResult<&mut FxHashMap<usize, RcVariable>> {
+        Ok(&mut self.params)
     }
 
     fn cleargrad(&mut self) {
@@ -297,16 +298,15 @@ impl Layer for Dense {
 }
 
 impl Dense {
-    fn forward(&mut self, x: &RcVariable) -> RcVariable {
+    fn forward(&mut self, x: &RcVariable) -> FrameResult<RcVariable> {
         if let None = &self.w_id {
-            let i = x.data().shape()[1];
+            let i = x.data().shape().dims()[1];
             let o = self.out_size as usize;
             let i_f32 = i as f32;
 
-            let w_data: ArrayBase<OwnedRepr<f32>, Dim<[usize; 2]>> =
-                &Array::random((i, o), StandardNormal) * ((1.0f32 / i_f32).sqrt());
+            let w_data = Tensor::standard_normal(vec![i, o])? / ((1.0f32 / i_f32).sqrt()).ts();
 
-            let w = w_data.rv();
+            let w = w_data?.rv();
 
             self.w_id = Some(w.id());
             self.set_params(&w.clone());
@@ -324,15 +324,15 @@ impl Dense {
             b = None;
         }
 
-        let t = linear_simple(&x, &w, &b);
+        let t = linear_simple(&x, &w, &b)?;
 
         let y = match self.activation {
-            Activation::Sigmoid => sigmoid_simple(&t),
-            Activation::Relu => relu(&t),
-            Activation::Tanh => tanh(&t),
+            Activation::Sigmoid => sigmoid_simple(&t)?,
+            Activation::Relu => relu(&t)?,
+            Activation::Tanh => tanh(&t)?,
         };
 
-        y
+        Ok(y)
     }
 
     pub fn new(
@@ -340,7 +340,7 @@ impl Dense {
         biased: bool,
         opt_in_size: Option<u32>,
         activation: Activation,
-    ) -> Self {
+    ) -> FrameResult<Self> {
         let mut dense = Self {
             input: None,
             output: None,
@@ -361,33 +361,26 @@ impl Dense {
 
             let i_f32 = in_size as f32;
 
-            let w_data: ArrayBase<OwnedRepr<f32>, Dim<[usize; 2]>> =
-                &Array::random((i, o), StandardNormal) * ((1.0f32 / i_f32).sqrt());
+            let w_data = Tensor::standard_normal(vec![i, o])? / ((1.0f32 / i_f32).sqrt()).ts();
 
-            let w = w_data.rv();
+            let w = w_data?.rv();
 
             dense.w_id = Some(w.id());
             dense.set_params(&w.clone());
         }
 
         if biased == true {
-            let b = Array::zeros(out_size as usize).rv();
+            let b = Tensor::zeros(vec![out_size as usize])?.rv();
             dense.b_id = Some(b.id());
             dense.set_params(&b.clone());
         }
 
-        dense
-    }
-
-    pub fn update_params(&mut self, lr: f32) {
-        for (_id, param) in self.params.iter() {
-            let param_data = param.data();
-            let current_grad = param.grad().as_ref().unwrap().data();
-            param.0.borrow_mut().data = param_data - lr * current_grad;
-        }
+        Ok(dense)
     }
 }
 /// Conv2d関数を処理するLayer構造体
+///
+/// new()よる呼び出しでResult型で返す
 ///
 /// # Examples
 ///
@@ -397,7 +390,7 @@ impl Dense {
 ///     let pad_size = (0, 0);
 ///     let biased = false;
 ///     let mut model = BaseModel::new();
-///     model.stack(L::Conv2d::new(out_channels, kernel_size, stride_size, pad_size, biased));
+///     model.stack(L::Conv2d::new(out_channels, kernel_size, stride_size, pad_size, biased)?);
 ///
 ///conv2d_simple関数でbiasの処理が未実装なので、このLayerでもbiasはまだ使えない。
 #[derive(Debug, Clone)]
@@ -416,8 +409,9 @@ pub struct Conv2d {
 }
 
 impl Layer for Conv2d {
-    fn set_params(&mut self, param: &RcVariable) {
+    fn set_params(&mut self, param: &RcVariable) -> FrameResult<()> {
         self.params.insert(param.id(), param.clone());
+        Ok(())
     }
     fn get_input(&self) -> RcVariable {
         let input = self
@@ -445,10 +439,10 @@ impl Layer for Conv2d {
         RcVariable(output)
     }
 
-    fn call(&mut self, input: &RcVariable) -> RcVariable {
+    fn call(&mut self, input: &RcVariable) -> FrameResult<RcVariable> {
         // inputのvariableからdataを取り出す
 
-        let output = self.forward(input);
+        let output = self.forward(input)?;
 
         //ここから下の処理はbackwardするときだけ必要。
 
@@ -458,7 +452,7 @@ impl Layer for Conv2d {
         //  outputを弱参照(downgrade)で覚える
         self.output = Some(output.downgrade());
 
-        output
+        Ok(output)
     }
 
     fn get_generation(&self) -> i32 {
@@ -467,8 +461,8 @@ impl Layer for Conv2d {
     fn get_id(&self) -> usize {
         self.id
     }
-    fn params(&mut self) -> &mut FxHashMap<usize, RcVariable> {
-        &mut self.params
+    fn params(&mut self) -> FrameResult<&mut FxHashMap<usize, RcVariable>> {
+        Ok(&mut self.params)
     }
 
     fn cleargrad(&mut self) {
@@ -483,18 +477,20 @@ impl Layer for Conv2d {
 }
 
 impl Conv2d {
-    fn forward(&mut self, x: &RcVariable) -> RcVariable {
+    fn forward(&mut self, x: &RcVariable) -> FrameResult<RcVariable> {
         if let None = &self.w_id {
-            let c = x.data().shape()[1];
+            let c = x.data().shape().dims()[1];
             let oc = self.out_channels;
             let (kh, kw) = self.kernel_size;
 
             let scale = (1.0f32 / ((c * kh * kw) as f32)).sqrt();
 
+            let w_data = Tensor::standard_normal(vec![oc, c, kh, kw])? * scale.ts();
+            /*
             let w_data: ArrayBase<OwnedRepr<f32>, Dim<[usize; 4]>> =
                 &Array::random((oc, c, kh, kw), StandardNormal) * scale;
-
-            let w = w_data.rv();
+            */
+            let w = w_data?.rv();
 
             self.w_id = Some(w.id());
             self.set_params(&w.clone());
@@ -523,7 +519,7 @@ impl Conv2d {
         stride_size: (usize, usize),
         pad_size: (usize, usize),
         biased: bool,
-    ) -> Self {
+    ) -> FrameResult<Self> {
         let mut conv2d = Self {
             input: None,
             output: None,
@@ -539,12 +535,12 @@ impl Conv2d {
         };
 
         if biased == true {
-            let b = Array::zeros(out_channels as usize).rv();
+            let b = Tensor::zeros(vec![out_channels as usize])?.rv();
             conv2d.b_id = Some(b.id());
             conv2d.set_params(&b.clone());
         }
 
-        conv2d
+        Ok(conv2d)
     }
 }
 
@@ -570,8 +566,10 @@ pub struct Maxpool2d {
 }
 
 impl Layer for Maxpool2d {
-    fn set_params(&mut self, _param: &RcVariable) {
-        unimplemented!("Maxpool2dはパラメータを保持していません。") //Maxpool2dはparamsを持たないので
+    fn set_params(&mut self, _param: &RcVariable) -> FrameResult<()> {
+        Err(FrameError::LayerError(LayerError::NoParameterError {
+            layer: ("Maxpool2d"),
+        })) //Maxpool2dはparamsを持たないので
     }
     fn get_input(&self) -> RcVariable {
         let input = self
@@ -599,10 +597,10 @@ impl Layer for Maxpool2d {
         RcVariable(output)
     }
 
-    fn call(&mut self, input: &RcVariable) -> RcVariable {
+    fn call(&mut self, input: &RcVariable) -> FrameResult<RcVariable> {
         // inputのvariableからdataを取り出す
 
-        let output = self.forward(input);
+        let output = self.forward(input)?;
 
         //ここから下の処理はbackwardするときだけ必要。
 
@@ -612,7 +610,7 @@ impl Layer for Maxpool2d {
         //  outputを弱参照(downgrade)で覚える
         self.output = Some(output.downgrade());
 
-        output
+        Ok(output)
     }
 
     fn get_generation(&self) -> i32 {
@@ -621,8 +619,10 @@ impl Layer for Maxpool2d {
     fn get_id(&self) -> usize {
         self.id
     }
-    fn params(&mut self) -> &mut FxHashMap<usize, RcVariable> {
-        unimplemented!("Maxpool2dはパラメータを保持していません。")
+    fn params(&mut self) -> FrameResult<&mut FxHashMap<usize, RcVariable>> {
+        Err(FrameError::LayerError(LayerError::NoParameterError {
+            layer: ("Maxpool2d"),
+        }))
     }
 
     fn cleargrad(&mut self) {}
@@ -633,10 +633,10 @@ impl Layer for Maxpool2d {
 }
 
 impl Maxpool2d {
-    fn forward(&mut self, x: &RcVariable) -> RcVariable {
-        let y = max_pool2d_simple(x, self.kernel_size, self.stride_size, self.pad_size);
+    fn forward(&mut self, x: &RcVariable) -> FrameResult<RcVariable> {
+        let y = max_pool2d_simple(x, self.kernel_size, self.stride_size, self.pad_size)?;
 
-        y
+        Ok(y)
     }
 
     pub fn new(
@@ -677,8 +677,10 @@ pub struct Dropout {
 }
 
 impl Layer for Dropout {
-    fn set_params(&mut self, _param: &RcVariable) {
-        unimplemented!("Dropoutはパラメータを保持していません。") //Dropoutはparamsを持たないので
+    fn set_params(&mut self, _param: &RcVariable) -> FrameResult<()> {
+        Err(FrameError::LayerError(LayerError::NoParameterError {
+            layer: ("Dropout"),
+        })) //Dropoutはparamsを持たないので
     }
     fn get_input(&self) -> RcVariable {
         let input = self
@@ -706,10 +708,10 @@ impl Layer for Dropout {
         RcVariable(output)
     }
 
-    fn call(&mut self, input: &RcVariable) -> RcVariable {
+    fn call(&mut self, input: &RcVariable) -> FrameResult<RcVariable> {
         // inputのvariableからdataを取り出す
 
-        let output = self.forward(input);
+        let output = self.forward(input)?;
 
         //ここから下の処理はbackwardするときだけ必要。
 
@@ -719,7 +721,7 @@ impl Layer for Dropout {
         //  outputを弱参照(downgrade)で覚える
         self.output = Some(output.downgrade());
 
-        output
+        Ok(output)
     }
 
     fn get_generation(&self) -> i32 {
@@ -728,8 +730,10 @@ impl Layer for Dropout {
     fn get_id(&self) -> usize {
         self.id
     }
-    fn params(&mut self) -> &mut FxHashMap<usize, RcVariable> {
-        unimplemented!("Dropoutはパラメータを保持していません。")
+    fn params(&mut self) -> FrameResult<&mut FxHashMap<usize, RcVariable>> {
+        Err(FrameError::LayerError(LayerError::NoParameterError {
+            layer: ("Dropout"),
+        }))
     }
 
     fn cleargrad(&mut self) {}
@@ -740,14 +744,14 @@ impl Layer for Dropout {
 }
 
 impl Dropout {
-    fn forward(&mut self, x: &RcVariable) -> RcVariable {
-        let y = dropout(x, self.ratio);
+    fn forward(&mut self, x: &RcVariable) -> FrameResult<RcVariable> {
+        let y = dropout(x, self.ratio)?;
 
-        y
+        Ok(y)
     }
 
     pub fn new(ratio: f32) -> Self {
-        let maxpool2d = Self {
+        let dropout = Self {
             input: None,
             output: None,
             ratio: ratio,
@@ -755,7 +759,7 @@ impl Dropout {
             id: id_generator(),
         };
 
-        maxpool2d
+        dropout
     }
 }
 
@@ -769,8 +773,10 @@ pub struct ActivationLayer {
 }
 
 impl Layer for ActivationLayer {
-    fn set_params(&mut self, _param: &RcVariable) {
-        unimplemented!("ActivationLayerはパラメータを保持していません。")
+    fn set_params(&mut self, _param: &RcVariable) -> FrameResult<()> {
+        Err(FrameError::LayerError(LayerError::NoParameterError {
+            layer: ("ActivationLayer"),
+        }))
     }
     fn get_input(&self) -> RcVariable {
         let input = self
@@ -798,10 +804,10 @@ impl Layer for ActivationLayer {
         RcVariable(output)
     }
 
-    fn call(&mut self, input: &RcVariable) -> RcVariable {
+    fn call(&mut self, input: &RcVariable) -> FrameResult<RcVariable> {
         // inputのvariableからdataを取り出す
 
-        let output = self.forward(input);
+        let output = self.forward(input)?;
 
         //ここから下の処理はbackwardするときだけ必要。
 
@@ -811,7 +817,7 @@ impl Layer for ActivationLayer {
         //  outputを弱参照(downgrade)で覚える
         self.output = Some(output.downgrade());
 
-        output
+        Ok(output)
     }
 
     fn get_generation(&self) -> i32 {
@@ -820,8 +826,10 @@ impl Layer for ActivationLayer {
     fn get_id(&self) -> usize {
         self.id
     }
-    fn params(&mut self) -> &mut FxHashMap<usize, RcVariable> {
-        unimplemented!("ActivationLayerはパラメータを保持していません。")
+    fn params(&mut self) -> FrameResult<&mut FxHashMap<usize, RcVariable>> {
+        Err(FrameError::LayerError(LayerError::NoParameterError {
+            layer: ("ActivationLayer"),
+        }))
     }
 
     fn cleargrad(&mut self) {}
@@ -832,14 +840,14 @@ impl Layer for ActivationLayer {
 }
 
 impl ActivationLayer {
-    fn forward(&mut self, x: &RcVariable) -> RcVariable {
+    fn forward(&mut self, x: &RcVariable) -> FrameResult<RcVariable> {
         let y = match self.activation {
-            Activation::Sigmoid => sigmoid_simple(&x),
-            Activation::Relu => relu(&x),
-            Activation::Tanh => tanh(&x),
+            Activation::Sigmoid => sigmoid_simple(&x)?,
+            Activation::Relu => relu(&x)?,
+            Activation::Tanh => tanh(&x)?,
         };
 
-        y
+        Ok(y)
     }
 
     pub fn new(activation: Activation) -> Self {
@@ -864,8 +872,10 @@ pub struct Flatten {
 }
 
 impl Layer for Flatten {
-    fn set_params(&mut self, _param: &RcVariable) {
-        unimplemented!("Flattenはパラメータを保持していません。")
+    fn set_params(&mut self, _param: &RcVariable) -> FrameResult<()> {
+        Err(FrameError::LayerError(LayerError::NoParameterError {
+            layer: ("Flatten"),
+        }))
     }
     fn get_input(&self) -> RcVariable {
         let input = self
@@ -893,10 +903,10 @@ impl Layer for Flatten {
         RcVariable(output)
     }
 
-    fn call(&mut self, input: &RcVariable) -> RcVariable {
+    fn call(&mut self, input: &RcVariable) -> FrameResult<RcVariable> {
         // inputのvariableからdataを取り出す
 
-        let output = self.forward(input);
+        let output = self.forward(input)?;
 
         //ここから下の処理はbackwardするときだけ必要。
 
@@ -906,7 +916,7 @@ impl Layer for Flatten {
         //  outputを弱参照(downgrade)で覚える
         self.output = Some(output.downgrade());
 
-        output
+        Ok(output)
     }
 
     fn get_generation(&self) -> i32 {
@@ -915,8 +925,10 @@ impl Layer for Flatten {
     fn get_id(&self) -> usize {
         self.id
     }
-    fn params(&mut self) -> &mut FxHashMap<usize, RcVariable> {
-        unimplemented!("Flattenはパラメータを保持していません。")
+    fn params(&mut self) -> FrameResult<&mut FxHashMap<usize, RcVariable>> {
+        Err(FrameError::LayerError(LayerError::NoParameterError {
+            layer: ("Flatten"),
+        }))
     }
 
     fn cleargrad(&mut self) {}
@@ -927,30 +939,35 @@ impl Layer for Flatten {
 }
 
 impl Flatten {
-    fn forward(&mut self, x: &RcVariable) -> RcVariable {
-        let n = x.data().shape()[0];
+    fn forward(&mut self, x: &RcVariable) -> FrameResult<RcVariable> {
+        let n = x.data().shape().dims()[0];
         let y = match x.data().ndim() {
             3 => {
-                let h = x.data().shape()[1];
-                let w = x.data().shape()[2];
-                let y = reshape(&x, IxDyn(&[n, h * w]));
+                let h = x.data().shape().dims()[1];
+                let w = x.data().shape().dims()[2];
+                //let y = reshape(&x, IxDyn(&[n, h * w]));
+                let y = reshape(&x, &Shape::new(vec![n, h * w])?)?;
 
                 y
             }
             4 => {
-                let h = x.data().shape()[1];
-                let w = x.data().shape()[2];
-                let c = x.data().shape()[3];
-                let y = reshape(&x, IxDyn(&[n, h * w * c]));
+                let h = x.data().shape().dims()[1];
+                let w = x.data().shape().dims()[2];
+                let c = x.data().shape().dims()[3];
+                //let y = reshape(&x, IxDyn(&[n, h * w * c]));
+                let y = reshape(&x, &Shape::new(vec![n, h * w * c])?)?;
 
                 y
             }
             _ => {
-                unimplemented!("Flattenの3,4以外の次元の行列には未対応")
+                return Err(FrameError::Unimplemented {
+                    context: "Flattenは現在3,4次元の行列のみ対応。".to_string(),
+                    source: None,
+                });
             }
         };
 
-        y
+        Ok(y)
     }
 
     pub fn new() -> Self {
@@ -982,8 +999,9 @@ pub struct RNN {
 }
 
 impl Layer for RNN {
-    fn set_params(&mut self, param: &RcVariable) {
+    fn set_params(&mut self, param: &RcVariable) -> FrameResult<()> {
         self.params.insert(param.id(), param.clone());
+        Ok(())
     }
     fn get_input(&self) -> RcVariable {
         let input = self
@@ -1011,10 +1029,10 @@ impl Layer for RNN {
         RcVariable(output)
     }
 
-    fn call(&mut self, input: &RcVariable) -> RcVariable {
+    fn call(&mut self, input: &RcVariable) -> FrameResult<RcVariable> {
         // inputのvariableからdataを取り出す
 
-        let output = self.forward(input);
+        let output = self.forward(input)?;
 
         //ここから下の処理はbackwardするときだけ必要。
 
@@ -1026,7 +1044,7 @@ impl Layer for RNN {
         //  outputを弱参照(downgrade)で覚える
         self.output = Some(output.downgrade());
 
-        output
+        Ok(output)
     }
 
     fn get_generation(&self) -> i32 {
@@ -1035,8 +1053,8 @@ impl Layer for RNN {
     fn get_id(&self) -> usize {
         self.id
     }
-    fn params(&mut self) -> &mut FxHashMap<usize, RcVariable> {
-        &mut self.params
+    fn params(&mut self) -> FrameResult<&mut FxHashMap<usize, RcVariable>> {
+        Ok(&mut self.params)
     }
 
     fn cleargrad(&mut self) {
@@ -1051,19 +1069,18 @@ impl Layer for RNN {
 }
 
 impl RNN {
-    fn forward(&mut self, x: &RcVariable) -> RcVariable {
+    fn forward(&mut self, x: &RcVariable) -> FrameResult<RcVariable> {
         if let Some(h_rc) = &self.h {
-            let h_new = tanh(&(self.x2h.call(&x) + self.h2h.call(h_rc)));
+            let h_new = tanh(&(self.x2h.call(&x)? + self.h2h.call(h_rc)?))?;
         }
         if let None = &self.w_id {
-            let i = x.data().shape()[1];
+            let i = x.data().shape().dims()[1];
             let o = self.out_size as usize;
             let i_f32 = i as f32;
 
-            let w_data: ArrayBase<OwnedRepr<f32>, Dim<[usize; 2]>> =
-                &Array::random((i, o), StandardNormal) * ((1.0f32 / i_f32).sqrt());
+            let w_data = Tensor::standard_normal(vec![i, o])? / ((1.0f32 / i_f32).sqrt()).ts();
 
-            let w = w_data.rv();
+            let w = w_data?.rv();
 
             self.w_id = Some(w.id());
             self.set_params(&w.clone());
@@ -1081,28 +1098,28 @@ impl RNN {
             b = None;
         }
 
-        let t = linear_simple(&x, &w, &b);
+        let t = linear_simple(&x, &w, &b)?;
 
         let y = match self.activation {
-            Activation::Sigmoid => sigmoid_simple(&t),
-            Activation::Relu => relu(&t),
-            Activation::Tanh => tanh(&t),
+            Activation::Sigmoid => sigmoid_simple(&t)?,
+            Activation::Relu => relu(&t)?,
+            Activation::Tanh => tanh(&t)?,
         };
 
-        y
+        Ok(y)
     }
 
     pub fn new(
         out_size: u32,
         biased: bool,
-        opt_in_size: Option<u32>,
+        opt_in_size: Option<usize>,
         activation: Activation,
-    ) -> Self {
-        let mut dense = Self {
+    ) -> FrameResult<Self> {
+        let mut rnn = Self {
             input: None,
             output: None,
-            x2h: Linear::new(out_size, biased, opt_in_size),
-            h2h: Linear::new(out_size, false, opt_in_size),
+            x2h: Linear::new(out_size, biased, opt_in_size)?,
+            h2h: Linear::new(out_size, false, opt_in_size)?,
             h: None,
             out_size: out_size,
             w_id: None,
@@ -1121,30 +1138,21 @@ impl RNN {
 
             let i_f32 = in_size as f32;
 
-            let w_data: ArrayBase<OwnedRepr<f32>, Dim<[usize; 2]>> =
-                &Array::random((i, o), StandardNormal) * ((1.0f32 / i_f32).sqrt());
+            let w_data = Tensor::standard_normal(vec![i, o])? / ((1.0f32 / i_f32).sqrt()).ts();
 
-            let w = w_data.rv();
+            let w = w_data?.rv();
 
-            dense.w_id = Some(w.id());
-            dense.set_params(&w.clone());
+            rnn.w_id = Some(w.id());
+            rnn.set_params(&w.clone());
         }
 
         if biased == true {
-            let b = Array::zeros(out_size as usize).rv();
-            dense.b_id = Some(b.id());
-            dense.set_params(&b.clone());
+            let b = Tensor::zeros(vec![out_size as usize])?.rv();
+            rnn.b_id = Some(b.id());
+            rnn.set_params(&b.clone());
         }
 
-        dense
-    }
-
-    pub fn update_params(&mut self, lr: f32) {
-        for (_id, param) in self.params.iter() {
-            let param_data = param.data();
-            let current_grad = param.grad().as_ref().unwrap().data();
-            param.0.borrow_mut().data = param_data - lr * current_grad;
-        }
+        Ok(rnn)
     }
 }
 
@@ -1156,4 +1164,10 @@ pub enum Activation {
     Sigmoid,
     Relu,
     Tanh,
+}
+
+#[derive(Debug, Error)]
+pub enum LayerError {
+    #[error("レイヤー:{layer}はパラメーターを保持していません。")]
+    NoParameterError { layer: &'static str },
 }
