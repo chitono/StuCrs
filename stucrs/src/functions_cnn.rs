@@ -2,7 +2,9 @@ use core::f32;
 use std::cell::RefCell;
 //use std::clone;
 //use std::collections::HashSet;
+use crate::tensor::error::TensorError;
 use std::fmt::Debug;
+use thiserror::Error;
 
 use ndarray::*;
 use ndarray_stats::QuantileExt;
@@ -616,15 +618,8 @@ pub fn col2im_array(
     imgs
 }
 
-/*
-#[derive(Debug, Clone)]
+#[derive(Debug, Error)]
 pub enum CNNError {
-    Im2colError(String),
+    #[error("CNNの関数{function}において想定されていないサイズが検出されました。")]
+    SizeMismatch { function: &'static str },
 }
-
-impl std::error::Error for CNNError {}
-
-impl fmt::Display for CNNError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {}
-}
-*/
