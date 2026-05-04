@@ -855,10 +855,12 @@ impl TensorOps for Tensor {
         ))
     }
 
-    fn rows_slice(&self, indices: &[u32]) -> Result<Self> {
-        let result_shape = Shape::new(vec![indices.len(), self.shape.dims()[1]]).unwrap();
+    fn axis_slice(&self, axis: usize, indices: &[usize]) -> Result<Self> {
+        let mut current_shape_vec = self.shape().dims.clone();
+        current_shape_vec[axis] = indices.len();
+        let result_shape = Shape::new(current_shape_vec).unwrap();
         for backend in &BACKENDS[0..] {
-            match backend.rows_slice(&self.storage, &self.shape, &indices) {
+            match backend.axis_slice(&self.storage, &self.shape, axis, &indices) {
                 Ok(storage) => {
                     return Ok(Tensor {
                         storage,

@@ -204,13 +204,17 @@ impl Backend for CpuBackend {
         }
     }
 
-    fn rows_slice(&self, storage: &Storage, shape: &Shape, indices: &[u32]) -> Result<Storage> {
+    fn axis_slice(
+        &self,
+        storage: &Storage,
+        shape: &Shape,
+        axis: usize,
+        indices: &[usize],
+    ) -> Result<Storage> {
         let data = storage.to_ndarray()?;
-        let result = data.ln();
-        //Ok(Storage::Cpu(result));
-        Err(TensorError::BackendError(
-            "cpuでのrow-sliceは未実装".to_string(),
-        ))
+        let result = data.select(Axis(axis), indices);
+
+        Ok(Storage::Cpu(result))
     }
     fn transpose(&self, storage: &Storage, shape: &Shape) -> Result<Storage> {
         let dims = shape.dims();

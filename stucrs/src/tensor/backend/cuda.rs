@@ -778,8 +778,14 @@ impl Backend for CudaBackend {
             "CUDA has not support permuted_axes yet".to_string(),
         ))
     }
-
-    fn rows_slice(&self, storage: &Storage, shape: &Shape, indices: &[u32]) -> Result<Storage> {
+    // TODO:axis_slice cuda未対応
+    fn axis_slice(
+        &self,
+        storage: &Storage,
+        shape: &Shape,
+        axis: usize,
+        indices: &[usize],
+    ) -> Result<Storage> {
         #[cfg(feature = "cuda")]
         {
             match storage {

@@ -85,7 +85,7 @@ pub trait TensorOps {
     where
         Self: Sized;
 
-    fn rows_slice(&self, indices: &[u32]) -> Result<Self>
+    fn axis_slice(&self, axis: usize, indices: &[usize]) -> Result<Self>
     where
         Self: Sized;
 
@@ -150,6 +150,7 @@ pub trait TensorOps {
     fn permuted_axes(&self, axes: &Vec<usize>) -> Result<Self>
     where
         Self: Sized;
+
     /// Removes dimensions of size 1 from the tensor shape.
     ///
     /// # Arguments
