@@ -17,7 +17,7 @@ once_cell = "1.21"
 
 
 # CUDA dependencies (optional)
-cudarc = { version = "0.16", features = ["cuda-version-from-build-system"], optional = true }
+cudarc = { version = "0.19.4", features = ["cuda-version-from-build-system"], optional = true }
 
 [features]
 default = ["cpu"]

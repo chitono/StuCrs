@@ -39,6 +39,10 @@ pub trait TensorOps {
     ///
     /// A tensor containing the sum. If summing all elements, returns a scalar tensor.
     ///
+    /// # Attention!
+    ///
+    /// keepdimsは現在falseのみで使用してください。
+    ///
     /// # Examples
     ///
     /// ```

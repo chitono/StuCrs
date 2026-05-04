@@ -458,6 +458,8 @@ impl Backend for CudaBackend {
                         let in_n = shape.numel();
                         let out_n = result_shape.numel();
 
+                        println!("in_shape = {:?}", out_shape);
+
                         let stream = self.context.default_stream();
 
                         let mut result_buf = stream.alloc_zeros::<f32>(out_n).map_err(|e| {
@@ -481,10 +483,17 @@ impl Backend for CudaBackend {
                             shared_mem_bytes: (block_size * std::mem::size_of::<f32>()) as u32,
                         };
 
-                        let in_shape_buffer = stream.memcpy_stod(in_shape).unwrap();
-                        let out_shape_buffer = stream.memcpy_stod(out_shape).unwrap();
-                        let in_strides_buffer = stream.memcpy_stod(&in_strides).unwrap();
-                        let out_strides_buffer = stream.memcpy_stod(&out_strides).unwrap();
+                        let in_shape_i32: Vec<i32> = in_shape.iter().map(|&x| x as i32).collect();
+                        let out_shape_i32: Vec<i32> = out_shape.iter().map(|&x| x as i32).collect();
+                        let in_strides_i32: Vec<i32> =
+                            in_strides.iter().map(|&x| x as i32).collect();
+                        let out_strides_i32: Vec<i32> =
+                            out_strides.iter().map(|&x| x as i32).collect();
+
+                        let in_shape_buffer = stream.memcpy_stod(&in_shape_i32).unwrap();
+                        let out_shape_buffer = stream.memcpy_stod(&out_shape_i32).unwrap();
+                        let in_strides_buffer = stream.memcpy_stod(&in_strides_i32).unwrap();
+                        let out_strides_buffer = stream.memcpy_stod(&out_strides_i32).unwrap();
 
                         let mut builder = stream.launch_builder(kernel);
                         builder.arg(cuda_storage.buffer.as_ref());
@@ -517,7 +526,6 @@ impl Backend for CudaBackend {
     }
     // TODO:sum_to cuda未対応
     fn sum_to(&self, storage: &Storage, from_shape: &Shape, to_shape: &Shape) -> Result<Storage> {
-        #[cfg(not(feature = "cuda"))]
         Err(TensorError::BackendError(
             "CUDA has not support sum_to yet".to_string(),
         ))
@@ -533,11 +541,20 @@ impl Backend for CudaBackend {
         {
             match storage {
                 Storage::Cuda(cuda_storage) => {
-                    let in_shape = &from_shape.dims;
+                    let mut in_shape = from_shape.dims.clone();
                     let out_shape = &to_shape.dims;
 
                     let in_strides = from_shape.strides();
                     let out_strides = to_shape.strides();
+
+                    if to_shape.ndim() != from_shape.ndim() {
+                        let offset = out_shape.len() - in_shape.len();
+                        for _ in 0..offset {
+                            in_shape.insert(0, 1);
+                        }
+                    }
+
+                    println!("in_shape = {:?}", in_shape);
 
                     let in_ndim = in_shape.len();
                     let out_ndim = out_shape.len();
@@ -573,10 +590,15 @@ impl Backend for CudaBackend {
                         shared_mem_bytes: 0,
                     };
 
-                    let in_shape_buffer = stream.memcpy_stod(in_shape).unwrap();
-                    let out_shape_buffer = stream.memcpy_stod(out_shape).unwrap();
-                    let in_strides_buffer = stream.memcpy_stod(&in_strides).unwrap();
-                    let out_strides_buffer = stream.memcpy_stod(&out_strides).unwrap();
+                    let in_shape_i32: Vec<i32> = in_shape.iter().map(|&x| x as i32).collect();
+                    let out_shape_i32: Vec<i32> = out_shape.iter().map(|&x| x as i32).collect();
+                    let in_strides_i32: Vec<i32> = in_strides.iter().map(|&x| x as i32).collect();
+                    let out_strides_i32: Vec<i32> = out_strides.iter().map(|&x| x as i32).collect();
+
+                    let in_shape_buffer = stream.memcpy_stod(&in_shape_i32).unwrap();
+                    let out_shape_buffer = stream.memcpy_stod(&out_shape_i32).unwrap();
+                    let in_strides_buffer = stream.memcpy_stod(&in_strides_i32).unwrap();
+                    let out_strides_buffer = stream.memcpy_stod(&out_strides_i32).unwrap();
 
                     let mut builder = stream.launch_builder(kernel);
 
@@ -603,7 +625,6 @@ impl Backend for CudaBackend {
                 }
                 _ => {
                     // Convert to CUDA and try again
-
                     let data = self.to_vec_f32(storage)?;
                     let shape = Shape::new(vec![data.len()])?;
                     let cuda_storage = self.from_slice(&data, &shape)?;
@@ -753,7 +774,6 @@ impl Backend for CudaBackend {
         shape: &Shape,
         axes: &Vec<usize>,
     ) -> Result<Storage> {
-        #[cfg(not(feature = "cuda"))]
         Err(TensorError::BackendError(
             "CUDA has not support permuted_axes yet".to_string(),
         ))
@@ -960,11 +980,11 @@ impl Backend for CudaBackend {
     // TODO:tensordot cuda未対応
     fn tensordot(
         &self,
-        storage: &Storage,
-        from_shape: &Shape,
-        to_shape: &Shape,
+        lhs: &Storage,
+        rhs: &Storage,
+        lhs_shape: &Shape,
+        rhs_shape: &Shape,
     ) -> Result<Storage> {
-        #[cfg(not(feature = "cuda"))]
         Err(TensorError::BackendError(
             "CUDA has not support tensordot yet".to_string(),
         ))
@@ -1374,7 +1394,6 @@ impl Backend for CudaBackend {
         result_shape: &Shape,
         axis: Option<usize>,
     ) -> Result<Storage> {
-        #[cfg(not(feature = "cuda"))]
         Err(TensorError::BackendError(
             "CUDA has not support max yet".to_string(),
         ))
@@ -1387,7 +1406,6 @@ impl Backend for CudaBackend {
         shape: &Shape,
         axis: Option<usize>,
     ) -> Result<Storage> {
-        #[cfg(not(feature = "cuda"))]
         Err(TensorError::BackendError(
             "CUDA has not support max yet".to_string(),
         ))
@@ -1718,7 +1736,6 @@ impl Backend for CudaBackend {
         stride_size: (usize, usize),
         pad_size: (usize, usize),
     ) -> Result<Storage> {
-        #[cfg(not(feature = "cuda"))]
         Err(TensorError::BackendError(
             "CUDA has not support im2col".to_string(),
         ))
@@ -1734,7 +1751,6 @@ impl Backend for CudaBackend {
         stride_size: (usize, usize),
         pad_size: (usize, usize),
     ) -> Result<Storage> {
-        #[cfg(not(feature = "cuda"))]
         Err(TensorError::BackendError(
             "CUDA has not support col2im".to_string(),
         ))

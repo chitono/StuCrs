@@ -65,7 +65,7 @@ __global__ void sum_axis_kernel(const float* input, float* output,
     }
 
     int in_idx_base = 0;
-    for (int i = 0; i < in_n; ++i) {
+    for (int i = 0; i < in_ndim; ++i) {
         in_idx_base += input_coords[i]*in_strides[i];
     }
 
@@ -120,29 +120,31 @@ __global__ void broadcast_to_kernel(const float* input, float* output,
 
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (idx < out_n) {
-        int coords[6];
-        int tmp = idx;
+    if (idx >= out_n) return;
+    int coords[6] = {0};
+    int tmp = idx;
 
-        for (int i = out_ndim -1; i >= 0; --i) {
-            coords[i] = tmp % out_shape[i];
-            tmp /= out_shape[i];
-        }
+    for (int i = out_ndim -1; i >= 0; --i) {
+        coords[i] = tmp % out_shape[i];
+        tmp /= out_shape[i];
 
-
-        int in_idx = 0;
-
-        if (in_n == 1){
-            in_idx = 0;
-        }else{
-            for (int i = 0; i < out_ndim; ++i) {
-                in_idx += coords[i] * in_strides[i];
-            }
-            
-        }
-
-        output[idx] = input[in_idx];
     }
+
+
+    int in_idx = 0;
+
+    if (in_n == 1){
+        in_idx = 0;
+    }else{
+        for (int i = 0; i < out_ndim; ++i) {
+            int coord = (in_shape[i] ==1) ? 0 : coords[i];
+            in_idx += coord * out_strides[i];
+        }
+            
+    }
+
+    output[idx] = input[in_idx];
+    
 }
 
 __global__ void rows_slice_kernel(const float* input, float* output,
