@@ -459,8 +459,6 @@ impl Backend for CudaBackend {
                         let in_n = shape.numel();
                         let out_n = result_shape.numel();
 
-                        println!("in_shape = {:?}", out_shape);
-
                         let stream = self.context.default_stream();
 
                         let mut result_buf = stream.alloc_zeros::<f32>(out_n).map_err(|e| {
@@ -1573,8 +1571,6 @@ impl Backend for CudaBackend {
                     let in_n = shape.numel();
                     let out_n = result_shape.numel();
                     let axis = axis as i32;
-
-                    println!("in_shape = {:?}", out_n);
 
                     let stream = self.context.default_stream();
                     let mut result_buf = stream.alloc_zeros::<f32>(out_n).map_err(|e| {

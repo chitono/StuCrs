@@ -1,5 +1,3 @@
-use std::result;
-
 use super::{Backend, Storage};
 use crate::functions::matrix::argmax_array;
 #[cfg(feature = "cpu")]
@@ -124,8 +122,6 @@ impl Backend for CpuBackend {
                 array![scalar].into_dyn()
             }
         };
-
-        println!("ndarrayのshape = {:?}", result.shape());
 
         Ok(Storage::Cpu(result))
     }

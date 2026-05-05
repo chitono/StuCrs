@@ -3,18 +3,18 @@
 //! This module provides the [`Tensor`] struct which is the central data structure
 //! in the library, along with its associated operations and traits.
 
-use crate::error::FrameError;
 use crate::tensor::backend::{Storage, BACKENDS};
 use crate::tensor::error::{Result, TensorError};
 //use broadcast::broadcast_data;
 use crate::functions_cnn::get_conv_outsize;
 use crate::tensor::ops::TensorOps;
-use crate::tensor::shape::{self, Shape};
+use crate::tensor::shape::Shape;
 use rand::thread_rng;
 use rand_distr::{Distribution, StandardNormal};
+use std::collections::HashSet;
 use std::ops::{Add, Div, Mul, Neg, Sub};
-use std::time::Instant;
-use std::{fmt, result, vec};
+
+use std::{fmt, vec};
 
 /// A multi-dimensional array with support for various backends and operations.
 ///
@@ -837,21 +837,28 @@ impl TensorOps for Tensor {
         ))
     }
 
-    fn sum_to(&self, to_shape: Shape) -> Result<Self> {
-        for backend in &BACKENDS[0..] {
-            match backend.sum_to(&self.storage, &self.shape, &to_shape) {
-                Ok(storage) => {
-                    return Ok(Tensor {
-                        storage,
-                        shape: to_shape,
-                    });
-                }
-                Err(_) => continue,
+    fn sum_to(&self, to_shape: &Shape) -> Result<Self> {
+        let x_shape = self.shape().dims();
+        let mut axes_to_sum = HashSet::new();
+
+        // 合計する軸を特定する
+        for i in 0..x_shape.len() {
+            if i >= to_shape.ndim() || x_shape[i] != to_shape.dims()[i] {
+                axes_to_sum.insert(i);
             }
         }
-        Err(TensorError::BackendError(
-            "No backend could perform sum_to operation".to_string(),
-        ))
+
+        let mut result = self.clone();
+
+        let mut sorted_axes: Vec<_> = axes_to_sum.into_iter().collect();
+        sorted_axes.sort_unstable();
+
+        // 特定した軸を合計する
+        for &axis in sorted_axes.iter().rev() {
+            result = result.sum(Some(axis), false)?.unsqueeze(axis)?;
+        }
+
+        Ok(result)
     }
 
     fn axis_slice(&self, axis: usize, indices: &[usize]) -> Result<Self> {
