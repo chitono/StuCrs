@@ -14,7 +14,7 @@ use rand::thread_rng;
 use rand_distr::{Distribution, StandardNormal};
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use std::time::Instant;
-use std::{fmt, vec};
+use std::{fmt, result, vec};
 
 /// A multi-dimensional array with support for various backends and operations.
 ///
@@ -311,7 +311,6 @@ impl Tensor {
 
         // Find the requested backend and create tensor with it
         for backend in &BACKENDS[0..] {
-            println!("backend = {:?}", backend.clone());
             match backend_name {
                 "CPU" => {
                     #[cfg(feature = "cpu")]
@@ -1518,6 +1517,38 @@ impl TensorOps for Tensor {
         }
         Err(TensorError::BackendError(
             "No backend could perform mask_for_grad_relu operation".to_string(),
+        ))
+    }
+
+    fn argmax_axis(&self, axis: usize) -> Result<Self> {
+        let dims = self.shape.dims();
+        let new_dims = if axis >= self.ndim() {
+            return Err(TensorError::InvalidShape(format!(
+                "Cannot argmax axis {} with size {}",
+                axis, dims[axis]
+            )));
+        } else {
+            dims.iter()
+                .enumerate()
+                .filter(|(i, _)| *i != axis)
+                .map(|(_, &d)| d)
+                .collect()
+        };
+
+        let result_shape = Shape::new(new_dims)?;
+        for backend in &BACKENDS[0..] {
+            match backend.argmax_axis(&self.storage, &self.shape, &result_shape, axis) {
+                Ok(storage) => {
+                    return Ok(Tensor {
+                        storage,
+                        shape: result_shape,
+                    });
+                }
+                Err(_) => continue,
+            }
+        }
+        Err(TensorError::BackendError(
+            "No backend could perform argmax_axis operation".to_string(),
         ))
     }
 

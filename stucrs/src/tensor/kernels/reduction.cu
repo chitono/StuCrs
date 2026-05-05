@@ -1,3 +1,6 @@
+
+
+
 // Reduction operations kernels
 extern "C" {
 
@@ -147,6 +150,14 @@ __global__ void broadcast_to_kernel(const float* input, float* output,
     
 }
 
+
+
+
+
+
+
+
+
 __global__ void rows_slice_kernel(const float* input, float* output,
                   int* indices, int num_indices,int cols) {
 
@@ -162,6 +173,76 @@ __global__ void rows_slice_kernel(const float* input, float* output,
         output[dst_idx] = input[src_idx];
     }
 }
+
+
+
+
+__global__ void argmax_axis_kernel(const float* input, float* output,
+                    const int* in_shape, const int* out_shape,
+                    const int* in_strides, const int* out_strides,
+                    int in_ndim, int out_ndim,
+                    int in_n, int out_n, int axis) {
+
+    
+
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= out_n) {
+        return;
+    }
+
+
+    int output_coords[6] = {0};
+    int input_coords[6] = {0};
+
+    int tmp = idx;
+
+    for (int i = out_ndim -1; i >= 0; --i) {
+        output_coords[i] = tmp % out_shape[i];
+        tmp /= out_shape[i];
+    }
+
+    int current_out_dim = 0;
+    for (int i = 0; i < in_ndim; ++i) {
+        if (i == axis) {
+            input_coords[i] = 0;
+        }else{
+            if (current_out_dim < out_ndim) {
+                input_coords[i] = output_coords[current_out_dim];
+                current_out_dim++;
+            }else{
+                input_coords[i] = 0;
+            }
+        }
+    }
+
+    int in_idx_base = 0;
+    for (int i = 0; i < in_ndim; ++i) {
+        in_idx_base += input_coords[i]*in_strides[i];
+    }
+
+    int stride_for_axis = in_strides[axis];
+    int reduction_size = in_shape[axis];
+
+
+
+    float max_value = -10000.0;
+    int max_idx = 0;
+    for (int k = 0; k < reduction_size; ++k) {
+        int in_idx = in_idx_base + k * stride_for_axis;
+        if (in_idx >= 0 && in_idx < in_n) {
+            float current_value = input[in_idx];
+            if (current_value > max_value) {
+                max_value = current_value;
+                max_idx = k;
+            }
+        }
+    }
+
+    output[idx] = (float)max_idx;
+}
+
+
+
 
 
 __global__ void argmax_axis0_2d_kernel(const float* input, float* output,

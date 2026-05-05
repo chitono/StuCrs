@@ -648,6 +648,27 @@ impl Backend for CpuBackend {
         Ok(Storage::Cpu(result))
     }
 
+    fn argmax_axis(
+        &self,
+        storage: &Storage,
+        _shape: &Shape,
+        _result_shape: &Shape,
+        axis: usize,
+    ) -> Result<Storage> {
+        let data = storage.to_ndarray()?;
+        let result = data.map_axis(Axis(axis), |view| {
+            view.iter()
+                .enumerate()
+                .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+                .map(|(i, _)| i)
+                .unwrap()
+        });
+
+        let result = result.mapv(|x| x as f32);
+
+        Ok(Storage::Cpu(result))
+    }
+
     // 仮の処理 coshx関数を使っている
     fn argmax_axis_2d(&self, storage: &Storage, shape: &Shape, axis: usize) -> Result<Storage> {
         println!("argmax_axis_2dの関数がcpuで処理されています。この処理は未実装です。");

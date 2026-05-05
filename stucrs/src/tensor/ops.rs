@@ -563,6 +563,10 @@ pub trait TensorOps {
     where
         Self: Sized;
 
+    fn argmax_axis(&self, axis: usize) -> Result<Self>
+    where
+        Self: Sized;
+
     fn argmax_axis_2d(&self, axis: usize) -> Result<Self>
     where
         Self: Sized;

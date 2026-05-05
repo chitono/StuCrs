@@ -56,6 +56,7 @@ impl CudaBackend {
                     "mean_kernel",
                     "broadcast_to_kernel",
                     "rows_slice_kernel",
+                    "argmax_axis_kernel",
                     "argmax_axis0_2d_kernel",
                     "argmax_axis1_2d_kernel",
                     "one_hot_encode_kernel",
@@ -1542,6 +1543,109 @@ impl Backend for CudaBackend {
         #[cfg(feature = "cuda")]
         {
             self.launch_unary_math_kernel("min_for_clamp_grad_kernel", storage)
+        }
+        #[cfg(not(feature = "cuda"))]
+        Err(TensorError::BackendError(
+            "CUDA support not compiled in".to_string(),
+        ))
+    }
+
+    fn argmax_axis(
+        &self,
+        storage: &Storage,
+        shape: &Shape,
+        result_shape: &Shape,
+        axis: usize,
+    ) -> Result<Storage> {
+        #[cfg(feature = "cuda")]
+        {
+            match storage {
+                Storage::Cuda(cuda_storage) => {
+                    let in_shape = &shape.dims;
+                    let out_shape = &result_shape.dims;
+
+                    let in_strides = shape.strides();
+                    let out_strides = result_shape.strides();
+
+                    let in_ndim = in_shape.len();
+                    let out_ndim = out_shape.len();
+
+                    let in_n = shape.numel();
+                    let out_n = result_shape.numel();
+                    let axis = axis as i32;
+
+                    println!("in_shape = {:?}", out_n);
+
+                    let stream = self.context.default_stream();
+                    let mut result_buf = stream.alloc_zeros::<f32>(out_n).map_err(|e| {
+                        TensorError::BackendError(format!(
+                            "Failed to allocate CUDA result buffer: {}",
+                            e
+                        ))
+                    })?;
+
+                    let kernel = self.kernels.get("argmax_axis_kernel").ok_or_else(|| {
+                        TensorError::BackendError("argmax_axis_kernel not found".to_string())
+                    })?;
+
+                    //let in_rows = from_shape.dims()[0];
+                    //let in_cols = from_shape.dims()[1];
+
+                    let size = cuda_storage.buffer.len();
+                    //let block_x = 16;
+                    //let block_y = 16;
+
+                    let grid_x = (out_n + 256 - 1) / 256;
+                    //let grid_y = (out_rows + block_y - 1) / block_y;
+
+                    let cfg = LaunchConfig {
+                        grid_dim: (grid_x as u32, 1, 1),
+                        block_dim: (256, 1, 1),
+                        shared_mem_bytes: 0,
+                    };
+
+                    let in_shape_i32: Vec<i32> = in_shape.iter().map(|&x| x as i32).collect();
+                    let out_shape_i32: Vec<i32> = out_shape.iter().map(|&x| x as i32).collect();
+                    let in_strides_i32: Vec<i32> = in_strides.iter().map(|&x| x as i32).collect();
+                    let out_strides_i32: Vec<i32> = out_strides.iter().map(|&x| x as i32).collect();
+
+                    let in_shape_buffer = stream.memcpy_stod(&in_shape_i32).unwrap();
+                    let out_shape_buffer = stream.memcpy_stod(&out_shape_i32).unwrap();
+                    let in_strides_buffer = stream.memcpy_stod(&in_strides_i32).unwrap();
+                    let out_strides_buffer = stream.memcpy_stod(&out_strides_i32).unwrap();
+
+                    let mut builder = stream.launch_builder(kernel);
+
+                    builder.arg(cuda_storage.buffer.as_ref());
+                    builder.arg(&mut result_buf);
+                    builder.arg(&in_shape_buffer);
+                    builder.arg(&out_shape_buffer);
+                    builder.arg(&in_strides_buffer);
+                    builder.arg(&out_strides_buffer);
+                    builder.arg(&in_ndim);
+                    builder.arg(&out_ndim);
+                    builder.arg(&in_n);
+                    builder.arg(&out_n);
+                    builder.arg(&axis);
+                    unsafe { builder.launch(cfg) }.map_err(|e| {
+                        TensorError::BackendError(format!(
+                            "Failed to launch argmax_axis kernel: {}",
+                            e
+                        ))
+                    })?;
+
+                    Ok(Storage::Cuda(CudaStorage {
+                        buffer: std::sync::Arc::new(result_buf),
+                    }))
+                }
+                _ => {
+                    // Convert to CUDA and try again
+                    let data = self.to_vec_f32(storage)?;
+                    let shape = Shape::new(vec![data.len()])?;
+                    let cuda_storage = self.from_slice(&data, &shape)?;
+                    self.pow(&cuda_storage, 2.0)
+                }
+            }
         }
         #[cfg(not(feature = "cuda"))]
         Err(TensorError::BackendError(
