@@ -81,7 +81,7 @@ pub trait TensorOps {
     where
         Self: Sized;
 
-    fn sum_to(&self, to_shape: Shape) -> Result<Self>
+    fn sum_to(&self, to_shape: &Shape) -> Result<Self>
     where
         Self: Sized;
 

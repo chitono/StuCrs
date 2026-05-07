@@ -71,6 +71,8 @@ pub trait Backend: Debug + Send + Sync {
     /// Performs element-wise division.
     fn div(&self, lhs: &Storage, rhs: &Storage) -> Result<Storage>;
 
+    fn reshape(&self, storage: &Storage, new_shape: &Shape) -> Result<Storage>;
+
     /// Computes the sum of elements along an optional axis.
     fn sum(
         &self,

@@ -20,10 +20,10 @@ impl CpuBackend {
 }
 
 impl Storage {
-    fn to_ndarray(&self) -> Result<ArrayD<f32>> {
+    fn to_ndarray(&self) -> Result<ArrayViewD<f32>> {
         match self {
             #[cfg(feature = "cpu")]
-            Storage::Cpu(array) => Ok(array.clone()),
+            Storage::Cpu(array) => Ok(array.view()),
             #[cfg(feature = "cuda")]
             Storage::Cuda(_) => Err(TensorError::BackendError(
                 "Cannot convert CUDA storage with cpu ndarray backend".to_string(),
@@ -55,8 +55,8 @@ impl Backend for CpuBackend {
     }
 
     fn add(&self, lhs: &Storage, rhs: &Storage) -> Result<Storage> {
-        let lhs_data = lhs.to_ndarray()?;
-        let rhs_data = rhs.to_ndarray()?;
+        let lhs_data = lhs.to_ndarray()?.to_owned();
+        let rhs_data = rhs.to_ndarray()?.to_owned();
 
         let result = lhs_data + rhs_data;
 
@@ -64,8 +64,8 @@ impl Backend for CpuBackend {
     }
 
     fn sub(&self, lhs: &Storage, rhs: &Storage) -> Result<Storage> {
-        let lhs_data = lhs.to_ndarray()?;
-        let rhs_data = rhs.to_ndarray()?;
+        let lhs_data = lhs.to_ndarray()?.to_owned();
+        let rhs_data = rhs.to_ndarray()?.to_owned();
 
         let result: ArrayD<f32> = lhs_data - rhs_data;
 
@@ -73,8 +73,8 @@ impl Backend for CpuBackend {
     }
 
     fn mul(&self, lhs: &Storage, rhs: &Storage) -> Result<Storage> {
-        let lhs_data = lhs.to_ndarray()?;
-        let rhs_data = rhs.to_ndarray()?;
+        let lhs_data = lhs.to_ndarray()?.to_owned();
+        let rhs_data = rhs.to_ndarray()?.to_owned();
 
         let result: ArrayD<f32> = lhs_data * rhs_data;
 
@@ -82,10 +82,18 @@ impl Backend for CpuBackend {
     }
 
     fn div(&self, lhs: &Storage, rhs: &Storage) -> Result<Storage> {
-        let lhs_data = lhs.to_ndarray()?;
-        let rhs_data = rhs.to_ndarray()?;
+        let lhs_data = lhs.to_ndarray()?.to_owned();
+        let rhs_data = rhs.to_ndarray()?.to_owned();
 
         let result = lhs_data / rhs_data;
+        Ok(Storage::Cpu(result))
+    }
+
+    fn reshape(&self, storage: &Storage, new_shape: &Shape) -> Result<Storage> {
+        let data = storage.to_ndarray()?;
+
+        let result = data.to_shape(IxDyn::from(new_shape)).unwrap().to_owned();
+
         Ok(Storage::Cpu(result))
     }
 
@@ -136,8 +144,13 @@ impl Backend for CpuBackend {
         let result = if let Some(array) = data.broadcast(IxDyn::from(to_shape)) {
             array.to_owned()
         } else {
-            panic!("broadcast変換不可:error対応予定")
+            panic!(
+                "broadcast変換不可:error対応予定,from_shape = {:?}, to_shape = {:?}",
+                data.shape(),
+                to_shape
+            );
         };
+
         Ok(Storage::Cpu(result))
     }
 
@@ -153,7 +166,7 @@ impl Backend for CpuBackend {
             }
         }
 
-        let mut result = data;
+        let mut result = data.to_owned();
 
         let mut sorted_axes: Vec<_> = axes_to_sum.into_iter().collect();
         sorted_axes.sort_unstable();
@@ -233,7 +246,7 @@ impl Backend for CpuBackend {
         axes: &Vec<usize>,
     ) -> Result<Storage> {
         let data = storage.to_ndarray()?;
-        let result = data.permuted_axes(axes.clone());
+        let result = data.permuted_axes(axes.clone()).to_owned();
 
         Ok(Storage::Cpu(result))
     }
@@ -360,7 +373,7 @@ impl Backend for CpuBackend {
 
     fn neg(&self, storage: &Storage) -> Result<Storage> {
         let data = storage.to_ndarray()?;
-        let result = -data;
+        let result = -data.to_owned();
         Ok(Storage::Cpu(result))
     }
 
@@ -634,13 +647,13 @@ impl Backend for CpuBackend {
 
     fn max_for_clamp_grad(&self, storage: &Storage) -> Result<Storage> {
         let data = storage.to_ndarray()?;
-        let result = data.mapv(|x| if x > 1.0f32 { 1.0f32 } else { 0.0 });
+        let result = data.mapv(|x| if x <= 1.0f32 { 1.0f32 } else { 0.0 });
         Ok(Storage::Cpu(result))
     }
 
     fn min_for_clamp_grad(&self, storage: &Storage) -> Result<Storage> {
         let data = storage.to_ndarray()?;
-        let result = data.mapv(|x| if x > 1.0e-15 { 1.0f32 } else { 0.0 });
+        let result = data.mapv(|x| if x >= 1.0e-4 { 1.0f32 } else { 0.0 });
         Ok(Storage::Cpu(result))
     }
 

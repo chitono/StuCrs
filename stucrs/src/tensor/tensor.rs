@@ -9,6 +9,7 @@ use crate::tensor::error::{Result, TensorError};
 use crate::functions_cnn::get_conv_outsize;
 use crate::tensor::ops::TensorOps;
 use crate::tensor::shape::Shape;
+use ndarray::IxDyn;
 use rand::thread_rng;
 use rand_distr::{Distribution, StandardNormal};
 use std::collections::HashSet;
@@ -393,10 +394,11 @@ impl Add for Tensor {
         let self_shape = self.shape;
         let other_shape = other.shape;
 
-        // Check if shapes are compatible for broadcasting
         let result_shape = if self_shape == other_shape {
             self_shape.clone()
         } else if let Some(broadcasted_shape) = self_shape.broadcast_shape(&other_shape) {
+            broadcasted_shape
+        } else if let Some(broadcasted_shape) = other_shape.broadcast_shape(&self_shape) {
             broadcasted_shape
         } else {
             return Err(TensorError::ShapeMismatch {
@@ -489,6 +491,8 @@ impl Sub for Tensor {
             self_shape.clone()
         } else if let Some(broadcasted_shape) = self_shape.broadcast_shape(&other_shape) {
             broadcasted_shape
+        } else if let Some(broadcasted_shape) = other_shape.broadcast_shape(&self_shape) {
+            broadcasted_shape
         } else {
             return Err(TensorError::ShapeMismatch {
                 expected: self_shape.dims().to_vec(),
@@ -576,10 +580,11 @@ impl Mul for Tensor {
         let self_shape = self.shape;
         let other_shape = other.shape;
 
-        // Check if shapes are compatible for broadcasting
         let result_shape = if self_shape == other_shape {
             self_shape.clone()
         } else if let Some(broadcasted_shape) = self_shape.broadcast_shape(&other_shape) {
+            broadcasted_shape
+        } else if let Some(broadcasted_shape) = other_shape.broadcast_shape(&self_shape) {
             broadcasted_shape
         } else {
             return Err(TensorError::ShapeMismatch {
@@ -671,6 +676,8 @@ impl Div for Tensor {
         let result_shape = if self_shape == other_shape {
             self_shape.clone()
         } else if let Some(broadcasted_shape) = self_shape.broadcast_shape(&other_shape) {
+            broadcasted_shape
+        } else if let Some(broadcasted_shape) = other_shape.broadcast_shape(&self_shape) {
             broadcasted_shape
         } else {
             return Err(TensorError::ShapeMismatch {
@@ -777,6 +784,7 @@ impl Neg for Tensor {
 
 impl TensorOps for Tensor {
     fn sum(&self, axis: Option<usize>, keepdims: bool) -> Result<Self> {
+        let mut result_no_keepdims_shape = Shape::scalar(); // keepdimsを考慮した形状をcudaに渡すと正しい処理が行えないため
         let result_shape = match axis {
             None => {
                 if keepdims {
@@ -797,15 +805,22 @@ impl TensorOps for Tensor {
                 // Remove the summed axis from the shape
                 let mut result_dims = dims.to_vec();
                 result_dims.remove(axis_idx);
+                result_no_keepdims_shape = Shape::new(result_dims.clone())?;
                 if keepdims {
-                    result_dims.insert(0, 1);
+                    result_dims.insert(axis_idx, 1);
                 }
                 Shape::new(result_dims)?
             }
         };
 
         for backend in &BACKENDS[0..] {
-            match backend.sum(&self.storage, &self.shape, &result_shape, axis, keepdims) {
+            match backend.sum(
+                &self.storage,
+                &self.shape,
+                &result_no_keepdims_shape,
+                axis,
+                keepdims,
+            ) {
                 Ok(storage) => {
                     return Ok(Tensor {
                         storage,
@@ -855,7 +870,7 @@ impl TensorOps for Tensor {
 
         // 特定した軸を合計する
         for &axis in sorted_axes.iter().rev() {
-            result = result.sum(Some(axis), false)?.unsqueeze(axis)?;
+            result = result.sum(Some(axis), true)?;
         }
 
         Ok(result)
@@ -925,10 +940,21 @@ impl TensorOps for Tensor {
                 got: vec![new_shape.numel()],
             });
         }
-        Ok(Tensor {
-            storage: self.storage.clone(),
-            shape: new_shape,
-        })
+
+        for backend in &BACKENDS[0..] {
+            match backend.reshape(&self.storage, &new_shape) {
+                Ok(storage) => {
+                    return Ok(Tensor {
+                        storage,
+                        shape: new_shape,
+                    });
+                }
+                Err(_) => continue,
+            }
+        }
+        Err(TensorError::BackendError(
+            "No backend could perform transpose operation".to_string(),
+        ))
     }
 
     fn transpose(&self) -> Result<Self> {
