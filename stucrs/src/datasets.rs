@@ -1,5 +1,8 @@
+use core::num;
+
 use crate::error::{FrameError, FrameResult};
 use crate::tensor::error::TensorError;
+use crate::tensor::lib::TensorOps;
 use crate::tensor::tensor::Tensor;
 use ndarray::{array, Array1, Array2, ArrayView1, ArrayView2, Axis};
 use rand::seq::SliceRandom;
@@ -246,6 +249,31 @@ pub fn arr2d_to_one_hot(data: ArrayView2<u32>, num_class: usize) -> Array2<f32> 
         init_matrix[[i, data_t as usize]] = 1.0;
     }
     init_matrix
+}
+
+/// 1,2次元のTensorをone_hotベクトル化する関数
+///
+/// 渡すTensorはの形状はNをバッチするとすると(N,1)である必要がある。
+///
+///
+/// Array型から生成するので、複数回使用するのは不向き
+///
+/// 何回も使用するなら`one_hot_encode()`を用いる
+pub fn tensor2d_to_one_hot(data: Tensor, num_class: usize) -> FrameResult<Tensor> {
+    /*
+    if data.shape().dims[1] != 1 {
+        panic!("one_hotベクトルにしたい教師データの列数が1ではありません");
+    } */
+    let mut init_matrix = Array2::<f32>::zeros((data.shape().dims[0], num_class));
+    let data_vec = data.to_vec()?;
+    for i in 0..data.shape().dims[0] {
+        let data_t = data_vec[i];
+        init_matrix[[i, data_t as usize]] = 1.0;
+    }
+    let init_matrix_vec: Vec<f32> = init_matrix.iter().map(|x| *x).collect();
+    let result = Tensor::from_vec(init_matrix_vec, vec![data.shape().dims[0], num_class])?;
+
+    Ok(result)
 }
 
 #[derive(Debug, Error)]
