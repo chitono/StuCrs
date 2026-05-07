@@ -139,7 +139,7 @@ impl Linear {
             let o = self.out_size as usize;
             let i_f32 = i as f32;
 
-            let w_data = Tensor::standard_normal(vec![i, o])? / ((1.0f32 / i_f32).sqrt()).ts();
+            let w_data = Tensor::standard_normal(vec![i, o])? * ((1.0f32 / i_f32).sqrt()).ts();
             /*
             let w_data: ArrayBase<OwnedRepr<f32>, Dim<[usize; 2]>> =
                 &Array::random((i, o), StandardNormal) * ((1.0f32 / i_f32).sqrt());
@@ -187,7 +187,7 @@ impl Linear {
 
             let i_f32 = in_size as f32;
 
-            let w_data = Tensor::standard_normal(vec![i, o])? / ((1.0f32 / i_f32).sqrt()).ts();
+            let w_data = Tensor::standard_normal(vec![i, o])? * ((1.0f32 / i_f32).sqrt()).ts();
 
             let w = w_data?.rv();
 
@@ -304,7 +304,7 @@ impl Dense {
             let o = self.out_size as usize;
             let i_f32 = i as f32;
 
-            let w_data = Tensor::standard_normal(vec![i, o])? / ((1.0f32 / i_f32).sqrt()).ts();
+            let w_data = Tensor::standard_normal(vec![i, o])? * ((1.0f32 / i_f32).sqrt()).ts();
 
             let w = w_data?.rv();
 
@@ -361,7 +361,7 @@ impl Dense {
 
             let i_f32 = in_size as f32;
 
-            let w_data = Tensor::standard_normal(vec![i, o])? / ((1.0f32 / i_f32).sqrt()).ts();
+            let w_data = Tensor::standard_normal(vec![i, o])? * ((1.0f32 / i_f32).sqrt()).ts();
 
             let w = w_data?.rv();
 
@@ -1078,7 +1078,7 @@ impl RNN {
             let o = self.out_size as usize;
             let i_f32 = i as f32;
 
-            let w_data = Tensor::standard_normal(vec![i, o])? / ((1.0f32 / i_f32).sqrt()).ts();
+            let w_data = Tensor::standard_normal(vec![i, o])? * ((1.0f32 / i_f32).sqrt()).ts();
 
             let w = w_data?.rv();
 
@@ -1138,7 +1138,7 @@ impl RNN {
 
             let i_f32 = in_size as f32;
 
-            let w_data = Tensor::standard_normal(vec![i, o])? / ((1.0f32 / i_f32).sqrt()).ts();
+            let w_data = Tensor::standard_normal(vec![i, o])? * ((1.0f32 / i_f32).sqrt()).ts();
 
             let w = w_data?.rv();
 
