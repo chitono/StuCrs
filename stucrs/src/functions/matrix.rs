@@ -398,7 +398,7 @@ impl Function for Sum {
 
         let y_data = x
             .data()
-            .sum(axis, false)
+            .sum(axis, true)
             .map_err(|e| FrameError::ForwardError {
                 function: "Sum",
                 source: e,
@@ -409,6 +409,7 @@ impl Function for Sum {
 
     fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
         let x = &self.inputs[0];
+
         let gx = broadcast_to(gy, x.data().shape());
         if let Ok(gx) = gx {
             return Ok(vec![gx]);
@@ -638,7 +639,7 @@ impl Function for SumTo {
         let y_shape = self.shape.clone();
         let y_data = x
             .data()
-            .sum_to(y_shape)
+            .sum_to(&y_shape)
             .map_err(|e| FrameError::ForwardError {
                 function: "SumTo",
                 source: e,

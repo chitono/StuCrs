@@ -140,7 +140,7 @@ pub fn mean_squared_error(x0: &RcVariable, x1: &RcVariable) -> FrameResult<RcVar
     y
 }
 
-// ここで渡すtはone-hotベクトル状態の教師データ
+/// ここで渡すtはone-hotベクトル状態の教師データ
 pub fn softmax_cross_entropy_simple(x: &RcVariable, t: &RcVariable) -> FrameResult<RcVariable> {
     if x.data().shape() != t.data().shape() {
         panic!("交差エントロピー誤差でのxとtの形状が異なります。tがone-hotベクトルでない可能性があります。")
@@ -150,7 +150,7 @@ pub fn softmax_cross_entropy_simple(x: &RcVariable, t: &RcVariable) -> FrameResu
 
     let p = softmax_simple(&x)?;
 
-    let clamped_p = clamp(&p, 1.0e-15, 1.0)?;
+    let clamped_p = clamp(&p, 1.0e-4, 1.0)?;
 
     let log_p = log(&clamped_p, None)?;
 
