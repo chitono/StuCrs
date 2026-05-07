@@ -18,7 +18,7 @@ use std::vec;
 
 use crate::config::get_test_flag_status;
 use crate::core_new::*;
-use crate::datasets::arr1d_to_one_hot;
+use crate::datasets::{arr1d_to_one_hot, tensor2d_to_one_hot};
 use crate::error::{FrameError, FrameResult};
 use crate::functions::matrix::matmul;
 use crate::tensor::lib::{Tensor, TensorOps};
@@ -78,6 +78,28 @@ pub fn accuracy(y: ArrayView2<f32>, t: ArrayView2<f32>) -> FrameResult<f32> {
     let acc_matrix = &one_hot_y * &t;
 
     let accuracy = acc_matrix.sum() / data_size;
+
+    Ok(accuracy)
+}
+
+pub fn tensor_accuracy(y: &Tensor, t: &Tensor) -> FrameResult<f32> {
+    if y.shape() != t.shape() {
+        panic!("交差エントロピー誤差でのxとtの形状が異なります。tがone-hotベクトルでない可能性があります。")
+    }
+    let data_size = y.shape().dims()[0] as f32;
+    let num_class = t.shape().dims()[1];
+
+    // 二つのone_hotの行列を書けることで正しく解けた個数を求めている
+    // TODO: もっと効率の良い処理に変更したい。
+    let argmax_tensor = y.argmax_axis(1)?;
+
+    let one_hot_y = tensor2d_to_one_hot(argmax_tensor, num_class)?;
+
+    assert_eq!(one_hot_y.shape(), t.shape());
+
+    let acc_matrix = (one_hot_y * t.clone())?;
+
+    let accuracy = acc_matrix.sum(None, false)?.to_vec()?[0] / data_size;
 
     Ok(accuracy)
 }
