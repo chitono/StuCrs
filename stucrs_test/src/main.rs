@@ -19,6 +19,8 @@ fn main() -> FrameResult<()> {
     let x_test = mnist.test_img;
     let y_test = mnist.test_label;
 
+    println!("backend = {:?}", x_train.backend_type());
+
     let _image_num = 0;
 
     //println!("{:#.1?}\n", mnist.get_item(image_num));
@@ -46,9 +48,10 @@ fn main() -> FrameResult<()> {
     println!("data_size={}", data_size);
 
     let mut model = BaseModel::new();
+    model.stack(Dense::new(1000, false, None, Activation::Relu)?);
     model.stack(Dense::new(1000, true, None, Activation::Relu)?);
     //model.stack(Dense::new(1000, true, None, Activation::Relu)?);
-    model.stack(Linear::new(10, true, None)?);
+    model.stack(Linear::new(10, false, None)?);
 
     let mut optimizer = SGD::new(lr);
     optimizer.setup(&model);
@@ -69,12 +72,19 @@ fn main() -> FrameResult<()> {
 
             let y = model.call(&x_batch)?;
 
+            //println!("y = {}", y.data());
+
             let mut loss = softmax_cross_entropy_simple(&y, &y_batch)?;
-            //println!("loss = {:?}", loss.data());
+
+            //println!("loss = {}", loss.data());
+            //println!("loss = {}", loss.data());
             let acc = tensor_accuracy(&y.data(), &y_batch.data())?;
             model.cleargrad();
 
-            loss.backward(false);
+            loss.backward(false)?;
+
+            //println!("loss2 = {}", loss.data());
+
             optimizer.update()?;
 
             let epoch_loss = loss.data().to_vec()?[0] * (y_batch.len() as f32);
