@@ -10,7 +10,6 @@ use std::fmt::Debug;
 //use std::process::Output;
 use ndarray::*;
 
-use ndarray_stats::QuantileExt;
 use std::rc::{Rc, Weak};
 use std::vec;
 
@@ -921,66 +920,6 @@ impl TensorDot {
             id: id_generator(),
         }))
     }
-}
-
-fn array_tensordot(x_array: ArrayViewD<f32>, w_array: ArrayViewD<f32>) -> ArrayD<f32> {
-    let y = match (x_array.ndim(), w_array.ndim()) {
-        // 3D × 2D
-        //(N,k,l) ×　(l,m) -> (N,k,m)
-        (3, 2) => {
-            let x = x_array.clone().into_dimensionality::<Ix3>().unwrap();
-            let w = w_array.clone().into_dimensionality::<Ix2>().unwrap();
-            if x.shape()[2] != w.shape()[0] {
-                panic!("array_tensorの(3,2)での計算でxとwの次元が適合しません。")
-            }
-            let n = x.shape()[0];
-            let k = x.shape()[1];
-            let m = w.shape()[1];
-
-            let mut y = Array3::<f32>::zeros((n, k, m));
-            // xからバッチのように2次元の行列を取り出し、2次元の行列積
-            for b in 0..n {
-                let x_matrix = x.slice(s![b, .., ..]);
-                let result = x_matrix.dot(&w);
-                y.slice_mut(s![b, .., ..]).assign(&result);
-            }
-            y.into_dyn()
-        }
-
-        // 2D × 3D
-        //(k,l) ×　(N,l,m) -> (N,k,m)
-        (2, 3) => {
-            let x = x_array.clone().into_dimensionality::<Ix2>().unwrap();
-            let w = w_array.clone().into_dimensionality::<Ix3>().unwrap();
-
-            if x.shape()[1] != w.shape()[1] {
-                panic!("array_tensorの(2,3)での計算でxとwの次元が適合しません。")
-            }
-            let n = w.shape()[0];
-            let k = x.shape()[0];
-            let m = w.shape()[2];
-
-            let mut y = Array3::<f32>::zeros((n, k, m));
-            // xからバッチのように2次元の行列を取り出し、2次元の行列積
-            for b in 0..n {
-                let w_matrix = w.slice(s![b, .., ..]);
-                let result = x.dot(&w_matrix);
-                y.slice_mut(s![b, .., ..]).assign(&result);
-            }
-            y.into_dyn()
-        }
-
-        // 3D × 3D
-        (3, 3) => {
-            panic!("3次元と3次元の行列積は未実装。今後実装予定。");
-        }
-
-        _ => {
-            panic!("4次元以上または2次元以下の行列積は未実装。");
-        }
-    };
-
-    y
 }
 
 fn tensordot_backward(

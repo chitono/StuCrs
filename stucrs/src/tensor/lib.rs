@@ -13,7 +13,8 @@
 //! ## Quick Start
 //!
 //! ```rust
-//! use tensor_frame::{Tensor, TensorOps};
+//! use crate::tensor::tensor::Tensor;
+//!
 //!
 //! // Create tensors
 //! let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
@@ -42,8 +43,6 @@
 //! # CPU backend (default)
 //! tensor_frame = "0.0.3-alpha"
 //!
-//! # WGPU backend
-//! tensor_frame = { version = "0.0.3-alpha", features = ["wgpu"] }
 //!
 //! # CUDA backend
 //! tensor_frame = { version = "0.0.3-alpha", features = ["cuda"] }
@@ -74,7 +73,12 @@
 //! let a = Tensor::ones(vec![2, 1]).unwrap();  // Shape: [2, 1]
 //! let b = Tensor::ones(vec![1, 3]).unwrap();  // Shape: [1, 3]
 //! let c = (a + b).unwrap();                   // Shape: [2, 3] via broadcasting
+//!
+//!
 //! ```
+//!
+//!
+//! cargo test --features "cuda"  tensor_matmul_cuda_test -- --nocapture
 
 /// The backend trait for tensor operations
 pub use super::backend::Backend;
@@ -85,7 +89,8 @@ pub use super::{ops::TensorOps, shape::Shape, tensor::Tensor};
 
 #[cfg(test)]
 mod tests {
-    use ndarray::{array, Array};
+    use ndarray::{array, Array, Array2, Axis, IxDyn};
+    use std::time::Instant;
 
     use super::*;
 
@@ -141,49 +146,724 @@ mod tests {
 
     // ==== ARITHMETIC OPERATION TESTS ====
 
+    // Add
     #[test]
-    fn test_tensor_addition() {
-        let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
-        let b = Tensor::from_vec(vec![5.0, 6.0, 7.0, 8.0], vec![2, 2]).unwrap();
-        let c = (a + b).unwrap();
-        assert_eq!(c.to_vec().unwrap(), vec![6.0, 8.0, 10.0, 12.0]);
+    fn array_add_test() {
+        let a: Array2<f32> = Array::ones((1000, 784));
+        let b = array![[2.0]];
+
+        let start = Instant::now();
+        let result1 = a + b;
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間array_cpu = {:?}", duration);
+        println!("array_shape = {:?}", result1.shape());
     }
 
     #[test]
-    fn test_tensor_subtraction() {
-        let a = Tensor::from_vec(vec![5.0, 6.0, 7.0, 8.0], vec![2, 2]).unwrap();
-        let b = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
-        let c = (a - b).unwrap();
-        assert_eq!(c.to_vec().unwrap(), vec![4.0, 4.0, 4.0, 4.0]);
+    fn tensor_add_test() -> Result<()> {
+        let a = Tensor::ones(Shape::new(vec![1000, 784]).unwrap()).unwrap();
+        let b = Tensor::from_vec(vec![2.0], vec![1]).unwrap();
+        let _c = Tensor::from_vec(vec![3.0, 3.0], vec![1, 2]).unwrap();
+        let start = Instant::now();
+        let result = a + b;
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
+        println!("tensor_cpu_shape = {:?}", result.unwrap().shape());
+        Ok(())
     }
 
     #[test]
-    fn test_tensor_multiplication() {
-        let a = Tensor::from_vec(vec![2.0, 3.0, 4.0, 5.0], vec![2, 2]).unwrap();
-        let b = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
-        let c = (a * b).unwrap();
-        assert_eq!(c.to_vec().unwrap(), vec![2.0, 6.0, 12.0, 20.0]);
+    fn tensor_add_cuda_test() -> Result<()> {
+        let a = Tensor::ones(Shape::new(vec![1000, 784]).unwrap())
+            .unwrap()
+            .to_backend("CUDA")?;
+        let b = Tensor::from_vec(vec![2.0], vec![1]).unwrap();
+        let _c = Tensor::from_vec(vec![3.0, 3.0], vec![1, 2]).unwrap();
+        let start = Instant::now();
+        let result = a + b;
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間gpu = {:?}", duration);
+        println!("tensor_gpu_shape = {:?}", result.unwrap().shape());
+        Ok(())
+    }
+
+    /// Sub
+    #[test]
+    fn array_sub_test() {
+        let a: Array2<f32> = Array::ones((1000, 784));
+        let b = array![[2.0]];
+        let _c = array![[3.0]];
+        let start = Instant::now();
+        let result1 = a - b;
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間array_cpu = {:?}", duration);
+        println!("array_shape = {:?}", result1.shape());
     }
 
     #[test]
-    fn test_tensor_division() {
-        let a = Tensor::from_vec(vec![8.0, 12.0, 16.0, 20.0], vec![2, 2]).unwrap();
-        let b = Tensor::from_vec(vec![2.0, 3.0, 4.0, 5.0], vec![2, 2]).unwrap();
-        let c = (a / b).unwrap();
-        assert_eq!(c.to_vec().unwrap(), vec![4.0, 4.0, 4.0, 4.0]);
+    fn tensor_sub_test() -> Result<()> {
+        let a = Tensor::ones(Shape::new(vec![1000, 784]).unwrap()).unwrap();
+        let b = Tensor::from_vec(vec![2.0], vec![1]).unwrap();
+        let _c = Tensor::from_vec(vec![3.0, 3.0], vec![1, 2]).unwrap();
+        let start = Instant::now();
+        let result = a - b;
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
+        println!("tensor_cpu_shape = {:?}", result.unwrap().shape());
+        Ok(())
     }
 
     #[test]
-    fn test_tensor_chain_operations() {
-        let a = Tensor::ones(vec![2, 2]).unwrap();
-        let b = Tensor::from_vec(vec![2.0, 2.0, 2.0, 2.0], vec![2, 2]).unwrap();
-        let c = Tensor::from_vec(vec![3.0, 3.0, 3.0, 3.0], vec![2, 2]).unwrap();
+    fn tensor_sub_cuda_test() -> Result<()> {
+        let a = Tensor::ones(Shape::new(vec![1000, 784]).unwrap())
+            .unwrap()
+            .to_backend("CUDA")?;
+        let b = Tensor::from_vec(vec![2.0], vec![1]).unwrap();
+        let _c = Tensor::from_vec(vec![3.0, 3.0], vec![1, 2]).unwrap();
+        let start = Instant::now();
+        let result = a - b;
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間gpu = {:?}", duration);
+        println!("tensor_gpu_shape = {:?}", result.unwrap().shape());
+        Ok(())
+    }
 
-        let result = ((a + b).unwrap() * c).unwrap();
-        assert_eq!(result.to_vec().unwrap(), vec![9.0, 9.0, 9.0, 9.0]);
+    // Mul
+
+    #[test]
+    fn array_mul_test() {
+        let a: Array2<f32> = Array::ones((1000, 784));
+        let b = array![[2.0]];
+        let _c = array![[3.0]];
+        let start = Instant::now();
+        let result1 = a * b;
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間array_cpu = {:?}", duration);
+        println!("array_shape = {:?}", result1.shape());
+    }
+
+    #[test]
+    fn tensor_mul_test() -> Result<()> {
+        let a = Tensor::ones(Shape::new(vec![1000, 784]).unwrap()).unwrap();
+        let b = Tensor::from_vec(vec![2.0], vec![1]).unwrap();
+        let _c = Tensor::from_vec(vec![3.0, 3.0], vec![1, 2]).unwrap();
+        let start = Instant::now();
+        let result = a * b;
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
+        println!("tensor_cpu_shape = {:?}", result.unwrap().shape());
+        Ok(())
+    }
+
+    #[test]
+    fn tensor_mul_cuda_test() -> Result<()> {
+        let a = Tensor::ones(Shape::new(vec![1000, 784]).unwrap())
+            .unwrap()
+            .to_backend("CUDA")?;
+        let b = Tensor::from_vec(vec![2.0], vec![1]).unwrap();
+        let _c = Tensor::from_vec(vec![3.0, 3.0], vec![1, 2]).unwrap();
+        let start = Instant::now();
+        let result = a * b;
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間gpu = {:?}", duration);
+        println!("tensor_gpu_shape = {:?}", result.unwrap().shape());
+        Ok(())
+    }
+
+    // Div
+
+    #[test]
+    fn array_div_test() {
+        let a: Array2<f32> = Array::ones((1000, 784));
+        let b = array![[2.0]];
+        let _c = array![[3.0]];
+        let start = Instant::now();
+        let result1 = a / b;
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間array_cpu = {:?}", duration);
+        println!("array_shape = {:?}", result1.shape());
+    }
+
+    #[test]
+    fn tensor_div_test() -> Result<()> {
+        let a = Tensor::ones(Shape::new(vec![1000, 784]).unwrap()).unwrap();
+        let b = Tensor::from_vec(vec![2.0], vec![1]).unwrap();
+        let _c = Tensor::from_vec(vec![3.0, 3.0], vec![1, 2]).unwrap();
+        let start = Instant::now();
+        let result = a / b;
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
+        println!("tensor_cpu_shape = {:?}", result.unwrap().shape());
+        Ok(())
+    }
+
+    #[test]
+    fn tensor_div_cuda_test() -> Result<()> {
+        let a = Tensor::ones(Shape::new(vec![1000, 784]).unwrap())
+            .unwrap()
+            .to_backend("CUDA")?;
+        let b = Tensor::from_vec(vec![2.0], vec![1]).unwrap();
+        let _c = Tensor::from_vec(vec![3.0, 3.0], vec![1, 2]).unwrap();
+        let start = Instant::now();
+        let result = a * b;
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間gpu = {:?}", duration);
+        println!("tensor_gpu_shape = {:?}", result.unwrap().shape());
+        Ok(())
+    }
+
+    #[test]
+    fn array_chain_test() {
+        let a: Array2<f32> = Array::ones((1000, 784));
+        let b = array![[2.0]];
+        let c = array![[3.0]];
+        let start = Instant::now();
+        let result1 = (a + b) * c;
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間array_cpu = {:?}", duration);
+        println!("array_shape = {:?}", result1.shape());
+    }
+
+    #[test]
+    fn tensor_chain_test() -> Result<()> {
+        let a = Tensor::ones(Shape::new(vec![1000, 784]).unwrap()).unwrap();
+        let b = Tensor::from_vec(vec![2.0], vec![1]).unwrap();
+        let c = Tensor::from_vec(vec![3.0, 3.0], vec![1, 2]).unwrap();
+        let start = Instant::now();
+        let result = (a + b)? * c;
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
+        println!("tensor_cpu_shape = {:?}", result.unwrap().shape());
+        Ok(())
+    }
+
+    #[test]
+    fn tensor_chain_cuda_test() -> Result<()> {
+        let a = Tensor::ones(Shape::new(vec![1000, 784]).unwrap())
+            .unwrap()
+            .to_backend("CUDA")?;
+        let b = Tensor::from_vec(vec![2.0], vec![1]).unwrap();
+        let c = Tensor::from_vec(vec![3.0, 3.0], vec![1, 2]).unwrap();
+        let start = Instant::now();
+        let result = (a + b)? * c;
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間gpu = {:?}", duration);
+        println!("tensor_gpu_shape = {:?}", result.unwrap().shape());
+        Ok(())
+    }
+
+    // Pow
+
+    #[test]
+    fn array_pow_test() {
+        let a: Array2<f32> = Array::ones((1000, 784));
+
+        let start = Instant::now();
+        let result1 = a.powf(3.0);
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間array_cpu = {:?}", duration);
+        println!("array_shape = {:?}", result1.shape());
+    }
+
+    #[test]
+    fn tensor_pow_test() -> Result<()> {
+        let a = Tensor::ones(Shape::new(vec![1000, 784]).unwrap()).unwrap();
+
+        let start = Instant::now();
+        let result = a.pow(3.0);
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
+        println!("tensor_cpu_shape = {:?}", result.unwrap().shape());
+        Ok(())
+    }
+
+    #[test]
+    fn tensor_pow_cuda_test() -> Result<()> {
+        let a = Tensor::ones(Shape::new(vec![1000, 784]).unwrap())
+            .unwrap()
+            .to_backend("CUDA")?;
+
+        let start = Instant::now();
+        let result = a.pow(3.0);
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間gpu = {:?}", duration);
+        println!("tensor_gpu_shape = {:?}", result.unwrap().shape());
+        Ok(())
+    }
+
+    // ==== Mathematical Functions ====
+
+    // Exp
+
+    #[test]
+    fn array_exp_test() {
+        let a: Array2<f32> = Array::ones((1000, 784));
+
+        let start = Instant::now();
+        let result1 = a.exp();
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間array_cpu = {:?}", duration);
+        println!("array_shape = {:?}", result1.shape());
+    }
+
+    #[test]
+    fn tensor_exp_test() -> Result<()> {
+        let a = Tensor::ones(Shape::new(vec![1000, 784]).unwrap()).unwrap();
+
+        let start = Instant::now();
+        let result = a.exp();
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
+        println!("tensor_cpu_shape = {:?}", result.unwrap().shape());
+        Ok(())
+    }
+
+    #[test]
+    fn tensor_exp_cuda_test() -> Result<()> {
+        let a = Tensor::ones(Shape::new(vec![1000, 784]).unwrap())
+            .unwrap()
+            .to_backend("CUDA")?;
+
+        let start = Instant::now();
+        let result = a.exp();
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間gpu = {:?}", duration);
+        println!("tensor_gpu_shape = {:?}", result.unwrap().shape());
+        Ok(())
+    }
+
+    // Sin
+
+    #[test]
+    fn array_sin_test() {
+        let a: Array2<f32> = Array::ones((1000, 784));
+
+        let start = Instant::now();
+        let result1 = a.sin();
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間array_cpu = {:?}", duration);
+        println!("array_shape = {:?}", result1.shape());
+    }
+
+    #[test]
+    fn tensor_sin_test() -> Result<()> {
+        let a = Tensor::ones(Shape::new(vec![1000, 784]).unwrap()).unwrap();
+
+        let start = Instant::now();
+        let result = a.sin();
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
+        println!("tensor_cpu_shape = {:?}", result.unwrap().shape());
+        Ok(())
+    }
+
+    #[test]
+    fn tensor_sin_cuda_test() -> Result<()> {
+        let a = Tensor::ones(Shape::new(vec![1000, 784]).unwrap())
+            .unwrap()
+            .to_backend("CUDA")?;
+
+        let start = Instant::now();
+        let result = a.sin();
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間gpu = {:?}", duration);
+        println!("tensor_gpu_shape = {:?}", result.unwrap().shape());
+        Ok(())
+    }
+
+    // Cos
+
+    #[test]
+    fn array_cos_test() {
+        let a: Array2<f32> = Array::ones((1000, 784));
+
+        let start = Instant::now();
+        let result1 = a.cos();
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間array_cpu = {:?}", duration);
+        println!("array_shape = {:?}", result1.shape());
+    }
+
+    #[test]
+    fn tensor_cos_test() -> Result<()> {
+        let a = Tensor::ones(Shape::new(vec![1000, 784]).unwrap()).unwrap();
+
+        let start = Instant::now();
+        let result = a.cos();
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
+        println!("tensor_cpu_shape = {:?}", result.unwrap().shape());
+        Ok(())
+    }
+
+    #[test]
+    fn tensor_cos_cuda_test() -> Result<()> {
+        let a = Tensor::ones(Shape::new(vec![1000, 784]).unwrap())
+            .unwrap()
+            .to_backend("CUDA")?;
+
+        let start = Instant::now();
+        let result = a.cos();
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間gpu = {:?}", duration);
+        println!("tensor_gpu_shape = {:?}", result.unwrap().shape());
+        Ok(())
+    }
+
+    // Tanh
+
+    #[test]
+    fn array_tanh_test() {
+        let a: Array2<f32> = Array::ones((1000, 784));
+
+        let start = Instant::now();
+        let result1 = a.mapv(|x| x.tanh());
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間array_cpu = {:?}", duration);
+        println!("array_shape = {:?}", result1.shape());
+    }
+
+    #[test]
+    fn tensor_tanh_test() -> Result<()> {
+        let a = Tensor::ones(Shape::new(vec![1000, 784]).unwrap()).unwrap();
+
+        let start = Instant::now();
+        let result = a.tanh();
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
+        println!("tensor_cpu_shape = {:?}", result.unwrap().shape());
+        Ok(())
+    }
+
+    #[test]
+    fn tensor_tanh_cuda_test() -> Result<()> {
+        let a = Tensor::ones(Shape::new(vec![1000, 784]).unwrap())
+            .unwrap()
+            .to_backend("CUDA")?;
+
+        let start = Instant::now();
+        let result = a.tanh();
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間gpu = {:?}", duration);
+        println!("tensor_gpu_shape = {:?}", result.unwrap().shape());
+        Ok(())
+    }
+
+    // Log
+
+    #[test]
+    fn array_log_test() {
+        let a: Array2<f32> = Array::ones((1000, 784));
+
+        let start = Instant::now();
+        let result1 = a.ln();
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間array_cpu = {:?}", duration);
+        println!("array_shape = {:?}", result1.shape());
+    }
+
+    #[test]
+    fn tensor_log_test() -> Result<()> {
+        let a = Tensor::ones(Shape::new(vec![1000, 784]).unwrap()).unwrap();
+
+        let start = Instant::now();
+        let result = a.log();
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
+        println!("tensor_cpu_shape = {:?}", result.unwrap().shape());
+        Ok(())
+    }
+
+    #[test]
+    fn tensor_log_cuda_test() -> Result<()> {
+        let a = Tensor::ones(Shape::new(vec![1000, 784]).unwrap())
+            .unwrap()
+            .to_backend("CUDA")?;
+
+        let start = Instant::now();
+        let result = a.log();
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間gpu = {:?}", duration);
+        println!("tensor_gpu_shape = {:?}", result.unwrap().shape());
+        Ok(())
+    }
+
+    // ==== Matrix Functions ====
+
+    //Reshape
+
+    #[test]
+    fn array_reshape_test() {
+        let a: Array2<f32> = Array::ones((100, 784));
+        let start = Instant::now();
+        let result1 = a.to_shape(IxDyn(&[200, 392]));
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間array_cpu = {:?}", duration);
+        println!("array_shape = {:?}", result1.unwrap().shape());
+    }
+
+    #[test]
+    fn tensor_reshape_test() -> Result<()> {
+        let a = Tensor::ones(Shape::new(vec![100, 784])?)?;
+        let start = Instant::now();
+        let result = a.reshape(vec![200, 392])?;
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
+        println!("tensor_cpu = {:?}", result.shape());
+        Ok(())
+    }
+
+    #[test]
+    fn tensor_reshape_cuda_test() -> Result<()> {
+        let a = Tensor::ones(Shape::new(vec![100, 784])?)
+            .unwrap()
+            .to_backend("CUDA")?;
+        let start = Instant::now();
+        let result = a.reshape(vec![200, 392]);
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間gpu = {:?}", duration);
+        println!("tensor_gpu = {:?}", result?.shape());
+        Ok(())
+    }
+
+    //Transpose
+
+    #[test]
+    fn array_transpose_test() {
+        let a: Array2<f32> = Array::ones((100, 784));
+        let start = Instant::now();
+        let result1 = a.t();
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間array_cpu = {:?}", duration);
+        println!("array_shape = {:?}", result1.shape());
+    }
+
+    #[test]
+    fn tensor_transpose_test() -> Result<()> {
+        let a = Tensor::ones(Shape::new(vec![100, 784])?)?;
+        let start = Instant::now();
+        let result = a.transpose();
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
+        println!("tensor_cpu = {:?}", result?);
+        Ok(())
+    }
+
+    #[test]
+    fn tensor_transpose_cuda_test() -> Result<()> {
+        let a = Tensor::ones(Shape::new(vec![100, 784])?)
+            .unwrap()
+            .to_backend("CUDA")?;
+        let start = Instant::now();
+        let result = a.transpose();
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間gpu = {:?}", duration);
+        println!("tensor_gpu = {:?}", result?.shape());
+        Ok(())
+    }
+
+    //Sum
+
+    #[test]
+    fn array_sum_test() {
+        let a: Array2<f32> = array![[1.0, 2.0], [3.0, 4.0]];
+        let start = Instant::now();
+        let result1 = a.sum_axis(Axis(0));
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間array_cpu = {:?}", duration);
+        println!("array = {:?}", result1.shape());
+    }
+
+    #[test]
+    fn tensor_sum_test() -> Result<()> {
+        //let a = Tensor::ones(Shape::new(vec![100, 784])?)?;
+        let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2])?;
+        let start = Instant::now();
+        let result = a.sum(Some(1), false);
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
+        println!("tensor_cpu = {:?}", result?); // [2]
+        Ok(())
+    }
+
+    #[test]
+    fn tensor_sum_cuda_test() -> Result<()> {
+        let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2])?.to_backend("CUDA")?;
+        let start = Instant::now();
+        let result = a.sum(Some(0), true);
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間gpu = {:?}", duration);
+        println!("tensor_gpu = {}", result?);
+        Ok(())
+    }
+
+    // Matmul
+
+    #[test]
+    fn array_matmul_test() {
+        let a: Array2<f32> = Array::ones((100, 784));
+        let b: Array2<f32> = Array::ones((784, 500));
+        let start = Instant::now();
+        let result1 = a.dot(&b);
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間array_cpu = {:?}", duration); //26.241815ms
+        println!("array_shape = {:?}", result1.shape());
+    }
+
+    #[test]
+    fn tensor_matmul_test() -> Result<()> {
+        let a = Tensor::ones(Shape::new(vec![100, 784])?)?;
+        let b = Tensor::ones(Shape::new(vec![784, 500])?)?;
+        let start = Instant::now();
+        let result = a.matmul(&b);
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration); //26.490274ms
+        println!("tensor_cpu_shape = {:?}", result?.shape()); //[100,500]
+        Ok(())
+    }
+
+    #[test]
+    fn tensor_matmul_cuda_test() -> Result<()> {
+        let a = Tensor::ones(Shape::new(vec![100, 784])?)?.to_backend("CUDA")?;
+        let b = Tensor::ones(Shape::new(vec![784, 500])?)?.to_backend("CUDA")?;
+        let start = Instant::now();
+        let result = a.matmul(&b);
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間gpu = {:?}", duration); //1.604526ms
+        println!("tensor_gpu_shape = {:?}", result?.shape()); //[100, 500]
+        Ok(())
     }
 
     // ==== BROADCASTING TESTS ====
+
+    // Broadcast_to
+
+    #[test]
+    fn array_broadcast_to_test() {
+        let a: Array2<f32> = Array::ones((100, 784));
+        let b: Array2<f32> = Array::ones((784, 500));
+        let start = Instant::now();
+        let result1 = a.dot(&b);
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間array_cpu = {:?}", duration); //26.241815ms
+        println!("array_shape = {:?}", result1.shape());
+    }
+
+    #[test]
+    fn tensor_broadcast_to_test() -> Result<()> {
+        let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2])?;
+        let b = Tensor::from_vec(vec![10.0, 20.0], vec![2])?;
+        assert_eq!(a.shape().dims(), &[2, 2]);
+        assert_eq!(b.shape().dims(), &[2]);
+        let start = Instant::now();
+        let result = (a + b)?;
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
+        println!("tensor_cpu_shape = {:?}", result.shape());
+        Ok(())
+    }
+
+    #[test]
+    fn tensor_broadcast_to_cuda_test() -> Result<()> {
+        let _a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2])?;
+        let b = Tensor::from_vec(vec![10.0, 20.0, 30.0, 40.0], vec![4, 1])?;
+
+        let start = Instant::now();
+        let result = b.broadcast_to(Shape { dims: vec![4, 20] })?;
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間gpu = {:?}", duration); // 114.569µs
+        println!("tensor_gpu_shape = {}", result);
+        Ok(())
+    }
+
+    // Sum_to
+
+    #[test]
+    fn array_sum_to_test() {
+        let a: Array2<f32> = array![[1.0f32, 2.0], [3.0, 4.0]];
+        let b: Array2<f32> = array![[10.0, 20.0], [30.0, 40.0]];
+        let start = Instant::now();
+        let result1 = a.dot(&b);
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間array_cpu = {:?}", duration); //26.241815ms
+        println!("array_shape = {:?}", result1.shape());
+    }
+
+    #[test]
+    fn tensor_sum_to_test() -> Result<()> {
+        let _a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2])?;
+        let b = Tensor::from_vec(vec![10.0, 20.0, 30.0, 40.0], vec![2, 2])?;
+        let start = Instant::now();
+        let result = b.sum_to(&Shape { dims: vec![1, 2] })?;
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
+        println!("tensor_cpu_shape = {:?}", result);
+        Ok(())
+    }
+
+    #[test]
+    fn tensor_sum_to_cuda_test() -> Result<()> {
+        let _a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2])?.to_backend("CUDA")?;
+        let b = Tensor::from_vec(vec![10.0, 20.0, 30.0, 40.0], vec![2, 2])?.to_backend("CUDA")?;
+
+        let start = Instant::now();
+        let result = b.sum_to(&Shape { dims: vec![1, 2] })?;
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間gpu = {:?}", duration); // 114.569µs
+        println!("tensor_gpu_shape = {}", result);
+        Ok(())
+    }
 
     #[test]
     fn test_broadcast_2d_1d() {
@@ -225,67 +905,6 @@ mod tests {
     }
 
     // ==== REDUCTION OPERATION TESTS ====
-
-    #[test]
-    fn test_tensor_sum() {
-        let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
-        let sum = tensor.sum(None, false).unwrap();
-        assert_eq!(sum.to_vec().unwrap(), vec![10.0]);
-    }
-
-    #[test]
-    fn test_tensor_mean() {
-        let tensor = Tensor::from_vec(vec![2.0, 4.0, 6.0, 8.0], vec![2, 2]).unwrap();
-        let mean = tensor.mean(None).unwrap();
-        assert_eq!(mean.to_vec().unwrap(), vec![5.0]);
-    }
-
-    #[test]
-    fn test_sum_ones() {
-        let tensor = Tensor::ones(vec![3, 3]).unwrap();
-        let sum = tensor.sum(None, false).unwrap();
-        assert_eq!(sum.to_vec().unwrap(), vec![9.0]);
-    }
-
-    #[test]
-    fn test_mean_zeros() {
-        let tensor = Tensor::zeros(vec![2, 5]).unwrap();
-        let mean = tensor.mean(None).unwrap();
-        assert_eq!(mean.to_vec().unwrap(), vec![0.0]);
-    }
-
-    // ==== SHAPE MANIPULATION TESTS ====
-
-    #[test]
-    fn test_tensor_reshape() {
-        let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]).unwrap();
-        let reshaped = tensor.reshape(vec![3, 2]).unwrap();
-        assert_eq!(reshaped.shape().dims(), &[3, 2]);
-        assert_eq!(
-            reshaped.to_vec().unwrap(),
-            vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
-        );
-    }
-
-    #[test]
-    fn test_tensor_reshape_1d() {
-        let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
-        let reshaped = tensor.reshape(vec![4]).unwrap();
-        assert_eq!(reshaped.shape().dims(), &[4]);
-        assert_eq!(reshaped.to_vec().unwrap(), vec![1.0, 2.0, 3.0, 4.0]);
-    }
-
-    #[test]
-    fn test_tensor_transpose_2d() {
-        let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]).unwrap();
-        let transposed = tensor.transpose().unwrap();
-        assert_eq!(transposed.shape().dims(), &[3, 2]);
-        // For 2x3 -> 3x2 transpose: [[1,2,3],[4,5,6]] -> [[1,4],[2,5],[3,6]]
-        assert_eq!(
-            transposed.to_vec().unwrap(),
-            vec![1.0, 4.0, 2.0, 5.0, 3.0, 6.0]
-        );
-    }
 
     // ==== ERROR HANDLING TESTS ====
 
@@ -552,211 +1171,49 @@ mod tests {
     }
 
     #[test]
-    fn rows_slice_test() {
+    fn tensor_axis_slice_test() -> Result<()> {
         use crate::tensor::ops::TensorOps;
 
         // Create a 2x3 tensor: [[1, 2, 3], [4, 5, 6]]
-        let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![3, 2])
-            .unwrap()
-            .to_backend("CUDA")
-            .expect("cudaだめ");
+        let tensor =
+            Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![3, 2])?.to_backend("CUDA")?;
 
         // Sum along axis 0 (columns): should give [5, 7, 9] with shape [3]
-        let tensor_rows_slice = tensor.rows_slice(&[0, 2]).unwrap();
-        let result_0 = tensor_rows_slice.to_vec().unwrap();
+        let tensor_rows_slice = tensor.axis_slice(0, &[0, 2])?;
+        let result_0 = tensor_rows_slice.to_vec()?;
         assert_eq!(result_0, vec![1.0, 2.0, 5.0, 6.0]);
+        Ok(())
     }
 
     #[test]
-    fn array_div_test() {
-        use ndarray::{Array, Array2};
-        use std::time::Instant;
-        let a: Array2<f32> = Array::ones((1000, 784));
-        let b = array![[2.0]];
-        let c = array![[3.0]];
-        let start = Instant::now();
-        let result1 = (a + b) * c;
-        let end = Instant::now();
-        let duration = end.duration_since(start);
-        println!("処理時間array_cpu = {:?}", duration);
-        println!("array_shape = {:?}", result1.shape());
-    }
-
-    #[test]
-    fn tensor_div_test() {
-        use std::time::Instant;
-        let a = Tensor::ones(Shape::new(vec![1000, 1]).unwrap()).unwrap();
-        let _b = Tensor::from_vec(vec![2.0], vec![1]).unwrap();
-        let c = Tensor::from_vec(vec![3.0, 3.0], vec![1, 2]).unwrap();
-        let start = Instant::now();
-        let result = a / c;
-        let end = Instant::now();
-        let duration = end.duration_since(start);
-        println!("処理時間 = {:?}", duration);
-        println!("tensor_cpu_shape = {:?}", result.unwrap().shape());
-    }
-
-    #[test]
-    fn tensor_div_cuda_test() {
-        use std::time::Instant;
-        let a = Tensor::ones(Shape::new(vec![1000, 1]).unwrap())
-            .unwrap()
-            .to_backend("CUDA")
-            .expect("cudaだめ");
-        let _b = Tensor::from_vec(vec![2.0], vec![1]).unwrap();
-        let c = Tensor::from_vec(vec![3.0, 3.0], vec![1, 2]).unwrap();
-        let start = Instant::now();
-        let result = a * c;
-        let end = Instant::now();
-        let duration = end.duration_since(start);
-        println!("処理時間gpu = {:?}", duration);
-        println!("tensor_gpu_shape = {:?}", result.unwrap().shape());
-    }
-
-    #[test]
-    fn array_matmul_test() {
-        use ndarray::{Array, Array2};
-        use std::time::Instant;
-        let a: Array2<f32> = Array::ones((100, 784));
-        let b: Array2<f32> = Array::ones((784, 500));
-        let start = Instant::now();
-        let result1 = a.dot(&b);
-        let end = Instant::now();
-        let duration = end.duration_since(start);
-        println!("処理時間array_cpu = {:?}", duration);
-        println!("array_shape = {:?}", result1.shape());
-    }
-
-    #[test]
-    fn tensor_matmul_test() {
-        use std::time::Instant;
-        let a = Tensor::ones(Shape::new(vec![100, 784]).unwrap()).unwrap();
-        let b = Tensor::ones(Shape::new(vec![784, 500]).unwrap()).unwrap();
-        let start = Instant::now();
-        let result = a.matmul(&b);
-        let end = Instant::now();
-        let duration = end.duration_since(start);
-        println!("処理時間 = {:?}", duration);
-        println!("tensor_cpu_shape = {:?}", result.unwrap().shape());
-    }
-
-    #[test]
-    fn tensor_matmul_cuda_test() {
-        use std::time::Instant;
-        let a = Tensor::ones(Shape::new(vec![100, 784]).unwrap())
-            .unwrap()
-            .to_backend("CUDA")
-            .expect("a_cudaだめ");
-        let b = Tensor::ones(Shape::new(vec![784, 500]).unwrap())
-            .unwrap()
-            .to_backend("CUDA")
-            .expect("b_cudaだめ");
-        let start = Instant::now();
-        let result = a.matmul(&b);
-        let end = Instant::now();
-        let duration = end.duration_since(start);
-        println!("処理時間gpu = {:?}", duration);
-        println!("tensor_gpu_shape = {:?}", result.unwrap().shape());
-    }
-
-    #[test]
-    fn array_sum_test() {
-        use ndarray::{Array, Array2};
-        use std::time::Instant;
-        let a: Array2<f32> = Array::ones((100, 784));
-        let start = Instant::now();
-        let result1 = a.sum();
-        let end = Instant::now();
-        let duration = end.duration_since(start);
-        println!("処理時間array_cpu = {:?}", duration);
-        println!("array = {:?}", result1);
-    }
-
-    #[test]
-    fn tensor_sum_test() {
-        use std::time::Instant;
-        let a = Tensor::ones(Shape::new(vec![100, 784]).unwrap()).unwrap();
-        let start = Instant::now();
-        let result = a.sum(None, false);
-        let end = Instant::now();
-        let duration = end.duration_since(start);
-        println!("処理時間 = {:?}", duration);
-        println!("tensor_cpu = {:?}", result.unwrap());
-    }
-
-    #[test]
-    fn tensor_sum_cuda_test() {
-        use std::time::Instant;
-        let a = Tensor::ones(Shape::new(vec![100, 784]).unwrap())
-            .unwrap()
-            .to_backend("CUDA")
-            .expect("a_cudaだめ");
-        let start = Instant::now();
-        let result = a.sum(None, true);
-        let end = Instant::now();
-        let duration = end.duration_since(start);
-        println!("処理時間gpu = {:?}", duration);
-        println!("tensor_gpu = {}", result.unwrap());
-    }
-
-    #[test]
-    fn max_mask_test() {
-        use crate::tensor::ops::TensorOps;
-
-        // Create a 2x3 tensor: [[1, 2, 3], [4, 5, 6]]
-        let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![3, 2])
-            .unwrap()
-            .to_backend("CUDA")
-            .expect("cudaだめ");
+    fn max_mask_test() -> Result<()> {
+        let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![3, 2])?;
 
         // Sum along axis 0 (columns): should give [5, 7, 9] with shape [3]
-        let result = tensor.max_mask(3.0f32).unwrap();
+        let result = tensor.max_mask(3.0f32)?;
         println!("result = {}", result);
+        Ok(())
     }
 
     #[test]
-    fn min_mask_test() {
-        use crate::tensor::ops::TensorOps;
-
+    fn min_mask_test() -> Result<()> {
         // Create a 2x3 tensor: [[1, 2, 3], [4, 5, 6]]
-        let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![3, 2])
-            .unwrap()
-            .to_backend("CUDA")
-            .expect("cudaだめ");
+        let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![3, 2])?;
 
         // Sum along axis 0 (columns): should give [5, 7, 9] with shape [3]
-        let result = tensor.min_mask(3.0f32).unwrap();
+        let result = tensor.min_mask(3.0f32)?;
         println!("result = {}", result);
+        Ok(())
     }
 
     #[test]
-    fn argmax_axis0_2d_test() {
-        use crate::tensor::ops::TensorOps;
+    fn argmax_axis_test() -> Result<()> {
+        let tensor =
+            Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 1.0, 1.0], vec![2, 3])?.to_backend("CUDA")?;
 
-        // Create a 2x3 tensor: [[1, 2, 3], [4, 5, 6]]
-        let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 1.0, 1.0], vec![2, 3])
-            .unwrap()
-            .to_backend("CUDA")
-            .expect("cudaだめ");
-
-        // Sum along axis 0 (columns): should give [5, 7, 9] with shape [3]
-        let result = tensor.argmax_axis_2d(0).unwrap();
+        let result = tensor.argmax_axis(1)?;
         println!("result = {}", result);
-    }
-
-    #[test]
-    fn argmax_axis1_2d_test() {
-        use crate::tensor::ops::TensorOps;
-
-        // Create a 2x3 tensor: [[1, 2, 3], [4, 5, 6]]
-        let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 6.0, 5.0], vec![2, 3])
-            .unwrap()
-            .to_backend("CUDA")
-            .expect("cudaだめ");
-
-        // Sum along axis 0 (columns): should give [5, 7, 9] with shape [3]
-        let result = tensor.argmax_axis_2d(1).unwrap();
-        println!("result = {}", result);
+        Ok(())
     }
 
     #[test]

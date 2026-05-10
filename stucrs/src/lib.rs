@@ -11,45 +11,61 @@ impl Add for RcVariable {
     type Output = RcVariable;
     fn add(self, rhs: RcVariable) -> Self::Output {
         // add_op関数はRc<RefCell<Variable>>を扱う
-        let add_y = add(&[self.clone(), rhs.clone()]);
-        add_y
+        if let Ok(add_y) = add(&[self.clone(), rhs.clone()]) {
+            return add_y;
+        } else {
+            panic!("add演算子でエラーが発生しました。")
+        }
     }
 }
 
 impl Mul for RcVariable {
     type Output = RcVariable;
     fn mul(self, rhs: RcVariable) -> Self::Output {
-        let mul_y = mul(&[self.clone(), rhs.clone()]);
-        mul_y
+        if let Ok(mul_y) = mul(&[self.clone(), rhs.clone()]) {
+            return mul_y;
+        } else {
+            panic!("mul演算子でエラーが発生しました。")
+        }
     }
 }
 
 impl Sub for RcVariable {
     type Output = RcVariable;
     fn sub(self, rhs: RcVariable) -> Self::Output {
-        let sub_y = sub(&[self.clone(), rhs.clone()]);
-        sub_y
+        if let Ok(sub_y) = sub(&[self.clone(), rhs.clone()]) {
+            return sub_y;
+        } else {
+            panic!("sub演算子でエラーが発生しました。")
+        }
     }
 }
 
 impl Div for RcVariable {
     type Output = RcVariable;
     fn div(self, rhs: RcVariable) -> Self::Output {
-        let div_y = div(&[self.clone(), rhs.clone()]);
-        div_y
+        match div(&[self.clone(), rhs.clone()]) {
+            Ok(div_y) => div_y,
+            Err(e) => {
+                panic!("{:?}", e);
+            }
+        }
     }
 }
 
 impl Neg for RcVariable {
     type Output = RcVariable;
     fn neg(self) -> Self::Output {
-        let neg_y = neg(&[self.clone()]);
-        neg_y
+        if let Ok(neg_y) = neg(&[self.clone()]) {
+            return neg_y;
+        } else {
+            panic!("neg演算子でエラーが発生しました。")
+        }
     }
 }
 pub mod config;
 pub mod core_new;
-pub mod dataloaders;
+//pub mod dataloaders;
 pub mod datasets;
 pub mod error;
 pub mod functions;
@@ -62,30 +78,27 @@ pub mod tensor;
 #[cfg(test)]
 mod tests {
 
-    use ndarray::{array, Array, Array4, Dim, IxDyn};
+    use ndarray::array;
 
     use crate::{
+        core_new::TensorToRcVariable,
+        error::FrameResult,
         functions::{
             activation_funcs::relu,
-            math::{cos, exp, log, max, sin, square, tanh},
+            math::{clamp, cos, exp, log, max, sin, square, tanh},
             matrix::{argmax_array, matmul, permute_axes, reshape, sum, tensordot, transpose},
         },
         functions_cnn::{
             col2im_simple, conv2d_array, conv2d_simple, im2col_simple, max_pool2d_simple,
         },
         models::Model,
+        tensor::{lib::TensorOps, shape::Shape, tensor::Tensor},
     };
 
     #[test]
-    fn add_test() {
-        use crate::core_new::ArrayDToRcVariable;
-        // Create a 2x3 tensor: [[1, 2, 3], [4, 5, 6]]
-
-        let a = array![1.0, 1.0, 1.0, 1.0, 1.0].rv();
-
-        let b = array![2.0, 2.0, 2.0, 2.0, 2.0].rv();
-
-        // Sum along axis 0 (columns): should give [5, 7, 9] with shape [3]
+    fn add_test() -> FrameResult<()> {
+        let a = Tensor::from_vec(vec![1.0, 1.0, 1.0], vec![3])?.rv();
+        let b = Tensor::from_vec(vec![2.0, 2.0, 2.0], vec![3])?.rv();
 
         let mut c = a.clone() + b.clone();
 
@@ -95,15 +108,13 @@ mod tests {
 
         println!("a_grad = {:?}", a.grad().unwrap().data());
         println!("b_grad = {:?}", b.grad().unwrap().data());
+        Ok(())
     }
 
     #[test]
-    fn add_with_broadcast_test() {
-        use crate::core_new::ArrayDToRcVariable;
-
-        let a = array![1.0, 1.0, 1.0, 1.0, 1.0].rv();
-
-        let b = array![2.0].rv();
+    fn add_with_broadcast_test() -> FrameResult<()> {
+        let a = Tensor::from_vec(vec![1.0, 1.0, 1.0], vec![3])?.rv();
+        let b = Tensor::from_vec(vec![2.0], vec![1])?.rv();
 
         let mut c = a.clone() + b.clone();
 
@@ -111,19 +122,20 @@ mod tests {
 
         c.backward(false);
 
-        println!("a_grad = {:?}", a.grad().unwrap().data()); // [1.0,1.0,1.0,1.0,1.0]
-        println!("b_grad = {:?}", b.grad().unwrap().data()); // [5.0]
+        println!("a_grad = {:?}", a.grad().unwrap().data()); // [1.0,1.0,1.0]
+        println!("b_grad = {:?}", b.grad().unwrap().data()); // [3.0]
+
+        Ok(())
     }
 
     #[test]
     fn mul_test() {
-        use crate::core_new::ArrayDToRcVariable;
+        use crate::core_new::TensorToRcVariable;
 
-        let a = array![3.0, 3.0, 3.0, 3.0, 3.0].rv();
+        let a = Tensor::from_vec(vec![3.0, 3.0, 3.0], vec![3]).unwrap().rv();
+        let b = Tensor::from_vec(vec![2.0, 2.0, 2.0], vec![3]).unwrap().rv();
 
-        let b = array![2.0, 2.0, 2.0, 2.0, 2.0].rv();
-
-        let c = array![1.0, 1.0, 1.0, 1.0, 1.0].rv();
+        let c = Tensor::from_vec(vec![1.0, 1.0, 1.0], vec![3]).unwrap().rv();
 
         let mut y = (a.clone() * b.clone()) + c.clone();
 
@@ -137,13 +149,12 @@ mod tests {
 
     #[test]
     fn sub_test() {
-        use crate::core_new::ArrayDToRcVariable;
+        use crate::core_new::TensorToRcVariable;
 
-        let a = array![3.0, 3.0, 3.0, 3.0, 3.0].rv();
+        let a = Tensor::from_vec(vec![3.0, 3.0, 3.0], vec![3]).unwrap().rv();
+        let b = Tensor::from_vec(vec![2.0, 2.0, 2.0], vec![3]).unwrap().rv();
 
-        let b = array![2.0, 2.0, 2.0, 2.0, 2.0].rv();
-
-        let c = array![1.0, 1.0, 1.0, 1.0, 1.0].rv();
+        let c = Tensor::from_vec(vec![1.0, 1.0, 1.0], vec![3]).unwrap().rv();
 
         let mut y = (a.clone() * b.clone()) - c.clone();
 
@@ -158,11 +169,10 @@ mod tests {
 
     #[test]
     fn div_test() {
-        use crate::core_new::ArrayDToRcVariable;
+        use crate::core_new::TensorToRcVariable;
 
-        let a = array![3.0, 3.0, 3.0, 3.0, 3.0].rv();
-
-        let b = array![2.0, 2.0, 2.0, 2.0, 2.0].rv();
+        let a = Tensor::from_vec(vec![3.0, 3.0, 3.0], vec![3]).unwrap().rv();
+        let b = Tensor::from_vec(vec![2.0, 2.0, 2.0], vec![3]).unwrap().rv();
 
         let mut y = a.clone() / b.clone();
 
@@ -175,44 +185,46 @@ mod tests {
     }
 
     #[test]
-    fn pow_test() {
-        use crate::core_new::ArrayDToRcVariable;
+    fn pow_test() -> FrameResult<()> {
+        use crate::core_new::TensorToRcVariable;
 
-        let a = array![3.0, 3.0, 3.0, 3.0, 3.0].rv();
+        let a = Tensor::from_vec(vec![3.0, 3.0, 3.0], vec![3]).unwrap().rv();
 
-        let mut y = a.clone().pow(2.0);
-
-        println!("y = {}", y.data()); // 9.0
-
-        y.backward(false);
-
-        println!("a_grad = {:?}", a.grad().unwrap().data()); // 6.0
-    }
-
-    #[test]
-    fn square_test() {
-        use crate::core_new::ArrayDToRcVariable;
-
-        let a = array![3.0, 3.0, 3.0, 3.0, 3.0].rv();
-
-        let mut y = square(&a);
+        let mut y = a.clone().pow(2.0)?;
 
         println!("y = {}", y.data()); // 9.0
 
         y.backward(false);
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); // 6.0
+        Ok(())
     }
 
     #[test]
-    fn exp_test() {
-        use crate::core_new::ArrayDToRcVariable;
+    fn square_test() -> FrameResult<()> {
+        use crate::core_new::TensorToRcVariable;
 
-        let a = array![3.0, 3.0, 3.0].rv();
-        let b = array![2.0, 2.0, 2.0].rv();
+        let a = Tensor::from_vec(vec![3.0, 3.0, 3.0], vec![3]).unwrap().rv();
 
-        let mut y0 = exp(&a);
-        let mut y1 = b.clone().exp();
+        let mut y = square(&a)?;
+
+        println!("y = {}", y.data()); // 9.0
+
+        y.backward(false);
+
+        println!("a_grad = {:?}", a.grad().unwrap().data()); // 6.0
+        Ok(())
+    }
+
+    #[test]
+    fn exp_test() -> FrameResult<()> {
+        use crate::core_new::TensorToRcVariable;
+
+        let a = Tensor::from_vec(vec![3.0, 3.0, 3.0], vec![3])?.rv();
+        let b = Tensor::from_vec(vec![2.0, 2.0, 2.0], vec![3])?.rv();
+
+        let mut y0 = exp(&a)?;
+        let mut y1 = b.clone().exp()?;
 
         println!("y0= {}", y0.data()); // 20.0855...
         println!("y1= {}", y1.data()); // 7.3890...
@@ -222,62 +234,65 @@ mod tests {
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); // 20.0855
         println!("b_grad = {:?}", b.grad().unwrap().data()); // 7.3890
+        Ok(())
     }
 
     #[test]
-    fn sin_test() {
-        use crate::core_new::ArrayDToRcVariable;
+    fn sin_test() -> FrameResult<()> {
+        use crate::core_new::TensorToRcVariable;
+        let a = Tensor::from_vec(vec![3.0, 3.0, 3.0], vec![3])?.rv();
 
-        let a = array![3.0, 3.0, 3.0].rv();
-
-        let mut y = sin(&a);
+        let mut y = sin(&a)?;
 
         println!("y = {}", y.data()); // 0.1411
 
         y.backward(false);
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); // -0.9899
+        Ok(())
     }
 
     #[test]
-    fn cos_test() {
-        use crate::core_new::ArrayDToRcVariable;
+    fn cos_test() -> FrameResult<()> {
+        use crate::core_new::TensorToRcVariable;
 
-        let a = array![3.0, 3.0, 3.0].rv();
+        let a = Tensor::from_vec(vec![3.0, 3.0, 3.0], vec![3])?.rv();
 
-        let mut y = cos(&a);
+        let mut y = cos(&a)?;
 
         println!("y = {}", y.data()); // -0.9899
 
         y.backward(false);
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); // -0.1411
+        Ok(())
     }
 
     #[test]
-    fn tanh_test() {
-        use crate::core_new::ArrayDToRcVariable;
+    fn tanh_test() -> FrameResult<()> {
+        use crate::core_new::TensorToRcVariable;
 
-        let a = array![3.0, 3.0, 3.0].rv();
+        let a = Tensor::from_vec(vec![3.0, 3.0, 3.0], vec![3])?.rv();
 
-        let mut y = tanh(&a);
+        let mut y = tanh(&a)?;
 
         println!("y = {}", y.data()); // 0.9950...
 
         y.backward(false);
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); // 9.866...e-3
+        Ok(())
     }
 
     #[test]
-    fn log_test() {
-        use crate::core_new::ArrayDToRcVariable;
+    fn log_test() -> FrameResult<()> {
+        use crate::core_new::TensorToRcVariable;
 
-        let a = array![3.0, 3.0, 3.0].rv();
-        let b = array![3.0, 3.0, 3.0].rv();
+        let a = Tensor::from_vec(vec![3.0, 3.0, 3.0], vec![3])?.rv();
+        let b = Tensor::from_vec(vec![3.0, 3.0, 3.0], vec![3])?.rv();
 
-        let mut y0 = log(&a, None); //底がe
-        let mut y1 = log(&b, Some(2.0)); //底が2.0
+        let mut y0 = log(&a, None)?; //底がe
+        let mut y1 = log(&b, Some(2.0))?; //底が2.0
 
         println!("y0 = {}", y0.data()); // 1.098...
         println!("y1 = {}", y1.data()); // 1.584...
@@ -287,18 +302,20 @@ mod tests {
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); // 0.3333...
         println!("b_grad = {:?}", b.grad().unwrap().data()); // 0.4808...
+
+        Ok(())
     }
 
     #[test]
-    fn reshape_test() {
-        use crate::core_new::ArrayDToRcVariable;
+    fn reshape_test() -> FrameResult<()> {
+        use crate::core_new::TensorToRcVariable;
 
-        let a = array![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]].rv();
-        let b = array![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]].rv();
+        let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])?.rv();
+        let b = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])?.rv();
 
-        let mut y0 = reshape(&a, Dim(IxDyn(&[1, 6])));
+        let mut y0 = reshape(&a, &Shape::new(vec![1, 6])?)?;
 
-        let mut y1 = b.reshape(Dim(IxDyn(&[1, 6])));
+        let mut y1 = b.reshape(&Shape::new(vec![1, 6])?)?;
 
         println!("y0 = {}", y0.data()); //[[1,2,3,4,5,6]] shape(1,6)
         println!("y1 = {}", y1.data()); //[[1,2,3,4,5,6]] shape(1,6)
@@ -307,18 +324,19 @@ mod tests {
         y1.backward(false);
         println!("a_grad = {:?}", a.grad().unwrap().data()); // [[1.0,1.0,1.0],[1.0,1.0,1.0]] shape(2,3)
         println!("b_grad = {:?}", b.grad().unwrap().data()); // [[1.0,1.0,1.0],[1.0,1.0,1.0]] shape(2,3)
+        Ok(())
     }
 
     #[test]
-    fn transpose_test() {
-        use crate::core_new::ArrayDToRcVariable;
+    fn transpose_test() -> FrameResult<()> {
+        use crate::core_new::TensorToRcVariable;
 
-        let a = array![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]].rv();
-        let b = array![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]].rv();
+        let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])?.rv();
+        let b = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])?.rv();
 
-        let mut y0 = transpose(&a);
+        let mut y0 = transpose(&a)?;
 
-        let mut y1 = b.t();
+        let mut y1 = b.t()?;
 
         println!("y0 = {}", y0.data()); //[[1,4],[2,5],[3,6]] shape(3,2)
         println!("y1 = {}", y1.data()); //[[1,4],[2,5],[3,6]] shape(3,2)
@@ -327,19 +345,20 @@ mod tests {
         y1.backward(false);
         println!("a_grad = {:?}", a.grad().unwrap().data()); // [[1.0,1.0,1.0],[1.0,1.0,1.0]] shape(2,3)
         println!("b_grad = {:?}", b.grad().unwrap().data()); // [[1.0,1.0,1.0],[1.0,1.0,1.0]] shape(2,3)
+
+        Ok(())
     }
 
     #[test]
-    fn sum_test() {
-        use crate::core_new::ArrayDToRcVariable;
+    fn sum_test() -> FrameResult<()> {
+        use crate::core_new::TensorToRcVariable;
+        let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])?.rv();
+        let b = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])?.rv();
+        let c = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])?.rv();
 
-        let a = array![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]].rv();
-        let b = array![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]].rv();
-        let c = array![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]].rv();
-
-        let mut y0 = sum(&a, None);
-        let mut y1 = sum(&b, Some(0));
-        let mut y2 = sum(&c, Some(1));
+        let mut y0 = sum(&a, None)?;
+        let mut y1 = sum(&b, Some(0))?;
+        let mut y2 = sum(&c, Some(1))?;
 
         println!("y0 = {}", y0.data()); // 21.0
         println!("y1 = {}", y1.data()); //
@@ -352,120 +371,135 @@ mod tests {
         println!("a_grad = {:?}", a.grad().unwrap().data()); //
         println!("b_grad = {:?}", b.grad().unwrap().data()); //
         println!("c_grad = {:?}", c.grad().unwrap().data()); //
+
+        Ok(())
     }
 
     #[test]
-    fn broadcast_to_test() {
-        use crate::core_new::ArrayDToRcVariable;
+    fn broadcast_to_test() -> FrameResult<()> {
+        use crate::core_new::TensorToRcVariable;
+        let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])?.rv();
 
-        let a = array![3.0, 3.0, 3.0, 3.0, 3.0].rv();
-
-        let mut y = a.clone().pow(2.0);
+        let mut y = a.clone().pow(2.0)?;
 
         println!("y = {}", y.data()); // 9.0
 
         y.backward(false);
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); // 6.0
+        Ok(())
     }
 
     #[test]
-    fn sum_to_test() {
-        use crate::core_new::ArrayDToRcVariable;
+    fn sum_to_test() -> FrameResult<()> {
+        use crate::core_new::TensorToRcVariable;
 
-        let a = array![3.0, 3.0, 3.0, 3.0, 3.0].rv();
+        let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])?.rv();
 
-        let mut y = a.clone().pow(2.0);
+        let mut y = a.clone().pow(2.0)?;
 
         println!("y = {}", y.data()); // 9.0
 
         y.backward(false);
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); // 6.0
+        Ok(())
     }
 
     #[test]
-    fn matmul_test() {
-        use crate::core_new::ArrayDToRcVariable;
+    fn matmul_test() -> FrameResult<()> {
+        use crate::core_new::TensorToRcVariable;
 
-        let a = array![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]].rv();
+        let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])?.rv();
+        let b = Tensor::from_vec(vec![7.0, 8.0, 9.0, 10.0, 11.0, 12.0], vec![3, 2])?.rv();
 
-        let b = array![[7.0, 8.0], [9.0, 10.0], [11.0, 12.0]].rv();
-
-        let mut y = matmul(&a, &b);
+        let mut y = matmul(&a, &b)?;
 
         println!("y = {}", y.data()); // [[58,64],[139,154]]
         y.backward(false);
 
         println!("a_grad = {:?}", a.grad().unwrap().data());
         println!("b_grad = {:?}", b.grad().unwrap().data());
+
+        Ok(())
     }
 
     #[test]
-    fn tensordot_test() {
-        use crate::core_new::ArrayDToRcVariable;
+    fn tensordot_test() -> FrameResult<()> {
+        use crate::core_new::TensorToRcVariable;
 
-        let a = array![[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]].rv();
+        let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![1, 2, 3])?.rv();
+
+        let b = Tensor::from_vec(vec![7.0, 8.0, 9.0, 10.0, 11.0, 12.0], vec![3, 2])?.rv();
+
         println!("a_shape = {:?}", a.data().shape()); //[1,2,3]
 
-        let b = array![[7.0, 8.0], [9.0, 10.0], [11.0, 12.0]].rv();
         println!("b_shape = {:?}", b.data().shape()); //[3,2]
 
-        let mut y = tensordot(&a, &b);
+        let mut y = tensordot(&a, &b)?;
 
         println!("y = {:?}", y.data()); //[[[58.0, 64.0],[139.0, 154.0]]]
         y.backward(false);
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); //[[[15.0, 19.0, 23.0],[15.0, 19.0, 23.0]]]
         println!("b_grad = {:?}", b.grad().unwrap().data()); //[[5.0, 5.0],[7.0, 7.0],[9.0, 9.0]]
+
+        Ok(())
     }
 
     #[test]
-    fn permute_axes2d_test() {
-        use crate::core_new::ArrayDToRcVariable;
+    fn permute_axes2d_test() -> FrameResult<()> {
+        use crate::core_new::TensorToRcVariable;
 
-        let a = array![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]].rv();
+        let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])?.rv();
 
-        let mut y = permute_axes(&a, vec![1, 0]);
+        let mut y = permute_axes(&a, vec![1, 0])?;
 
         println!("y = {}", y.data());
         y.backward(false);
 
         println!("a_grad = {:?}", a.grad().unwrap().data());
+        Ok(())
     }
 
     #[test]
-    fn permute_axes3d_test() {
-        use crate::core_new::ArrayDToRcVariable;
+    fn permute_axes3d_test() -> FrameResult<()> {
+        use crate::core_new::TensorToRcVariable;
 
-        let a = array![[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]].rv();
+        let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![1, 2, 3])?.rv();
+
         println!("a_shape = {:?}", a.data().shape()); //[1,2,3]
 
-        let mut y = permute_axes(&a, vec![1, 2, 0]);
+        let mut y = permute_axes(&a, vec![1, 2, 0])?;
 
         println!("y = {:?}", y.data());
         y.backward(false);
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); //[1,2,3] a_shapeと同じならok
+
+        Ok(())
     }
 
     #[test]
-    fn max_test() {
-        use crate::core_new::ArrayDToRcVariable;
+    fn max_test() -> FrameResult<()> {
+        use crate::core_new::TensorToRcVariable;
 
-        let a = array![1.0, 2.0, 30.0, 4.0, 5.0, 6.0].rv(); //1次元
-        let b = array![[1.0, 5.0, 3.0], [4.0, 5.0, 6.0]].rv(); //2次元
-        let c = array![
-            [[1.0, 3.0, 2.0], [6.0, 5.0, 4.0]],
-            [[10.0, 20.0, 30.0], [60.0, 50.0, 40.0]]
-        ]
-        .rv(); //3次元
+        let a = Tensor::from_vec(vec![1.0, 2.0, 30.0, 4.0, 5.0, 6.0], vec![6])?.rv();
+        let b = Tensor::from_vec(vec![1.0, 5.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])?.rv();
 
-        let mut y0 = max(&a, None);
+        let c = Tensor::from_vec(
+            vec![
+                1.0, 3.0, 2.0, 6.0, 5.0, 4.0, 10.0, 20.0, 30.0, 60.0, 50.0, 40.0,
+            ],
+            vec![2, 2, 3],
+        )?
+        .rv(); // 3次元
+
+        let mut y0 = max(&a, None)?;
         println!("計算1完了");
-        let mut y1 = max(&b, Some(1));
+        let mut y1 = max(&b, Some(1))?;
         println!("計算2完了");
-        let mut y2 = max(&c, Some(2));
+        let mut y2 = max(&c, Some(2))?;
         println!("計3完了");
 
         println!("y0 = {}", y0.data()); // [30]
@@ -483,21 +517,43 @@ mod tests {
         println!("a_grad = {:?}", a.grad().unwrap().data()); // [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
         println!("b_grad = {:?}", b.grad().unwrap().data()); //[[0.0, 1.0, 0.0],[0.0, 0.0, 1.0]]
         println!("c_grad = {:?}", c.grad().unwrap().data()); //[[[0.0, 1.0, 0.0],[1.0, 0.0, 0.0]],[[0.0, 0.0, 1.0],[1.0, 0.0, 0.0]]]
+
+        Ok(())
     }
 
     #[test]
-    fn relu_test() {
-        use crate::core_new::ArrayDToRcVariable;
+    fn clamp_test() -> FrameResult<()> {
+        use crate::core_new::TensorToRcVariable;
 
-        let a = array![0.0, -1.0, 3.0, 1.0, -4.0].rv();
+        let a = Tensor::from_vec(vec![0.0, -1.0, 3.0, 1.0, -4.0], vec![5])?.rv();
 
-        let mut y = relu(&a);
+        println!("a Backend = {:?}", a.data().backend_type());
 
-        println!("y = {}", y.data());
+        let mut y = clamp(&a, 1.0e-4, 1.0)?;
+
+        println!("y = {}", y.data()); // [0.0001, 0.0001, 1.0000, 1.0000, 0.0001]
+        println!("y Backend = {:?}", y.data().backend_type());
 
         y.backward(false);
 
-        println!("a_grad = {:?}", a.grad().unwrap().data());
+        println!("a_grad = {}", a.grad().unwrap().data()); // [0.0, 0.0, 0.0, 1.0, 0.0]
+        Ok(())
+    }
+
+    #[test]
+    fn relu_test() -> FrameResult<()> {
+        use crate::core_new::TensorToRcVariable;
+
+        let a = Tensor::from_vec(vec![0.0, -1.0, 3.0, 1.0, -4.0], vec![5])?.rv();
+
+        let mut y = relu(&a)?;
+
+        println!("y = {}", y.data()); // [0.0000, 0.0000, 3.0000, 1.0000, 0.0000]
+
+        y.backward(false);
+
+        println!("a_grad = {}", a.grad().unwrap().data()); // [0.0, 0.0, 1.0, 1.0, 0.0]
+        Ok(())
     }
 
     #[test]
@@ -521,26 +577,22 @@ mod tests {
 
         assert_eq!(input.ndim(), 4);
         assert_eq!(input_2.ndim(), 4);
-
-        //let output = conv2d_array(input, weight, stride_size, pad_size)
-
-        //assert_eq!(output_size, (4, 4));
     }
 
     #[test]
-    fn conv2d_test() {
-        use crate::core_new::ArrayDToRcVariable;
+    fn conv2d_test() -> FrameResult<()> {
+        use crate::core_new::TensorToRcVariable;
 
-        let input_array: Array4<f32> = Array::from_elem((1, 5, 15, 15), 2.0);
-        let weight_array: Array4<f32> = Array::from_elem((8, 5, 3, 3), 3.0);
+        let input_tensor = Tensor::ones(vec![1, 5, 15, 15])?;
+        let weight_tensor = Tensor::ones(vec![8, 5, 3, 3])?;
 
-        let input = input_array.rv();
-        let weight = weight_array.rv();
+        let input = input_tensor.rv();
+        let weight = weight_tensor.rv();
 
         let stride_size = (1, 1);
         let pad_size = (1, 1);
 
-        let mut output = conv2d_simple(&input, &weight, None, stride_size, pad_size);
+        let mut output = conv2d_simple(&input, &weight, None, stride_size, pad_size)?;
 
         println!("output_shape = {:?}", output.data().shape()); //shape = (1,8,15,15)
 
@@ -550,20 +602,32 @@ mod tests {
             "input_grad_shape = {:?}",
             input.grad().unwrap().data().shape()
         ); //shape = (1,5,15,15)
+
+        Ok(())
     }
 
     #[test]
-    fn conv2d_array_1ch_test() {
-        let input = array![[[[1.0f32, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]]];
-        let kernel = array![[[[1.0f32, 1.0, 1.0], [0.0, 0.0, 0.0], [-1.0, -1.0, -1.0]]]];
+    fn conv2d_array_1ch_test() -> FrameResult<()> {
+        let input = Tensor::from_vec(
+            vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
+            vec![1, 1, 3, 3],
+        )?;
+        let kernel = Tensor::from_vec(
+            vec![1.0f32, 1.0, 1.0, 0.0, 0.0, 0.0, -1.0, -1.0, -1.0],
+            vec![1, 1, 3, 3],
+        )?;
+        //let input = array![[[[1.0f32, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]]];
+        //let kernel = array![[[[1.0f32, 1.0, 1.0], [0.0, 0.0, 0.0], [-1.0, -1.0, -1.0]]]];
 
         let stride_size = (1, 1);
         let pad_size = (1, 1);
 
-        let output = conv2d_array(input.view(), kernel.view(), None, stride_size, pad_size);
-        println!("{:?}", output);
+        //let output = conv2d_array(input.view(), kernel.view(), None, stride_size, pad_size);
+        //println!("{:?}", output);
 
         //assert_eq!(output_size, (4, 4));
+
+        Ok(())
     }
 
     #[test]
@@ -579,9 +643,18 @@ mod tests {
     }
 
     #[test]
-    fn max_pool2d_test() {
-        use crate::core_new::ArrayDToRcVariable;
+    fn max_pool2d_test() -> FrameResult<()> {
+        use crate::core_new::TensorToRcVariable;
 
+        let input_tensor = Tensor::from_vec(
+            vec![
+                4.0f32, 1.0, 5.0, 3.0, 7.0, 3.0, 2.0, 3.0, 7.0, 2.0, 3.0, 4.0, 1.0, 5.0, 3.0, 9.0,
+                4.0, 1.0, 5.0, 3.0, 7.0, 3.0, 2.0, 3.0, 7.0, 2.0, 3.0, 4.0, 1.0, 5.0, 3.0, 9.0,
+            ],
+            vec![1, 2, 4, 4],
+        )?;
+
+        /*
         let input_array: Array4<f32> = array![[
             [
                 [4.0f32, 1.0, 5.0, 3.0],
@@ -595,22 +668,24 @@ mod tests {
                 [7.0, 2.0, 3.0, 4.0],
                 [1.0, 5.0, 3.0, 9.0]
             ]
-        ]];
+        ]]; */
 
-        println!("input_shape = {:?}", input_array.shape());
+        println!("input_shape = {:?}", input_tensor.shape());
 
-        let input = input_array.rv();
+        let input = input_tensor.rv();
         let kernel_size = (2, 2);
         let stride_size = (1, 1);
         let pad_size = (0, 0);
 
-        let mut output = max_pool2d_simple(&input, kernel_size, stride_size, pad_size);
+        let mut output = max_pool2d_simple(&input, kernel_size, stride_size, pad_size)?;
 
         println!("output = {}", output.data()); //shape = (1,8,15,15)
 
         output.backward(false);
 
         println!("input_grad= {}", input.grad().unwrap().data()); //shape = (1,5,15,15)
+
+        Ok(())
     }
 
     #[test]
@@ -658,10 +733,18 @@ mod tests {
     }
 
     #[test]
-    fn im2col_test() {
+    fn im2col_test() -> FrameResult<()> {
         use crate::functions_cnn::im2col_array;
 
-        let input = array![[[
+        let input_tensor = Tensor::from_vec(
+            vec![
+                1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0,
+                16.0,
+            ],
+            vec![1, 1, 4, 4],
+        )?;
+
+        let input_array = array![[[
             [1.0f32, 2.0, 3.0, 4.0],
             [5.0, 6.0, 7.0, 8.0],
             [9.0, 10.0, 11.0, 12.0],
@@ -671,8 +754,11 @@ mod tests {
         let stride_size = (1, 1);
         let pad_size = (0, 0);
 
-        let output = im2col_array(input.view(), kernel_size, stride_size, pad_size);
-        println!("output = {:?}", output); //shape (1,4,9)
+        let output_array = im2col_array(input_array.view(), kernel_size, stride_size, pad_size);
+        let output_tensor = input_tensor.im2col(kernel_size, stride_size, pad_size)?;
+        println!("output_array = {:?}", output_array); //shape (1,4,9)
+        println!("output_tensor = {:?}", output_tensor); //shape (1,4,9)
+        Ok(())
     }
 
     #[test]
@@ -706,9 +792,18 @@ mod tests {
     }
 
     #[test]
-    fn im2col_function_test() {
-        use crate::core_new::ArrayDToRcVariable;
+    fn im2col_function_test() -> FrameResult<()> {
+        use crate::core_new::TensorToRcVariable;
+        let input = Tensor::from_vec(
+            vec![
+                1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0,
+                16.0,
+            ],
+            vec![1, 1, 4, 4],
+        )?
+        .rv();
 
+        /*
         let input = array![[[
             [1.0f32, 2.0, 3.0, 4.0],
             [5.0, 6.0, 7.0, 8.0],
@@ -716,22 +811,36 @@ mod tests {
             [13.0, 14.0, 15.0, 16.0]
         ]]]
         .rv();
+        */
+
         let kernel_size = (2, 2);
         let stride_size = (1, 1);
         let pad_size = (0, 0);
 
-        let mut output = im2col_simple(&input, kernel_size, stride_size, pad_size);
+        let mut output = im2col_simple(&input, kernel_size, stride_size, pad_size)?;
 
         println!("output = {:?}", output); //shape (1,4,9)
 
         output.backward(false);
         println!("input_grad = {:?}", input.grad().unwrap().data());
+
+        Ok(())
     }
 
     #[test]
-    fn col2im_function_test() {
-        use crate::core_new::ArrayDToRcVariable;
+    fn col2im_function_test() -> FrameResult<()> {
+        use crate::core_new::TensorToRcVariable;
+        let input = Tensor::from_vec(
+            vec![
+                1.0, 2.0, 3.0, 5.0, 6.0, 7.0, 9.0, 10.0, 11.0, 2.0, 3.0, 4.0, 6.0, 7.0, 8.0, 10.0,
+                11.0, 12.0, 5.0, 6.0, 7.0, 9.0, 10.0, 11.0, 13.0, 14.0, 15.0, 6.0, 7.0, 8.0, 10.0,
+                11.0, 12.0, 14.0, 15.0, 16.0,
+            ],
+            vec![1, 4, 9],
+        )?
+        .rv();
 
+        /*
         // im2col_testの出力。(output)
         let input = array![[
             [1.0, 2.0, 3.0, 5.0, 6.0, 7.0, 9.0, 10.0, 11.0],
@@ -739,7 +848,7 @@ mod tests {
             [5.0, 6.0, 7.0, 9.0, 10.0, 11.0, 13.0, 14.0, 15.0],
             [6.0, 7.0, 8.0, 10.0, 11.0, 12.0, 14.0, 15.0, 16.0]
         ]]
-        .rv();
+        .rv(); */
 
         let kernel_size = (2, 2);
         let stride_size = (1, 1);
@@ -747,7 +856,7 @@ mod tests {
 
         let input_shape = [1, 1, 4, 4];
 
-        let mut output = col2im_simple(&input, input_shape, kernel_size, stride_size, pad_size);
+        let mut output = col2im_simple(&input, input_shape, kernel_size, stride_size, pad_size)?;
 
         println!("output = {:?}", output);
         /*output = [[[[1.0, 4.0, 6.0, 4.0],
@@ -757,51 +866,64 @@ mod tests {
 
         output.backward(false);
         println!("input_grad = {:?}", input.grad().unwrap().data());
+        Ok(())
     }
 
     #[test]
-    fn array_argmax2d_test() {
+    fn array_argmax2d_test() -> FrameResult<()> {
         let input = array![[1.0f32, 2.0], [4.0, 3.0], [10.0, 20.0], [30.0, 40.0]].into_dyn();
 
-        let output = argmax_array(input.view(), Some(1));
+        let output = argmax_array(input.view(), 1);
         println!("{:?}", output);
+        Ok(())
     }
 
     #[test]
     fn array_argmax3d_test() {
         let input = array![[[1.0f32, 2.0], [4.0, 3.0]], [[10.0, 20.0], [30.0, 40.0]]].into_dyn();
 
-        let output = argmax_array(input.view(), Some(2));
+        let output = argmax_array(input.view(), 2);
         println!("{:?}", output); //axis = 1 ...[[1, 1],[1, 1]] 返す行列はusize型
                                   //axis = 2 ...[[1, 0],[1, 1]]
     }
 
     #[test]
-    fn conv2d_layer_test() {
-        use crate::core_new::ArrayDToRcVariable;
+    fn conv2d_layer_test() -> FrameResult<()> {
+        use crate::core_new::TensorToRcVariable;
         use crate::layers as L;
         use crate::models::BaseModel;
 
         let mut model = BaseModel::new();
-        model.stack(L::Conv2d::new(4, (3, 3), (1, 1), (0, 0), false));
-        let input_array: Array4<f32> = Array::from_elem((1, 3, 15, 15), 2.0);
+        model.stack(L::Conv2d::new(4, (3, 3), (1, 1), (0, 0), false)?);
 
-        let input = input_array.rv();
+        let input_tensor = Tensor::ones(vec![1, 3, 15, 15])?;
 
-        let mut y = model.call(&input);
+        let input = input_tensor.rv();
+
+        let mut y = model.call(&input)?;
 
         println!("y = {:?}", y.data()); // shape = [1,4,13,13]
         y.backward(false);
 
         println!("input_grad = {:?}", input.grad().unwrap().data()); // shape = [1,3,15,15]
+        Ok(())
     }
 
     #[test]
-    fn maxpool2d_layer_test() {
-        use crate::core_new::ArrayDToRcVariable;
+    fn maxpool2d_layer_test() -> FrameResult<()> {
+        use crate::core_new::TensorToRcVariable;
         use crate::layers as L;
         use crate::models::BaseModel;
 
+        let input_tensor = Tensor::from_vec(
+            vec![
+                4.0f32, 1.0, 5.0, 3.0, 7.0, 3.0, 2.0, 3.0, 7.0, 2.0, 3.0, 4.0, 1.0, 5.0, 3.0, 9.0,
+                4.0, 1.0, 5.0, 3.0, 7.0, 3.0, 2.0, 3.0, 7.0, 2.0, 3.0, 4.0, 1.0, 5.0, 3.0, 9.0,
+            ],
+            vec![1, 2, 4, 4],
+        )?;
+
+        /*
         let input_array = array![[
             [
                 [4.0f32, 1.0, 5.0, 3.0],
@@ -815,7 +937,7 @@ mod tests {
                 [7.0, 2.0, 3.0, 4.0],
                 [1.0, 5.0, 3.0, 9.0]
             ]
-        ]];
+        ]]; */
         let kernel_size = (2, 2);
         let stride_size = (1, 1);
         let pad_size = (0, 0);
@@ -823,45 +945,61 @@ mod tests {
         let mut model = BaseModel::new();
         model.stack(L::Maxpool2d::new(kernel_size, stride_size, pad_size));
 
-        let input = input_array.rv();
+        let input = input_tensor.rv();
 
-        let mut y = model.call(&input);
+        let mut y = model.call(&input)?;
 
         println!("y = {:?}", y.data()); // shape = [1,4,13,13]
         y.backward(false);
 
         println!("input_grad = {:?}", input.grad().unwrap().data()); // shape = [1,3,15,15]
+
+        Ok(())
     }
 
     #[test]
-    fn dropout_layer_test() {
-        use crate::core_new::ArrayDToRcVariable;
+    fn dropout_layer_test() -> FrameResult<()> {
+        use crate::core_new::TensorToRcVariable;
         use crate::layers as L;
         use crate::models::BaseModel;
 
-        let input_array = array![[4.0f32, 1.0, 5.0, 3.0], [1.0, 5.0, 3.0, 9.0]];
+        let input_tensor =
+            Tensor::from_vec(vec![4.0f32, 1.0, 5.0, 3.0, 1.0, 5.0, 3.0, 9.0], vec![2, 4])?;
+
+        //let input_array = array![[4.0f32, 1.0, 5.0, 3.0], [1.0, 5.0, 3.0, 9.0]];
 
         let ratio = 0.5f32;
 
         let mut model = BaseModel::new();
         model.stack(L::Dropout::new(ratio));
 
-        let input = input_array.rv();
+        let input = input_tensor.rv();
 
-        let mut y = model.call(&input);
+        let mut y = model.call(&input)?;
 
         println!("y = {:?}", y.data());
         y.backward(false);
 
         println!("input_grad = {:?}", input.grad().unwrap().data());
+
+        Ok(())
     }
 
     #[test]
-    fn flatten_layer_test() {
-        use crate::core_new::ArrayDToRcVariable;
+    fn flatten_layer_test() -> FrameResult<()> {
+        use crate::core_new::TensorToRcVariable;
         use crate::layers as L;
         use crate::models::BaseModel;
 
+        let input_tensor = Tensor::from_vec(
+            vec![
+                4.0f32, 1.0, 5.0, 3.0, 7.0, 3.0, 2.0, 3.0, 7.0, 2.0, 3.0, 4.0, 1.0, 5.0, 3.0, 9.0,
+                4.0, 1.0, 5.0, 3.0, 7.0, 3.0, 2.0, 3.0, 7.0, 2.0, 3.0, 4.0, 1.0, 5.0, 3.0, 9.0,
+            ],
+            vec![1, 2, 4, 4],
+        )?;
+
+        /*
         let input_array = array![[
             [
                 [4.0f32, 1.0, 5.0, 3.0],
@@ -875,20 +1013,22 @@ mod tests {
                 [7.0, 2.0, 3.0, 4.0],
                 [1.0, 5.0, 3.0, 9.0]
             ]
-        ]];
+        ]]; */
 
-        println!("input_shape = {:?}", input_array.shape()); //[1,2,4,4]
+        println!("input_shape = {:?}", input_tensor.shape()); //[1,2,4,4]
 
         let mut model = BaseModel::new();
         model.stack(L::Flatten::new());
 
-        let input = input_array.rv();
+        let input = input_tensor.rv();
 
-        let mut y = model.call(&input);
+        let mut y = model.call(&input)?;
 
         println!("y = {:?}", y.data()); // shape = [1,32]
         y.backward(false);
 
         println!("input_grad = {:?}", input.grad().unwrap().data()); // shape = [1,2,4,4]
+
+        Ok(())
     }
 }

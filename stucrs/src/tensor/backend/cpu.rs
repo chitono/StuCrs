@@ -679,8 +679,7 @@ impl Backend for CpuBackend {
         Ok(Storage::Cpu(result))
     }
 
-    // 仮の処理 coshx関数を使っている
-    fn argmax_axis_2d(&self, storage: &Storage, shape: &Shape, axis: usize) -> Result<Storage> {
+    fn argmax_axis_2d(&self, storage: &Storage, _shape: &Shape, _axis: usize) -> Result<Storage> {
         println!("argmax_axis_2dの関数がcpuで処理されています。この処理は未実装です。");
         let data = storage.to_ndarray()?;
         let result = data.mapv(|x| x.cosh());

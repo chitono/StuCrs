@@ -8,7 +8,6 @@ use std::fmt::Debug;
 //use std::future;
 //use std::hash::Hash;
 //use std::process::Output;
-use ndarray::*;
 
 use std::rc::{Rc, Weak};
 use std::vec;
@@ -19,7 +18,7 @@ use std::vec;
 use crate::config::{get_grad_status, id_generator};
 use crate::core_new::*;
 
-use crate::error::{FrameError, FrameResult};
+use crate::error::FrameResult;
 use crate::functions::activation_funcs::*;
 use crate::functions::math::*;
 use crate::functions::matrix::*;

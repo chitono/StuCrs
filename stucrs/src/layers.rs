@@ -7,7 +7,7 @@ use crate::functions::math::tanh;
 use crate::functions::matrix::reshape;
 use crate::functions::neural_funcs::{dropout, linear_simple};
 use crate::functions_cnn::{conv2d_simple, max_pool2d_simple};
-use crate::tensor::lib::{Shape, Tensor, TensorError};
+use crate::tensor::lib::{Shape, Tensor};
 
 use fxhash::FxHashMap;
 
@@ -147,7 +147,7 @@ impl Linear {
             let w = w_data?.rv();
 
             self.w_id = Some(w.id());
-            self.set_params(&w.clone());
+            self.set_params(&w.clone())?;
         }
 
         // フィールドでパラメータのidを保持しているので、idでパラメータを呼び出す
@@ -192,13 +192,13 @@ impl Linear {
             let w = w_data?.rv();
 
             linear.w_id = Some(w.id());
-            linear.set_params(&w.clone());
+            linear.set_params(&w.clone())?;
         }
 
         if biased == true {
             let b = Tensor::zeros(vec![out_size as usize])?.rv();
             linear.b_id = Some(b.id());
-            linear.set_params(&b.clone());
+            linear.set_params(&b.clone())?;
         }
 
         Ok(linear)
@@ -309,7 +309,7 @@ impl Dense {
             let w = w_data?.rv();
 
             self.w_id = Some(w.id());
-            self.set_params(&w.clone());
+            self.set_params(&w.clone())?;
         }
 
         // フィールドでパラメータのidを保持しているので、idでパラメータを呼び出す
@@ -366,13 +366,13 @@ impl Dense {
             let w = w_data?.rv();
 
             dense.w_id = Some(w.id());
-            dense.set_params(&w.clone());
+            dense.set_params(&w.clone())?;
         }
 
         if biased == true {
             let b = Tensor::zeros(vec![out_size as usize])?.rv();
             dense.b_id = Some(b.id());
-            dense.set_params(&b.clone());
+            dense.set_params(&b.clone())?;
         }
 
         Ok(dense)
@@ -493,7 +493,7 @@ impl Conv2d {
             let w = w_data?.rv();
 
             self.w_id = Some(w.id());
-            self.set_params(&w.clone());
+            self.set_params(&w.clone())?;
         }
 
         // フィールドでパラメータのidを保持しているので、idでパラメータを呼び出す
@@ -537,7 +537,7 @@ impl Conv2d {
         if biased == true {
             let b = Tensor::zeros(vec![out_channels as usize])?.rv();
             conv2d.b_id = Some(b.id());
-            conv2d.set_params(&b.clone());
+            conv2d.set_params(&b.clone())?;
         }
 
         Ok(conv2d)
@@ -1071,7 +1071,7 @@ impl Layer for RNN {
 impl RNN {
     fn forward(&mut self, x: &RcVariable) -> FrameResult<RcVariable> {
         if let Some(h_rc) = &self.h {
-            let h_new = tanh(&(self.x2h.call(&x)? + self.h2h.call(h_rc)?))?;
+            let _h_new = tanh(&(self.x2h.call(&x)? + self.h2h.call(h_rc)?))?;
         }
         if let None = &self.w_id {
             let i = x.data().shape().dims()[1];
@@ -1083,7 +1083,7 @@ impl RNN {
             let w = w_data?.rv();
 
             self.w_id = Some(w.id());
-            self.set_params(&w.clone());
+            self.set_params(&w.clone())?;
         }
 
         // フィールドでパラメータのidを保持しているので、idでパラメータを呼び出す
@@ -1143,13 +1143,13 @@ impl RNN {
             let w = w_data?.rv();
 
             rnn.w_id = Some(w.id());
-            rnn.set_params(&w.clone());
+            rnn.set_params(&w.clone())?;
         }
 
         if biased == true {
             let b = Tensor::zeros(vec![out_size as usize])?.rv();
             rnn.b_id = Some(b.id());
-            rnn.set_params(&b.clone());
+            rnn.set_params(&b.clone())?;
         }
 
         Ok(rnn)
