@@ -139,14 +139,14 @@ __global__ void tanh_kernel(const float* input, float* output, int size) {
 __global__ void clamp_max_kernel(const float* input, float* output, float max, int size) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < size) {
-        output[idx] = fmaxf(input[idx],max);
+        output[idx] = fminf(input[idx],max);
     }
 }
 
 __global__ void clamp_min_kernel(const float* input, float* output, float min, int size) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < size) {
-        output[idx] = fminf(input[idx], min);
+        output[idx] = fmaxf(input[idx], min);
     }
 }
 
@@ -154,7 +154,7 @@ __global__ void clamp_min_kernel(const float* input, float* output, float min, i
 __global__ void max_for_clamp_grad_kernel(const float* input, float* output, int size) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < size) {
-        if (input[idx]<1.0f) {
+        if (input[idx]<=1.0f) {
             output[idx] = 1.0f;
         }else {
             output[idx] = 0.0f;
@@ -167,7 +167,7 @@ __global__ void max_for_clamp_grad_kernel(const float* input, float* output, int
 __global__ void min_for_clamp_grad_kernel(const float* input, float* output, int size) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < size) {
-        if (input[idx]>1.0e-7) {
+        if (input[idx]>=1.0e-4) {
             output[idx] = 1.0f;
         }else {
             output[idx] = 0.0f;
