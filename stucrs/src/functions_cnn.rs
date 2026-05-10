@@ -12,7 +12,7 @@ use std::rc::{Rc, Weak};
 use std::{usize, vec};
 
 use crate::config::{get_grad_status, id_generator};
-use crate::core_new::{Function, RcVariable, TensorToRcVariable, Variable};
+use crate::core::{Function, RcVariable, TensorToRcVariable, Variable};
 use crate::error::{FrameError, FrameResult};
 use crate::functions::math::max;
 use crate::functions::matrix::{permute_axes, tensordot};

@@ -2,7 +2,7 @@ use rand::seq::SliceRandom;
 use rand::*;
 use std::time::Instant;
 use stucrs::config;
-use stucrs::core_new::TensorToRcVariable;
+use stucrs::core::TensorToRcVariable;
 use stucrs::datasets::{tensor2d_to_one_hot, MNIST};
 use stucrs::error::FrameResult;
 use stucrs::functions::loss::softmax_cross_entropy_simple;

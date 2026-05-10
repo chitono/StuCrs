@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use thiserror::Error;
 
-use crate::core_new::{F32ToTensor, RcVariable};
+use crate::core::{F32ToTensor, RcVariable};
 use crate::error::{FrameError, FrameResult};
 use crate::layers::Layer;
 use crate::models::Model;

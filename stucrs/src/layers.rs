@@ -1,6 +1,6 @@
 use crate::config::id_generator;
-use crate::core_new::{F32ToTensor, TensorToRcVariable};
-use crate::core_new::{RcVariable, Variable};
+use crate::core::{F32ToTensor, TensorToRcVariable};
+use crate::core::{RcVariable, Variable};
 use crate::error::{FrameError, FrameResult};
 use crate::functions::activation_funcs::{relu, sigmoid_simple};
 use crate::functions::math::tanh;

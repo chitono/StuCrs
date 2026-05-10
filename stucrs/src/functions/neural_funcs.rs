@@ -14,7 +14,7 @@ use ndarray_stats::QuantileExt;
 //use std::time::Duration;
 
 use crate::config::get_test_flag_status;
-use crate::core_new::*;
+use crate::core::*;
 use crate::datasets::{arr1d_to_one_hot, tensor2d_to_one_hot};
 use crate::error::FrameResult;
 use crate::functions::matrix::matmul;

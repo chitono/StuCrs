@@ -1,7 +1,7 @@
 //use ndarray::{array, ArrayBase, Dimension, OwnedRepr};
 
-use core_new::RcVariable;
-use core_new::{add, div, mul, neg, sub};
+use core::RcVariable;
+use core::{add, div, mul, neg, sub};
 use std::ops::{Add, Div, Mul, Neg, Sub};
 //use std::sync::atomic::{AtomicU32, Ordering};
 
@@ -64,7 +64,7 @@ impl Neg for RcVariable {
     }
 }
 pub mod config;
-pub mod core_new;
+pub mod core;
 //pub mod dataloaders;
 pub mod datasets;
 pub mod error;
@@ -81,7 +81,7 @@ mod tests {
     use ndarray::array;
 
     use crate::{
-        core_new::TensorToRcVariable,
+        core::TensorToRcVariable,
         error::FrameResult,
         functions::{
             activation_funcs::relu,
@@ -130,7 +130,7 @@ mod tests {
 
     #[test]
     fn mul_test() {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
 
         let a = Tensor::from_vec(vec![3.0, 3.0, 3.0], vec![3]).unwrap().rv();
         let b = Tensor::from_vec(vec![2.0, 2.0, 2.0], vec![3]).unwrap().rv();
@@ -149,7 +149,7 @@ mod tests {
 
     #[test]
     fn sub_test() {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
 
         let a = Tensor::from_vec(vec![3.0, 3.0, 3.0], vec![3]).unwrap().rv();
         let b = Tensor::from_vec(vec![2.0, 2.0, 2.0], vec![3]).unwrap().rv();
@@ -169,7 +169,7 @@ mod tests {
 
     #[test]
     fn div_test() {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
 
         let a = Tensor::from_vec(vec![3.0, 3.0, 3.0], vec![3]).unwrap().rv();
         let b = Tensor::from_vec(vec![2.0, 2.0, 2.0], vec![3]).unwrap().rv();
@@ -186,7 +186,7 @@ mod tests {
 
     #[test]
     fn pow_test() -> FrameResult<()> {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
 
         let a = Tensor::from_vec(vec![3.0, 3.0, 3.0], vec![3]).unwrap().rv();
 
@@ -202,7 +202,7 @@ mod tests {
 
     #[test]
     fn square_test() -> FrameResult<()> {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
 
         let a = Tensor::from_vec(vec![3.0, 3.0, 3.0], vec![3]).unwrap().rv();
 
@@ -218,7 +218,7 @@ mod tests {
 
     #[test]
     fn exp_test() -> FrameResult<()> {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
 
         let a = Tensor::from_vec(vec![3.0, 3.0, 3.0], vec![3])?.rv();
         let b = Tensor::from_vec(vec![2.0, 2.0, 2.0], vec![3])?.rv();
@@ -239,7 +239,7 @@ mod tests {
 
     #[test]
     fn sin_test() -> FrameResult<()> {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
         let a = Tensor::from_vec(vec![3.0, 3.0, 3.0], vec![3])?.rv();
 
         let mut y = sin(&a)?;
@@ -254,7 +254,7 @@ mod tests {
 
     #[test]
     fn cos_test() -> FrameResult<()> {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
 
         let a = Tensor::from_vec(vec![3.0, 3.0, 3.0], vec![3])?.rv();
 
@@ -270,7 +270,7 @@ mod tests {
 
     #[test]
     fn tanh_test() -> FrameResult<()> {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
 
         let a = Tensor::from_vec(vec![3.0, 3.0, 3.0], vec![3])?.rv();
 
@@ -286,7 +286,7 @@ mod tests {
 
     #[test]
     fn log_test() -> FrameResult<()> {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
 
         let a = Tensor::from_vec(vec![3.0, 3.0, 3.0], vec![3])?.rv();
         let b = Tensor::from_vec(vec![3.0, 3.0, 3.0], vec![3])?.rv();
@@ -308,7 +308,7 @@ mod tests {
 
     #[test]
     fn reshape_test() -> FrameResult<()> {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
 
         let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])?.rv();
         let b = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])?.rv();
@@ -329,7 +329,7 @@ mod tests {
 
     #[test]
     fn transpose_test() -> FrameResult<()> {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
 
         let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])?.rv();
         let b = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])?.rv();
@@ -351,7 +351,7 @@ mod tests {
 
     #[test]
     fn sum_test() -> FrameResult<()> {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
         let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])?.rv();
         let b = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])?.rv();
         let c = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])?.rv();
@@ -377,7 +377,7 @@ mod tests {
 
     #[test]
     fn broadcast_to_test() -> FrameResult<()> {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
         let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])?.rv();
 
         let mut y = a.clone().pow(2.0)?;
@@ -392,7 +392,7 @@ mod tests {
 
     #[test]
     fn sum_to_test() -> FrameResult<()> {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
 
         let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])?.rv();
 
@@ -408,7 +408,7 @@ mod tests {
 
     #[test]
     fn matmul_test() -> FrameResult<()> {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
 
         let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])?.rv();
         let b = Tensor::from_vec(vec![7.0, 8.0, 9.0, 10.0, 11.0, 12.0], vec![3, 2])?.rv();
@@ -426,7 +426,7 @@ mod tests {
 
     #[test]
     fn tensordot_test() -> FrameResult<()> {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
 
         let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![1, 2, 3])?.rv();
 
@@ -449,7 +449,7 @@ mod tests {
 
     #[test]
     fn permute_axes2d_test() -> FrameResult<()> {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
 
         let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])?.rv();
 
@@ -464,7 +464,7 @@ mod tests {
 
     #[test]
     fn permute_axes3d_test() -> FrameResult<()> {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
 
         let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![1, 2, 3])?.rv();
 
@@ -482,7 +482,7 @@ mod tests {
 
     #[test]
     fn max_test() -> FrameResult<()> {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
 
         let a = Tensor::from_vec(vec![1.0, 2.0, 30.0, 4.0, 5.0, 6.0], vec![6])?.rv();
         let b = Tensor::from_vec(vec![1.0, 5.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])?.rv();
@@ -523,7 +523,7 @@ mod tests {
 
     #[test]
     fn clamp_test() -> FrameResult<()> {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
 
         let a = Tensor::from_vec(vec![0.0, -1.0, 3.0, 1.0, -4.0], vec![5])?.rv();
 
@@ -542,7 +542,7 @@ mod tests {
 
     #[test]
     fn relu_test() -> FrameResult<()> {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
 
         let a = Tensor::from_vec(vec![0.0, -1.0, 3.0, 1.0, -4.0], vec![5])?.rv();
 
@@ -581,7 +581,7 @@ mod tests {
 
     #[test]
     fn conv2d_test() -> FrameResult<()> {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
 
         let input_tensor = Tensor::ones(vec![1, 5, 15, 15])?;
         let weight_tensor = Tensor::ones(vec![8, 5, 3, 3])?;
@@ -644,7 +644,7 @@ mod tests {
 
     #[test]
     fn max_pool2d_test() -> FrameResult<()> {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
 
         let input_tensor = Tensor::from_vec(
             vec![
@@ -793,7 +793,7 @@ mod tests {
 
     #[test]
     fn im2col_function_test() -> FrameResult<()> {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
         let input = Tensor::from_vec(
             vec![
                 1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0,
@@ -829,7 +829,7 @@ mod tests {
 
     #[test]
     fn col2im_function_test() -> FrameResult<()> {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
         let input = Tensor::from_vec(
             vec![
                 1.0, 2.0, 3.0, 5.0, 6.0, 7.0, 9.0, 10.0, 11.0, 2.0, 3.0, 4.0, 6.0, 7.0, 8.0, 10.0,
@@ -889,7 +889,7 @@ mod tests {
 
     #[test]
     fn conv2d_layer_test() -> FrameResult<()> {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
         use crate::layers as L;
         use crate::models::BaseModel;
 
@@ -911,7 +911,7 @@ mod tests {
 
     #[test]
     fn maxpool2d_layer_test() -> FrameResult<()> {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
         use crate::layers as L;
         use crate::models::BaseModel;
 
@@ -959,7 +959,7 @@ mod tests {
 
     #[test]
     fn dropout_layer_test() -> FrameResult<()> {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
         use crate::layers as L;
         use crate::models::BaseModel;
 
@@ -987,7 +987,7 @@ mod tests {
 
     #[test]
     fn flatten_layer_test() -> FrameResult<()> {
-        use crate::core_new::TensorToRcVariable;
+        use crate::core::TensorToRcVariable;
         use crate::layers as L;
         use crate::models::BaseModel;
 

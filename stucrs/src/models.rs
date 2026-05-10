@@ -1,5 +1,5 @@
-use crate::core_new::RcVariable;
-use crate::core_new::Variable;
+use crate::core::RcVariable;
+use crate::core::Variable;
 use crate::error::FrameResult;
 use crate::layers::Layer;
 
