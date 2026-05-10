@@ -1,16 +1,17 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use thiserror::Error;
 
-use ndarray::ArrayD;
-
-use crate::core_new::RcVariable;
+use crate::core_new::{F32ToTensor, RcVariable};
+use crate::error::{FrameError, FrameResult};
 use crate::layers::Layer;
 use crate::models::Model;
+use crate::tensor::tensor::Tensor;
 
 pub trait Optimizer {
     fn setup(&mut self, target_model: &impl Model);
-    fn update(&self);
-    fn update_param(&self, param: &RcVariable) -> ArrayD<f32>;
+    fn update(&self) -> FrameResult<()>;
+    fn update_param(&self, param: &RcVariable) -> FrameResult<Tensor>;
     fn set_hooks(&mut self);
 }
 
@@ -24,31 +25,36 @@ impl Optimizer for SGD {
         self.layers = Some(target_model.layers().clone());
     }
 
-    fn update(&self) {
+    fn update(&self) -> FrameResult<()> {
         for layer in self
             .layers
             .as_ref()
-            .expect("SGDにModelが設定されていません")
+            .ok_or(FrameError::OptimizerError(OptimizerError::MissingModel {
+                optimizer: "SGD",
+            }))?
             .borrow_mut()
             .iter_mut()
             .filter(|layer| layer.has_params())
         {
-            for (_id, param) in layer.params() {
-                let new_param = self.update_param(&param);
+            for (_id, param) in layer.params()? {
+                let new_param = self.update_param(&param)?;
                 param.0.borrow_mut().data = new_param;
             }
         }
+        Ok(())
     }
-    fn update_param(&self, param: &RcVariable) -> ArrayD<f32> {
+    fn update_param(&self, param: &RcVariable) -> FrameResult<Tensor> {
         let current_param_data = param.data();
         let param_grad = param
             .grad()
             .as_ref()
-            .expect("SGDで更新中のパラメータにgradがありません")
+            .ok_or(FrameError::OptimizerError(OptimizerError::NoGrad {
+                optimizer: "SGD",
+            }))?
             .data();
 
-        let new_param_data = current_param_data - self.lr * param_grad;
-        new_param_data
+        let new_param_data = (current_param_data - (self.lr.ts() * param_grad)?)?;
+        Ok(new_param_data)
     }
     fn set_hooks(&mut self) {}
 }
@@ -60,4 +66,15 @@ impl SGD {
             layers: None,
         }
     }
+}
+
+#[derive(Debug, Error)]
+pub enum OptimizerError {
+    #[error("オプティマイザー:{optimizer}にモデルが設定されていません。")]
+    MissingModel { optimizer: &'static str },
+
+    #[error(
+        "オプティマイザー:{optimizer}の更新中にgradを保持しないパラメーターが見つかりました。"
+    )]
+    NoGrad { optimizer: &'static str },
 }
