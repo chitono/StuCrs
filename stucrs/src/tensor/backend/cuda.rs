@@ -2,14 +2,15 @@ use super::{Backend, CudaStorage, Storage};
 use crate::tensor::error::{Result, TensorError};
 use crate::tensor::shape::Shape;
 
-use cudarc::driver::{CudaContext, CudaFunction, LaunchConfig, PushKernelArg};
+use cudarc::driver::{CudaContext, CudaFunction, CudaStream, LaunchConfig, PushKernelArg};
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct CudaBackend {
-    context: std::sync::Arc<CudaContext>,
-
+    context: Arc<CudaContext>,
+    stream: Arc<CudaStream>,
     kernels: HashMap<String, CudaFunction>,
 }
 
@@ -20,9 +21,15 @@ impl CudaBackend {
                 TensorError::BackendError(format!("Failed to initialize CUDA: {}", e))
             })?;
 
+            let stream = context.default_stream();
+
             let kernels = Self::load_kernels(&context)?;
 
-            Ok(CudaBackend { context, kernels })
+            Ok(CudaBackend {
+                context,
+                stream,
+                kernels,
+            })
         }
         #[cfg(not(feature = "cuda"))]
         Err(TensorError::BackendError(
@@ -56,6 +63,8 @@ impl CudaBackend {
                     "mean_kernel",
                     "broadcast_to_kernel",
                     "rows_slice_kernel",
+                    "axis_slice_kernel",
+                    "axis0_slice_kernel",
                     "argmax_axis_kernel",
                     "argmax_axis0_2d_kernel",
                     "argmax_axis1_2d_kernel",
@@ -558,8 +567,6 @@ impl Backend for CudaBackend {
                         }
                     }
 
-                    println!("in_shape = {:?}", in_shape);
-
                     let in_ndim = in_shape.len();
                     let out_ndim = out_shape.len();
 
@@ -782,11 +789,12 @@ impl Backend for CudaBackend {
             "CUDA has not support permuted_axes yet".to_string(),
         ))
     }
-    // TODO:axis_slice cuda未対応
+    // TODO:axis_slice axis = 0の時のみcuda対応
     fn axis_slice(
         &self,
         storage: &Storage,
-        shape: &Shape,
+        from_shape: &Shape,
+        to_shape: &Shape,
         axis: usize,
         indices: &[usize],
     ) -> Result<Storage> {
@@ -795,35 +803,36 @@ impl Backend for CudaBackend {
             match storage {
                 Storage::Cuda(cuda_storage) => {
                     let num_indices = indices.len();
-                    let in_cols = shape.dims()[1];
+                    let in_n = from_shape.numel();
+                    let out_n = to_shape.numel();
+
+                    let inner_size = (in_n / from_shape.dims()[0]) as i32;
 
                     let stream = self.context.default_stream();
-                    let mut result_buf =
-                        stream
-                            .alloc_zeros::<f32>(num_indices * in_cols)
-                            .map_err(|e| {
-                                TensorError::BackendError(format!(
-                                    "Failed to allocate CUDA result buffer: {}",
-                                    e
-                                ))
-                            })?;
-
-                    let kernel = self.kernels.get("rows_slice_kernel").ok_or_else(|| {
-                        TensorError::BackendError("rows_slice_kernel not found".to_string())
+                    let mut result_buf = stream.alloc_zeros::<f32>(out_n).map_err(|e| {
+                        TensorError::BackendError(format!(
+                            "Failed to allocate CUDA result buffer: {}",
+                            e
+                        ))
                     })?;
 
-                    let indices_gpu = stream.memcpy_stod(indices).unwrap();
+                    let kernel = self.kernels.get("axis0_slice_kernel").ok_or_else(|| {
+                        TensorError::BackendError("axis_slice_kernel not found".to_string())
+                    })?;
+
+                    let indices_i32: Vec<i32> = indices.iter().map(|&x| x as i32).collect();
+
+                    let indices_buffer = stream.memcpy_stod(&indices_i32).unwrap();
 
                     let size = cuda_storage.buffer.len();
-                    let block_x = 16;
-                    let block_y = 16;
+                    let block_x = 256;
 
-                    let grid_x = (in_cols + block_x - 1) / block_x;
-                    let grid_y = (num_indices + block_y - 1) / block_y;
+                    let grid_x = (inner_size + block_x - 1) / block_x;
+                    let grid_y = num_indices;
 
                     let cfg = LaunchConfig {
                         grid_dim: (grid_x as u32, grid_y as u32, 1),
-                        block_dim: (block_x as u32, block_y as u32, 1),
+                        block_dim: (block_x as u32, 1, 1),
                         shared_mem_bytes: 0,
                     };
 
@@ -831,13 +840,12 @@ impl Backend for CudaBackend {
 
                     builder.arg(cuda_storage.buffer.as_ref());
                     builder.arg(&mut result_buf);
-                    builder.arg(&indices_gpu);
-                    builder.arg(&num_indices);
-                    builder.arg(&in_cols);
+                    builder.arg(&inner_size);
+                    builder.arg(&indices_buffer);
 
                     unsafe { builder.launch(cfg) }.map_err(|e| {
                         TensorError::BackendError(format!(
-                            "Failed to launch rows_slice kernel: {}",
+                            "Failed to launch axis_slice kernel: {}",
                             e
                         ))
                     })?;
@@ -921,17 +929,10 @@ impl Backend for CudaBackend {
                 });
             }
 
-            // Convert inputs to CUDA storage if needed
-            let lhs_data = self.to_vec_f32(lhs)?;
-            let rhs_data = self.to_vec_f32(rhs)?;
-            let lhs_shape_single = Shape::new(vec![lhs_data.len()])?;
-            let rhs_shape_single = Shape::new(vec![rhs_data.len()])?;
-            let lhs_storage = self.from_slice(&lhs_data, &lhs_shape_single)?;
-            let rhs_storage = self.from_slice(&rhs_data, &rhs_shape_single)?;
-
-            match (&lhs_storage, &rhs_storage) {
+            match (&lhs, &rhs) {
                 (Storage::Cuda(a), Storage::Cuda(b)) => {
-                    let stream = self.context.default_stream();
+                    let stream = self.stream.clone();
+
                     let mut result_buf = stream.alloc_zeros::<f32>(m * n).map_err(|e| {
                         TensorError::BackendError(format!(
                             "Failed to allocate CUDA result buffer: {}",

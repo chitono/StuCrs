@@ -141,7 +141,7 @@ __global__ void broadcast_to_kernel(const float* input, float* output,
     }else{
         for (int i = 0; i < out_ndim; ++i) {
             int coord = (in_shape[i] ==1) ? 0 : coords[i];
-            in_idx += coord * out_strides[i];
+            in_idx += coord * in_strides[i];
         }
             
     }
@@ -173,6 +173,59 @@ __global__ void rows_slice_kernel(const float* input, float* output,
         output[dst_idx] = input[src_idx];
     }
 }
+
+
+
+// TODO: 現在axis=0のみ対応
+__global__ void axis_slice_kernel(const float* input, float* output,
+                    const int* in_shape, const int* out_shape,
+                    const int* in_strides, const int* out_strides,
+                    int in_ndim, int out_ndim,
+                    int in_n, int out_n, int axis,
+                    int* indices, int indices_len, int inner_size) {
+
+
+    
+    int out_row = blockIdx.y;
+
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (col >= inner_size) {
+        return;
+    }
+
+    int in_row = indices[out_row];
+
+    int out_idx = out_row * inner_size + col;
+    int in_idx = in_row * inner_size + col;
+
+    
+    output[out_idx] = input[in_idx];
+}
+
+// TODO: 現在axis=0のみ対応
+__global__ void axis0_slice_kernel(const float* input, float* output,
+                                int inner_size,const int* indices) {
+
+
+    
+    int out_row = blockIdx.y;
+
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (col >= inner_size) {
+        return;
+    }
+
+    int in_row = indices[out_row];
+
+    int out_idx = out_row * inner_size + col;
+    int in_idx = in_row * inner_size + col;
+
+    
+    output[out_idx] = input[in_idx];
+}
+
 
 
 

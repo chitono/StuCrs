@@ -15,8 +15,8 @@
 //! given to GPU backends (CUDA, then WGPU) before falling back to CPU.
 
 use crate::tensor::error::Result;
-use crate::tensor::shape::{self, Shape};
-use ndarray::{ArrayD, ArrayViewD};
+use crate::tensor::shape::Shape;
+use ndarray::ArrayD;
 use once_cell::sync::Lazy;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -95,7 +95,8 @@ pub trait Backend: Debug + Send + Sync {
     fn axis_slice(
         &self,
         storage: &Storage,
-        shape: &Shape,
+        from_shape: &Shape,
+        to_shape: &Shape,
         axis: usize,
         indices: &[usize],
     ) -> Result<Storage>;

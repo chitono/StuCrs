@@ -216,7 +216,8 @@ impl Backend for CpuBackend {
     fn axis_slice(
         &self,
         storage: &Storage,
-        shape: &Shape,
+        _from_shape: &Shape,
+        _to_shape: &Shape,
         axis: usize,
         indices: &[usize],
     ) -> Result<Storage> {

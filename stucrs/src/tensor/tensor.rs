@@ -9,7 +9,7 @@ use crate::tensor::error::{Result, TensorError};
 use crate::functions_cnn::get_conv_outsize;
 use crate::tensor::ops::TensorOps;
 use crate::tensor::shape::Shape;
-use ndarray::IxDyn;
+
 use rand::thread_rng;
 use rand_distr::{Distribution, StandardNormal};
 use std::collections::HashSet;
@@ -881,7 +881,7 @@ impl TensorOps for Tensor {
         current_shape_vec[axis] = indices.len();
         let result_shape = Shape::new(current_shape_vec).unwrap();
         for backend in &BACKENDS[0..] {
-            match backend.axis_slice(&self.storage, &self.shape, axis, &indices) {
+            match backend.axis_slice(&self.storage, &self.shape, &result_shape, axis, &indices) {
                 Ok(storage) => {
                     return Ok(Tensor {
                         storage,
@@ -892,7 +892,7 @@ impl TensorOps for Tensor {
             }
         }
         Err(TensorError::BackendError(
-            "No backend could perform broadcast_to operation".to_string(),
+            "No backend could perform axis_slice operation".to_string(),
         ))
     }
 
