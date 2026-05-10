@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct CudaBackend {
-    context: Arc<CudaContext>,
+    //context: Arc<CudaContext>,
     stream: Arc<CudaStream>,
     kernels: HashMap<String, CudaFunction>,
 }
@@ -25,11 +25,7 @@ impl CudaBackend {
 
             let kernels = Self::load_kernels(&context)?;
 
-            Ok(CudaBackend {
-                context,
-                stream,
-                kernels,
-            })
+            Ok(CudaBackend { stream, kernels })
         }
         #[cfg(not(feature = "cuda"))]
         Err(TensorError::BackendError(
@@ -160,7 +156,7 @@ impl CudaBackend {
             });
         }
 
-        let stream = self.context.default_stream();
+        let stream = self.stream.clone();
         let mut result_buf = stream.alloc_zeros::<f32>(a.buffer.len()).map_err(|e| {
             TensorError::BackendError(format!("Failed to allocate CUDA result buffer: {}", e))
         })?;
@@ -191,7 +187,7 @@ impl CudaBackend {
     fn launch_unary_math_kernel(&self, kernel_name: &str, storage: &Storage) -> Result<Storage> {
         match storage {
             Storage::Cuda(cuda_storage) => {
-                let stream = self.context.default_stream();
+                let stream = self.stream.clone();
                 let mut result_buf = stream
                     .alloc_zeros::<f32>(cuda_storage.buffer.len())
                     .map_err(|e| {
@@ -252,7 +248,7 @@ impl Backend for CudaBackend {
     fn zeros(&self, shape: &Shape) -> Result<Storage> {
         {
             let size = shape.numel();
-            let stream = self.context.default_stream();
+            let stream = self.stream.clone();
             let buf = stream.alloc_zeros::<f32>(size).map_err(|e| {
                 TensorError::BackendError(format!("Failed to allocate CUDA memory: {}", e))
             })?;
@@ -269,7 +265,7 @@ impl Backend for CudaBackend {
     fn ones(&self, shape: &Shape) -> Result<Storage> {
         {
             let size = shape.numel();
-            let stream = self.context.default_stream();
+            let stream = self.stream.clone();
             let mut buf = stream.alloc_zeros::<f32>(size).map_err(|e| {
                 TensorError::BackendError(format!("Failed to allocate CUDA memory: {}", e))
             })?;
@@ -308,7 +304,7 @@ impl Backend for CudaBackend {
                 });
             }
 
-            let stream = self.context.default_stream();
+            let stream = self.stream.clone();
             let buf = stream.memcpy_stod(data).map_err(|e| {
                 TensorError::BackendError(format!("Failed to copy data to CUDA: {}", e))
             })?;
@@ -417,7 +413,7 @@ impl Backend for CudaBackend {
                         panic!("想定外のバックエンド: この関数はCUDA専用です");
                     };
                     {
-                        let stream = self.context.default_stream();
+                        let stream = self.stream.clone();
                         let mut result_buf = stream.alloc_zeros::<f32>(1).map_err(|e| {
                             TensorError::BackendError(format!(
                                 "Failed to allocate CUDA result buffer: {}",
@@ -473,7 +469,7 @@ impl Backend for CudaBackend {
                         let in_n = shape.numel();
                         let out_n = result_shape.numel();
 
-                        let stream = self.context.default_stream();
+                        let stream = self.stream.clone();
 
                         let mut result_buf = stream.alloc_zeros::<f32>(out_n).map_err(|e| {
                             TensorError::BackendError(format!(
@@ -573,7 +569,7 @@ impl Backend for CudaBackend {
                     let in_n = from_shape.numel();
                     let out_n = to_shape.numel();
 
-                    let stream = self.context.default_stream();
+                    let stream = self.stream.clone();
                     let mut result_buf = stream.alloc_zeros::<f32>(out_n).map_err(|e| {
                         TensorError::BackendError(format!(
                             "Failed to allocate CUDA result buffer: {}",
@@ -668,7 +664,7 @@ impl Backend for CudaBackend {
                         let sum_data = self.to_vec_f32(&Storage::Cuda(sum_storage))?;
                         let mean_val = sum_data[0] / cuda_storage.buffer.len() as f32;
 
-                        let stream = self.context.default_stream();
+                        let stream = self.stream.clone();
                         let result_buf = stream.memcpy_stod(&[mean_val]).map_err(|e| {
                             TensorError::BackendError(format!("Failed to copy mean to CUDA: {}", e))
                         })?;
@@ -698,7 +694,7 @@ impl Backend for CudaBackend {
                     let result: Vec<f32> = sum_data.iter().map(|&sum| sum / axis_size).collect();
 
                     // Convert result back to CUDA storage
-                    let stream = self.context.default_stream();
+                    let stream = self.stream.clone();
                     let result_buf = stream.memcpy_stod(&result).map_err(|e| {
                         TensorError::BackendError(format!("Failed to copy mean to CUDA: {}", e))
                     })?;
@@ -730,7 +726,7 @@ impl Backend for CudaBackend {
 
                 let rows = dims[0];
                 let cols = dims[1];
-                let stream = self.context.default_stream();
+                let stream = self.stream.clone();
                 let mut result_buf = stream
                     .alloc_zeros::<f32>(cuda_storage.buffer.len())
                     .map_err(|e| {
@@ -808,7 +804,7 @@ impl Backend for CudaBackend {
 
                     let inner_size = (in_n / from_shape.dims()[0]) as i32;
 
-                    let stream = self.context.default_stream();
+                    let stream = self.stream.clone();
                     let mut result_buf = stream.alloc_zeros::<f32>(out_n).map_err(|e| {
                         TensorError::BackendError(format!(
                             "Failed to allocate CUDA result buffer: {}",
@@ -874,7 +870,7 @@ impl Backend for CudaBackend {
         {
             match storage {
                 Storage::Cuda(cuda_storage) => {
-                    let stream = self.context.default_stream();
+                    let stream = self.stream.clone();
                     let mut result = vec![0.0f32; cuda_storage.buffer.len()];
                     stream
                         .memcpy_dtoh(cuda_storage.buffer.as_ref(), &mut result)
@@ -1048,7 +1044,7 @@ impl Backend for CudaBackend {
 
             match (&lhs_storage, &rhs_storage) {
                 (Storage::Cuda(a), Storage::Cuda(b)) => {
-                    let stream = self.context.default_stream();
+                    let stream = self.stream.clone();
                     let mut result_buf = stream.alloc_zeros::<f32>(b1 * m * n).map_err(|e| {
                         TensorError::BackendError(format!(
                             "Failed to allocate CUDA result buffer: {}",
@@ -1152,7 +1148,7 @@ impl Backend for CudaBackend {
         {
             match storage {
                 Storage::Cuda(cuda_storage) => {
-                    let stream = self.context.default_stream();
+                    let stream = self.stream.clone();
                     let mut result_buf = stream
                         .alloc_zeros::<f32>(cuda_storage.buffer.len())
                         .map_err(|e| {
@@ -1237,7 +1233,7 @@ impl Backend for CudaBackend {
         {
             match storage {
                 Storage::Cuda(cuda_storage) => {
-                    let stream = self.context.default_stream();
+                    let stream = self.stream.clone();
                     let mut result_buf = stream
                         .alloc_zeros::<f32>(cuda_storage.buffer.len())
                         .map_err(|e| {
@@ -1292,7 +1288,7 @@ impl Backend for CudaBackend {
         {
             match storage {
                 Storage::Cuda(cuda_storage) => {
-                    let stream = self.context.default_stream();
+                    let stream = self.stream.clone();
                     let mut result_buf = stream
                         .alloc_zeros::<f32>(cuda_storage.buffer.len())
                         .map_err(|e| {
@@ -1427,7 +1423,7 @@ impl Backend for CudaBackend {
         {
             match storage {
                 Storage::Cuda(cuda_storage) => {
-                    let stream = self.context.default_stream();
+                    let stream = self.stream.clone();
                     let mut result_buf = stream
                         .alloc_zeros::<f32>(cuda_storage.buffer.len())
                         .map_err(|e| {
@@ -1482,7 +1478,7 @@ impl Backend for CudaBackend {
         {
             match storage {
                 Storage::Cuda(cuda_storage) => {
-                    let stream = self.context.default_stream();
+                    let stream = self.stream.clone();
                     let mut result_buf = stream
                         .alloc_zeros::<f32>(cuda_storage.buffer.len())
                         .map_err(|e| {
@@ -1578,7 +1574,7 @@ impl Backend for CudaBackend {
                     let out_n = result_shape.numel();
                     let axis = axis as i32;
 
-                    let stream = self.context.default_stream();
+                    let stream = self.stream.clone();
                     let mut result_buf = stream.alloc_zeros::<f32>(out_n).map_err(|e| {
                         TensorError::BackendError(format!(
                             "Failed to allocate CUDA result buffer: {}",
@@ -1668,7 +1664,7 @@ impl Backend for CudaBackend {
                         let rows = shape.dims()[0];
                         let cols = shape.dims()[1];
 
-                        let stream = self.context.default_stream();
+                        let stream = self.stream.clone();
                         let mut result_buf = stream.alloc_zeros::<f32>(cols).map_err(|e| {
                             TensorError::BackendError(format!(
                                 "Failed to allocate CUDA result buffer: {}",
@@ -1723,7 +1719,7 @@ impl Backend for CudaBackend {
                         let rows = shape.dims()[0];
                         let cols = shape.dims()[1];
 
-                        let stream = self.context.default_stream();
+                        let stream = self.stream.clone();
 
                         let mut result_buf = stream.alloc_zeros::<f32>(rows).map_err(|e| {
                             TensorError::BackendError(format!(
@@ -1790,7 +1786,7 @@ impl Backend for CudaBackend {
         {
             match storage {
                 Storage::Cuda(cuda_storage) => {
-                    let stream = self.context.default_stream();
+                    let stream = self.stream.clone();
                     let n = shape.dims()[0];
                     let mut result_buf = stream.alloc_zeros::<f32>(n * num_class).map_err(|e| {
                         TensorError::BackendError(format!(
