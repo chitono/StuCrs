@@ -140,8 +140,9 @@ impl RcVariable {
         RcVariable(Variable::new_rc(data.clone()))
     }
 
-    pub fn backward(&mut self, double_grad: bool) {
-        self.0.borrow_mut().backward(double_grad);
+    pub fn backward(&mut self, double_grad: bool) -> FrameResult<()> {
+        self.0.borrow_mut().backward(double_grad)?;
+        Ok(())
     }
 
     /*

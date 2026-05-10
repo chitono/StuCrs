@@ -1,4 +1,3 @@
-use core::panic;
 use std::cell::RefCell;
 //use std::clone;
 
@@ -8,9 +7,7 @@ use std::fmt::Debug;
 //use std::future;
 //use std::hash::Hash;
 //use std::process::Output;
-use ndarray::*;
 
-use ndarray_stats::QuantileExt;
 use std::rc::{Rc, Weak};
 use std::vec;
 
@@ -22,7 +19,7 @@ use crate::core_new::*;
 use crate::error::{FrameError, FrameResult};
 
 use crate::functions::matrix::*;
-use crate::tensor::lib::{Tensor, TensorOps};
+use crate::tensor::lib::TensorOps;
 
 #[derive(Debug, Clone)]
 pub struct Square {

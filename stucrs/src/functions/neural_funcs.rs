@@ -7,11 +7,8 @@ use core::panic;
 //use std::hash::Hash;
 //use std::process::Output;
 use ndarray::*;
-use ndarray_rand::rand_distr::Standard;
-use ndarray_rand::RandomExt;
-use ndarray_stats::QuantileExt;
 
-use std::vec;
+use ndarray_stats::QuantileExt;
 
 //use std::thread;
 //use std::time::Duration;
@@ -19,7 +16,7 @@ use std::vec;
 use crate::config::get_test_flag_status;
 use crate::core_new::*;
 use crate::datasets::{arr1d_to_one_hot, tensor2d_to_one_hot};
-use crate::error::{FrameError, FrameResult};
+use crate::error::FrameResult;
 use crate::functions::matrix::matmul;
 use crate::tensor::lib::{Tensor, TensorOps};
 

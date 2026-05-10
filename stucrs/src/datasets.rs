@@ -1,8 +1,6 @@
-use core::num;
-
 use crate::error::{FrameError, FrameResult};
 use crate::tensor::error::TensorError;
-use crate::tensor::lib::TensorOps;
+
 use crate::tensor::tensor::Tensor;
 use ndarray::{array, Array1, Array2, ArrayView1, ArrayView2, Axis};
 use rand::seq::SliceRandom;

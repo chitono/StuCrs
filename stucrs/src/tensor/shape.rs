@@ -5,7 +5,7 @@
 //! broadcasting rules.
 
 use crate::tensor::error::{Result, TensorError};
-use ndarray::{IntoDimension, IxDyn};
+use ndarray::IxDyn;
 /// Represents the shape (dimensions) of a tensor.
 ///
 /// A shape is essentially a list of dimension sizes. For example:

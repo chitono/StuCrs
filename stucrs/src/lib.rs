@@ -608,19 +608,19 @@ mod tests {
 
     #[test]
     fn conv2d_array_1ch_test() -> FrameResult<()> {
-        let input = Tensor::from_vec(
+        let _input = Tensor::from_vec(
             vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
             vec![1, 1, 3, 3],
         )?;
-        let kernel = Tensor::from_vec(
+        let _kernel = Tensor::from_vec(
             vec![1.0f32, 1.0, 1.0, 0.0, 0.0, 0.0, -1.0, -1.0, -1.0],
             vec![1, 1, 3, 3],
         )?;
         //let input = array![[[[1.0f32, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]]];
         //let kernel = array![[[[1.0f32, 1.0, 1.0], [0.0, 0.0, 0.0], [-1.0, -1.0, -1.0]]]];
 
-        let stride_size = (1, 1);
-        let pad_size = (1, 1);
+        let _stride_size = (1, 1);
+        let _pad_size = (1, 1);
 
         //let output = conv2d_array(input.view(), kernel.view(), None, stride_size, pad_size);
         //println!("{:?}", output);
