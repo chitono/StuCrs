@@ -104,7 +104,7 @@ mod tests {
 
         println!("c = {}", c.data());
 
-        c.backward(false);
+        c.backward(false)?;
 
         println!("a_grad = {:?}", a.grad().unwrap().data());
         println!("b_grad = {:?}", b.grad().unwrap().data());
@@ -120,7 +120,7 @@ mod tests {
 
         println!("c = {}", c.data()); // [3,3,3,3,3]
 
-        c.backward(false);
+        c.backward(false)?;
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); // [1.0,1.0,1.0]
         println!("b_grad = {:?}", b.grad().unwrap().data()); // [3.0]
@@ -129,7 +129,7 @@ mod tests {
     }
 
     #[test]
-    fn mul_test() {
+    fn mul_test() -> FrameResult<()> {
         use crate::core::TensorToRcVariable;
 
         let a = Tensor::from_vec(vec![3.0, 3.0, 3.0], vec![3]).unwrap().rv();
@@ -141,14 +141,15 @@ mod tests {
 
         println!("c = {}", y.data()); // 7.0
 
-        y.backward(false);
+        y.backward(false)?;
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); // 2.0
         println!("b_grad = {:?}", b.grad().unwrap().data()); // 3.0
+        Ok(())
     }
 
     #[test]
-    fn sub_test() {
+    fn sub_test() -> FrameResult<()> {
         use crate::core::TensorToRcVariable;
 
         let a = Tensor::from_vec(vec![3.0, 3.0, 3.0], vec![3]).unwrap().rv();
@@ -160,15 +161,17 @@ mod tests {
 
         println!("y = {}", y.data());
 
-        y.backward(false);
+        y.backward(false)?;
 
         println!("a_grad = {:?}", a.grad().unwrap().data());
         println!("b_grad = {:?}", b.grad().unwrap().data());
         println!("c_grad = {:?}", c.grad().unwrap().data());
+
+        Ok(())
     }
 
     #[test]
-    fn div_test() {
+    fn div_test() -> FrameResult<()> {
         use crate::core::TensorToRcVariable;
 
         let a = Tensor::from_vec(vec![3.0, 3.0, 3.0], vec![3]).unwrap().rv();
@@ -178,10 +181,11 @@ mod tests {
 
         println!("y = {}", y.data()); // 1.5
 
-        y.backward(false);
+        y.backward(false)?;
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); // 0.5
         println!("b_grad = {:?}", b.grad().unwrap().data()); // -0.75
+        Ok(())
     }
 
     #[test]
@@ -194,7 +198,7 @@ mod tests {
 
         println!("y = {}", y.data()); // 9.0
 
-        y.backward(false);
+        y.backward(false)?;
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); // 6.0
         Ok(())
@@ -210,7 +214,7 @@ mod tests {
 
         println!("y = {}", y.data()); // 9.0
 
-        y.backward(false);
+        y.backward(false)?;
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); // 6.0
         Ok(())
@@ -229,8 +233,8 @@ mod tests {
         println!("y0= {}", y0.data()); // 20.0855...
         println!("y1= {}", y1.data()); // 7.3890...
 
-        y0.backward(false);
-        y1.backward(false);
+        y0.backward(false)?;
+        y1.backward(false)?;
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); // 20.0855
         println!("b_grad = {:?}", b.grad().unwrap().data()); // 7.3890
@@ -246,7 +250,7 @@ mod tests {
 
         println!("y = {}", y.data()); // 0.1411
 
-        y.backward(false);
+        y.backward(false)?;
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); // -0.9899
         Ok(())
@@ -262,7 +266,7 @@ mod tests {
 
         println!("y = {}", y.data()); // -0.9899
 
-        y.backward(false);
+        y.backward(false)?;
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); // -0.1411
         Ok(())
@@ -278,7 +282,7 @@ mod tests {
 
         println!("y = {}", y.data()); // 0.9950...
 
-        y.backward(false);
+        y.backward(false)?;
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); // 9.866...e-3
         Ok(())
@@ -297,8 +301,8 @@ mod tests {
         println!("y0 = {}", y0.data()); // 1.098...
         println!("y1 = {}", y1.data()); // 1.584...
 
-        y0.backward(false);
-        y1.backward(false);
+        y0.backward(false)?;
+        y1.backward(false)?;
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); // 0.3333...
         println!("b_grad = {:?}", b.grad().unwrap().data()); // 0.4808...
@@ -320,8 +324,8 @@ mod tests {
         println!("y0 = {}", y0.data()); //[[1,2,3,4,5,6]] shape(1,6)
         println!("y1 = {}", y1.data()); //[[1,2,3,4,5,6]] shape(1,6)
 
-        y0.backward(false);
-        y1.backward(false);
+        y0.backward(false)?;
+        y1.backward(false)?;
         println!("a_grad = {:?}", a.grad().unwrap().data()); // [[1.0,1.0,1.0],[1.0,1.0,1.0]] shape(2,3)
         println!("b_grad = {:?}", b.grad().unwrap().data()); // [[1.0,1.0,1.0],[1.0,1.0,1.0]] shape(2,3)
         Ok(())
@@ -341,8 +345,8 @@ mod tests {
         println!("y0 = {}", y0.data()); //[[1,4],[2,5],[3,6]] shape(3,2)
         println!("y1 = {}", y1.data()); //[[1,4],[2,5],[3,6]] shape(3,2)
 
-        y0.backward(false);
-        y1.backward(false);
+        y0.backward(false)?;
+        y1.backward(false)?;
         println!("a_grad = {:?}", a.grad().unwrap().data()); // [[1.0,1.0,1.0],[1.0,1.0,1.0]] shape(2,3)
         println!("b_grad = {:?}", b.grad().unwrap().data()); // [[1.0,1.0,1.0],[1.0,1.0,1.0]] shape(2,3)
 
@@ -364,9 +368,9 @@ mod tests {
         println!("y1 = {}", y1.data()); //
         println!("y2 = {}", y2.data()); //
 
-        y0.backward(false);
-        y1.backward(false);
-        y2.backward(false);
+        y0.backward(false)?;
+        y1.backward(false)?;
+        y2.backward(false)?;
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); //
         println!("b_grad = {:?}", b.grad().unwrap().data()); //
@@ -384,7 +388,7 @@ mod tests {
 
         println!("y = {}", y.data()); // 9.0
 
-        y.backward(false);
+        y.backward(false)?;
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); // 6.0
         Ok(())
@@ -400,7 +404,7 @@ mod tests {
 
         println!("y = {}", y.data()); // 9.0
 
-        y.backward(false);
+        y.backward(false)?;
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); // 6.0
         Ok(())
@@ -416,7 +420,7 @@ mod tests {
         let mut y = matmul(&a, &b)?;
 
         println!("y = {}", y.data()); // [[58,64],[139,154]]
-        y.backward(false);
+        y.backward(false)?;
 
         println!("a_grad = {:?}", a.grad().unwrap().data());
         println!("b_grad = {:?}", b.grad().unwrap().data());
@@ -439,7 +443,7 @@ mod tests {
         let mut y = tensordot(&a, &b)?;
 
         println!("y = {:?}", y.data()); //[[[58.0, 64.0],[139.0, 154.0]]]
-        y.backward(false);
+        y.backward(false)?;
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); //[[[15.0, 19.0, 23.0],[15.0, 19.0, 23.0]]]
         println!("b_grad = {:?}", b.grad().unwrap().data()); //[[5.0, 5.0],[7.0, 7.0],[9.0, 9.0]]
@@ -456,7 +460,7 @@ mod tests {
         let mut y = permute_axes(&a, vec![1, 0])?;
 
         println!("y = {}", y.data());
-        y.backward(false);
+        y.backward(false)?;
 
         println!("a_grad = {:?}", a.grad().unwrap().data());
         Ok(())
@@ -473,7 +477,7 @@ mod tests {
         let mut y = permute_axes(&a, vec![1, 2, 0])?;
 
         println!("y = {:?}", y.data());
-        y.backward(false);
+        y.backward(false)?;
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); //[1,2,3] a_shapeと同じならok
 
@@ -506,12 +510,12 @@ mod tests {
         println!("y1 = {}", y1.data()); // [[5],[6]]
         println!("y2 = {}", y2.data()); //
 
-        y0.backward(false);
+        y0.backward(false)?;
         println!("微分1完了");
 
-        y1.backward(false);
+        y1.backward(false)?;
         println!("微分2完了");
-        y2.backward(false);
+        y2.backward(false)?;
         println!("微分3完了");
 
         println!("a_grad = {:?}", a.grad().unwrap().data()); // [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
@@ -534,7 +538,7 @@ mod tests {
         println!("y = {}", y.data()); // [0.0001, 0.0001, 1.0000, 1.0000, 0.0001]
         println!("y Backend = {:?}", y.data().backend_type());
 
-        y.backward(false);
+        y.backward(false)?;
 
         println!("a_grad = {}", a.grad().unwrap().data()); // [0.0, 0.0, 0.0, 1.0, 0.0]
         Ok(())
@@ -550,7 +554,7 @@ mod tests {
 
         println!("y = {}", y.data()); // [0.0000, 0.0000, 3.0000, 1.0000, 0.0000]
 
-        y.backward(false);
+        y.backward(false)?;
 
         println!("a_grad = {}", a.grad().unwrap().data()); // [0.0, 0.0, 1.0, 1.0, 0.0]
         Ok(())
@@ -596,7 +600,7 @@ mod tests {
 
         println!("output_shape = {:?}", output.data().shape()); //shape = (1,8,15,15)
 
-        output.backward(false);
+        output.backward(false)?;
 
         println!(
             "input_grad_shape = {:?}",
@@ -681,7 +685,7 @@ mod tests {
 
         println!("output = {}", output.data()); //shape = (1,8,15,15)
 
-        output.backward(false);
+        output.backward(false)?;
 
         println!("input_grad= {}", input.grad().unwrap().data()); //shape = (1,5,15,15)
 
@@ -821,7 +825,7 @@ mod tests {
 
         println!("output = {:?}", output); //shape (1,4,9)
 
-        output.backward(false);
+        output.backward(false)?;
         println!("input_grad = {:?}", input.grad().unwrap().data());
 
         Ok(())
@@ -864,7 +868,7 @@ mod tests {
         [18.0, 40.0, 44.0, 24.0],
         [13.0, 28.0, 30.0, 16.0]]]] */
 
-        output.backward(false);
+        output.backward(false)?;
         println!("input_grad = {:?}", input.grad().unwrap().data());
         Ok(())
     }
@@ -903,7 +907,7 @@ mod tests {
         let mut y = model.call(&input)?;
 
         println!("y = {:?}", y.data()); // shape = [1,4,13,13]
-        y.backward(false);
+        y.backward(false)?;
 
         println!("input_grad = {:?}", input.grad().unwrap().data()); // shape = [1,3,15,15]
         Ok(())
@@ -950,7 +954,7 @@ mod tests {
         let mut y = model.call(&input)?;
 
         println!("y = {:?}", y.data()); // shape = [1,4,13,13]
-        y.backward(false);
+        y.backward(false)?;
 
         println!("input_grad = {:?}", input.grad().unwrap().data()); // shape = [1,3,15,15]
 
@@ -978,7 +982,7 @@ mod tests {
         let mut y = model.call(&input)?;
 
         println!("y = {:?}", y.data());
-        y.backward(false);
+        y.backward(false)?;
 
         println!("input_grad = {:?}", input.grad().unwrap().data());
 
@@ -1025,7 +1029,7 @@ mod tests {
         let mut y = model.call(&input)?;
 
         println!("y = {:?}", y.data()); // shape = [1,32]
-        y.backward(false);
+        y.backward(false)?;
 
         println!("input_grad = {:?}", input.grad().unwrap().data()); // shape = [1,2,4,4]
 
