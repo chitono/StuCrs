@@ -701,6 +701,45 @@ mod tests {
         Ok(())
     }
 
+    //permuted_axes
+
+    #[test]
+    fn array_permute_test() {
+        let a: Array2<f32> = Array::ones((100, 784));
+        let start = Instant::now();
+        let result1 = a.permuted_axes([1, 0]);
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間array_cpu = {:?}", duration);
+        println!("array_shape = {:?}", result1.shape());
+    }
+
+    #[test]
+    fn tensor_permute_test() -> Result<()> {
+        let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2])?;
+        let b = Tensor::from_vec(vec![10.0, 20.0, 30.0, 40.0], vec![4, 1])?;
+        let start = Instant::now();
+        let result = a.permute(&vec![1, 0]);
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
+        println!("tensor_cpu = {}", result?);
+        Ok(())
+    }
+
+    #[test]
+    fn tensor_permute_cuda_test() -> Result<()> {
+        let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2])?;
+        let b = Tensor::from_vec(vec![10.0, 20.0, 30.0, 40.0], vec![4, 1])?;
+        let start = Instant::now();
+        let result = a.permute(&vec![1, 0]);
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間gpu = {:?}", duration);
+        println!("tensor_gpu = {:?}", result?.shape());
+        Ok(())
+    }
+
     //Sum
 
     #[test]

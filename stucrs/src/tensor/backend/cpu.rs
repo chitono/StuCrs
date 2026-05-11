@@ -240,10 +240,11 @@ impl Backend for CpuBackend {
         Ok(Storage::Cpu(result))
     }
 
-    fn permuted_axes(
+    fn permute(
         &self,
         storage: &Storage,
-        _shape: &Shape,
+        _from_shape: &Shape,
+        _to_shape: &Shape,
         axes: &Vec<usize>,
     ) -> Result<Storage> {
         let data = storage.to_ndarray()?;

@@ -981,18 +981,18 @@ impl TensorOps for Tensor {
         ))
     }
 
-    fn permuted_axes(&self, axes: &Vec<usize>) -> Result<Self> {
+    fn permute(&self, axes: &Vec<usize>) -> Result<Self> {
         if self.ndim() != axes.len() {
             return Err(TensorError::InvalidShape(
                 "行列の次元数と入力された配置の長さが一致しません".to_string(),
             ));
         }
+        let dims = self.shape.dims();
+        let new_shape_vec: Vec<usize> = axes.iter().map(|&i| dims[i]).collect();
+        let new_shape = Shape::new(new_shape_vec)?;
         for backend in &BACKENDS[0..] {
-            match backend.permuted_axes(&self.storage, &self.shape, axes) {
+            match backend.permute(&self.storage, &self.shape, &new_shape, axes) {
                 Ok(storage) => {
-                    let dims = self.shape.dims();
-                    let new_shape_vec: Vec<usize> = axes.iter().map(|&i| dims[i]).collect();
-                    let new_shape = Shape::new(new_shape_vec)?;
                     return Ok(Tensor {
                         storage,
                         shape: new_shape,

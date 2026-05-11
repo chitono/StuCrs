@@ -147,7 +147,7 @@ pub trait TensorOps {
     where
         Self: Sized;
 
-    fn permuted_axes(&self, axes: &Vec<usize>) -> Result<Self>
+    fn permute(&self, axes: &Vec<usize>) -> Result<Self>
     where
         Self: Sized;
 

@@ -70,7 +70,7 @@ impl CudaBackend {
             (
                 "transform",
                 include_str!("../kernels/transform.cu"),
-                vec!["transpose_2d_kernel"],
+                vec!["transpose_2d_kernel", "permute_kernel"],
             ),
             (
                 "matmul",
@@ -533,8 +533,13 @@ impl Backend for CudaBackend {
             "CUDA support not compiled in".to_string(),
         ))
     }
-    // TODO:sum_to cuda未対応
-    fn sum_to(&self, storage: &Storage, from_shape: &Shape, to_shape: &Shape) -> Result<Storage> {
+
+    fn sum_to(
+        &self,
+        _storage: &Storage,
+        _from_shape: &Shape,
+        _to_shape: &Shape,
+    ) -> Result<Storage> {
         Err(TensorError::BackendError(
             "CUDA has not support sum_to yet".to_string(),
         ))
@@ -775,14 +780,87 @@ impl Backend for CudaBackend {
     }
 
     // TODO:permuted_axes cuda未対応
-    fn permuted_axes(
+    fn permute(
         &self,
         storage: &Storage,
-        shape: &Shape,
+        from_shape: &Shape,
+        to_shape: &Shape,
         axes: &Vec<usize>,
     ) -> Result<Storage> {
+        #[cfg(feature = "cuda")]
+        {
+            match storage {
+                Storage::Cuda(cuda_storage) => {
+                    let numel = to_shape.numel();
+
+                    let in_strides = from_shape.strides();
+                    let out_strides = to_shape.strides();
+
+                    let ndim = axes.len() as i32;
+
+                    let stream = self.stream.clone();
+                    let mut result_buf = stream.alloc_zeros::<f32>(numel).map_err(|e| {
+                        TensorError::BackendError(format!(
+                            "Failed to allocate CUDA result buffer: {}",
+                            e
+                        ))
+                    })?;
+
+                    let kernel = self.kernels.get("permute_kernel").ok_or_else(|| {
+                        TensorError::BackendError("permute_kernel not found".to_string())
+                    })?;
+
+                    let numel_i32 = numel as i32;
+
+                    let in_strides_i32: Vec<i32> = in_strides.iter().map(|&x| x as i32).collect();
+                    let out_strides_i32: Vec<i32> = out_strides.iter().map(|&x| x as i32).collect();
+                    let axes_i32: Vec<i32> = axes.iter().map(|&x| x as i32).collect();
+
+                    let in_strides_buffer = stream.memcpy_stod(&in_strides_i32).unwrap();
+                    let out_strides_buffer = stream.memcpy_stod(&out_strides_i32).unwrap();
+                    let axes_buffer = stream.memcpy_stod(&axes_i32).unwrap();
+
+                    let block_x = 256;
+
+                    let grid_x = (numel + block_x - 1) / block_x;
+
+                    let cfg = LaunchConfig {
+                        grid_dim: (grid_x as u32, 1, 1),
+                        block_dim: (block_x as u32, 1, 1),
+                        shared_mem_bytes: 0,
+                    };
+
+                    let mut builder = stream.launch_builder(kernel);
+
+                    builder.arg(cuda_storage.buffer.as_ref());
+                    builder.arg(&mut result_buf);
+                    builder.arg(&in_strides_buffer);
+                    builder.arg(&out_strides_buffer);
+                    builder.arg(&axes_buffer);
+                    builder.arg(&ndim);
+                    builder.arg(&numel_i32);
+
+                    unsafe { builder.launch(cfg) }.map_err(|e| {
+                        TensorError::BackendError(format!("Failed to launch permute kernel: {}", e))
+                    })?;
+
+                    Ok(Storage::Cuda(CudaStorage {
+                        buffer: std::sync::Arc::new(result_buf),
+                    }))
+                }
+                _ => {
+                    // Convert to CUDA and try again
+
+                    let data = self.to_vec_f32(storage)?;
+                    let shape = Shape::new(vec![data.len()])?;
+                    let cuda_storage = self.from_slice(&data, &shape)?;
+                    self.pow(&cuda_storage, 2.0)
+                }
+            }
+        }
+        #[cfg(not(feature = "cuda"))]
         Err(TensorError::BackendError(
-            "CUDA has not support permuted_axes yet".to_string(),
+            "CUDA support not compiled in".to_string(),
         ))
     }
     // TODO:axis_slice axis = 0の時のみcuda対応
@@ -791,7 +869,7 @@ impl Backend for CudaBackend {
         storage: &Storage,
         from_shape: &Shape,
         to_shape: &Shape,
-        axis: usize,
+        _axis: usize,
         indices: &[usize],
     ) -> Result<Storage> {
         #[cfg(feature = "cuda")]
@@ -820,7 +898,6 @@ impl Backend for CudaBackend {
 
                     let indices_buffer = stream.memcpy_stod(&indices_i32).unwrap();
 
-                    let size = cuda_storage.buffer.len();
                     let block_x = 256;
 
                     let grid_x = (inner_size + block_x - 1) / block_x;

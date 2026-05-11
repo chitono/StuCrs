@@ -278,7 +278,7 @@ impl Function for PermuteAxes {
 
         let y_data = x
             .data()
-            .permuted_axes(&axes)
+            .permute(&axes)
             .map_err(|e| FrameError::ForwardError {
                 function: "PermuteAxes",
                 source: e,
