@@ -64,24 +64,78 @@ __global__ void matmul_tiled_kernel(const float* A, const float* B, float* C,
     }
 }
 
+
 // Batched matrix multiplication kernel
-// A: batch_size x M x K, B: batch_size x K x N, C: batch_size x M x N
-__global__ void bmm_kernel(const float* A, const float* B, float* C,
-                           int batch_size, int M, int K, int N) {
+// 3D × 2D
+//(N,k,l) ×　(l,m) -> (N,k,m)
+//
+// M -> k
+// K -> l
+// N -> m
+__global__ void tensordot_32_kernel(const float* A, const float* B, float* C,
+                           int batch_size, int k, int l, int m) {
     int batch_idx = blockIdx.z;
     int row = blockIdx.y * blockDim.y + threadIdx.y;
     int col = blockIdx.x * blockDim.x + threadIdx.x;
     
-    if (batch_idx < batch_size && row < M && col < N) {
-        int A_offset = batch_idx * M * K;
-        int B_offset = batch_idx * K * N;
-        int C_offset = batch_idx * M * N;
+    if (batch_idx < batch_size && row < k && col < m) {
+        int A_offset = batch_idx * k * l;
+        
+        int C_offset = batch_idx * k * m;
         
         float sum = 0.0f;
-        for (int k = 0; k < K; k++) {
-            sum += A[A_offset + row * K + k] * B[B_offset + k * N + col];
+        for (int k = 0; k < l; k++) {
+            sum += A[A_offset + row * l + k] * B[k * m + col];
         }
-        C[C_offset + row * N + col] = sum;
+        C[C_offset + row * m + col] = sum;
+    }
+}
+
+
+// Batched matrix multiplication kernel
+// 2D × 3D
+//(k,l) ×　(N,l,m) -> (N,k,m)
+//
+// M -> k
+// K -> l
+// N -> m
+__global__ void tensordot_23_kernel(const float* A, const float* B, float* C,
+                           int batch_size, int k, int l, int m) {
+    int batch_idx = blockIdx.z;
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    
+    if (batch_idx < batch_size && row < k && col < m) {
+        
+        int B_offset = batch_idx * l * m;
+        int C_offset = batch_idx * k * m;
+        
+        float sum = 0.0f;
+        for (int k = 0; k < l; k++) {
+            sum += A[row * l + k] * B[B_offset + k * m + col];
+        }
+        C[C_offset + row * m + col] = sum;
+    }
+}
+
+// Batched matrix multiplication kernel
+// A: batch_size x M x K, B: batch_size x K x N, C: batch_size x M x N
+__global__ void bmm_kernel(const float* A, const float* B, float* C,
+                           int batch_size, int k, int l, int m) {
+    int batch_idx = blockIdx.z;
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    
+    if (batch_idx < batch_size && row < k && col < m) {
+        int A_offset = batch_idx * k * l;
+        int B_offset = batch_idx * l * m;
+        int C_offset = batch_idx * k * m;
+        
+        float sum = 0.0f;
+        for (int k = 0; k < l; k++) {
+            sum += A[A_offset + row * l + k] * B[B_offset + k * m + col];
+        }
+        C[C_offset + row * m + col] = sum;
     }
 }
 

@@ -1107,9 +1107,13 @@ impl TensorOps for Tensor {
                 }
             }
             (3, 3) => {
-                return Err(TensorError::UnimplementedTensor(
-                    "3次元同士ののテンソル積は今後対応".to_string(),
-                ));
+                if x_shape[2] != w_shape[1] {
+                    return Err(TensorError::InvalidShape(
+                        "2次元のxと3次元のwの次元が適合しません。".to_string(),
+                    ));
+                } else {
+                    Shape::new(vec![x_shape[0], x_shape[1], w_shape[2]])?
+                }
             }
             _ => {
                 return Err(TensorError::UnimplementedTensor(

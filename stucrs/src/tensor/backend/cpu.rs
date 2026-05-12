@@ -840,8 +840,32 @@ fn array_tensordot(x_array: &ArrayViewD<f32>, w_array: &ArrayViewD<f32>) -> Arra
         }
 
         // 3D × 3D
+        //(N,k,l) ×　(N,l,m) -> (N,k,m)
         (3, 3) => {
-            panic!("3次元と3次元の行列積は未実装。今後実装予定。");
+            let x = x_array.clone().into_dimensionality::<Ix3>().unwrap();
+            let w = w_array.clone().into_dimensionality::<Ix3>().unwrap();
+
+            // TODO: Error対応予定
+            if x.shape()[2] != w.shape()[1] {
+                panic!("array_tensorの(2,3)での計算でxとwの次元が適合しません。")
+            }
+
+            if x.shape()[0] != w.shape()[0] {
+                panic!("array_tensorの(2,3)での計算でxとwの次元が適合しません。")
+            }
+            let n = x.shape()[0];
+            let k = x.shape()[1];
+            let m = w.shape()[2];
+
+            let mut y = Array3::<f32>::zeros((n, k, m));
+            // xからバッチのように2次元の行列を取り出し、2次元の行列積
+            for b in 0..n {
+                let x_matrix = x.slice(s![b, .., ..]);
+                let w_matrix = w.slice(s![b, .., ..]);
+                let result = x_matrix.dot(&w_matrix);
+                y.slice_mut(s![b, .., ..]).assign(&result);
+            }
+            y.into_dyn()
         }
 
         _ => {

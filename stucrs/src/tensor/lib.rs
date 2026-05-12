@@ -818,6 +818,62 @@ mod tests {
         Ok(())
     }
 
+    // tensordot
+
+    #[test]
+    fn array_tensordot_test() {
+        let a: Array2<f32> = Array::ones((100, 784));
+        let b: Array2<f32> = Array::ones((784, 500));
+        let start = Instant::now();
+        let result1 = a.dot(&b);
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間array_cpu = {:?}", duration); //
+        println!("array_shape = {:?}", result1.shape());
+    }
+
+    #[test]
+    fn tensor_tensordot_32_test() -> Result<()> {
+        let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], vec![2, 2, 2])?;
+        let b = Tensor::from_vec(vec![1.0, 0.0, 0.0, 1.0, 2.0, 0.0, 0.0, 2.0], vec![2, 4])?;
+
+        let start = Instant::now();
+        let result = a.tensordot(&b)?;
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
+        println!("tensor_cpu_shape = {}", result);
+        Ok(())
+    }
+
+    #[test]
+    fn tensor_tensordot_23_test() -> Result<()> {
+        let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], vec![4, 2])?;
+        let b = Tensor::from_vec(vec![1.0, 0.0, 0.0, 1.0, 2.0, 0.0, 0.0, 2.0], vec![2, 2, 2])?;
+
+        let start = Instant::now();
+        let result = a.tensordot(&b)?;
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
+        println!("tensor_cpu_shape = {}", result);
+        Ok(())
+    }
+
+    #[test]
+    fn tensor_tensordot_33_test() -> Result<()> {
+        let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], vec![2, 2, 2])?;
+        let b = Tensor::from_vec(vec![1.0, 0.0, 0.0, 1.0, 2.0, 0.0, 0.0, 2.0], vec![2, 2, 2])?;
+
+        let start = Instant::now();
+        let result = a.tensordot(&b)?;
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
+        println!("tensor_cpu_shape = {}", result);
+        Ok(())
+    }
+
     // ==== BROADCASTING TESTS ====
 
     // Broadcast_to

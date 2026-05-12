@@ -75,7 +75,13 @@ impl CudaBackend {
             (
                 "matmul",
                 include_str!("../kernels/matmul.cu"),
-                vec!["matmul_kernel", "matmul_tiled_kernel", "bmm_kernel"],
+                vec![
+                    "matmul_kernel",
+                    "matmul_tiled_kernel",
+                    "bmm_kernel",
+                    "tensordot_32_kernel",
+                    "tensordot_23_kernel",
+                ],
             ),
             (
                 "math",
@@ -1069,8 +1075,237 @@ impl Backend for CudaBackend {
         lhs_shape: &Shape,
         rhs_shape: &Shape,
     ) -> Result<Storage> {
+        #[cfg(feature = "cuda")]
+        {
+            let lhs_dims = lhs_shape.dims();
+            let rhs_dims = rhs_shape.dims();
+
+            let lhs_ndim = lhs_dims.len();
+            let rhs_ndim = rhs_dims.len();
+
+            /*
+
+            // Validate that tensors are 3D
+            if lhs_dims.len() != 3 || rhs_dims.len() != 3 {
+                return Err(TensorError::InvalidShape(
+                    "Batched matrix multiplication requires 3D tensors".to_string(),
+                ));
+            }
+
+            // Validate dimensions: (B, M, K) x (B, K, N) -> (B, M, N)
+            let (b1, m, k1) = (lhs_dims[0], lhs_dims[1], lhs_dims[2]);
+            let (b2, k2, n) = (rhs_dims[0], rhs_dims[1], rhs_dims[2]);
+
+            if b1 != b2 {
+                return Err(TensorError::ShapeMismatch {
+                    expected: vec![b1],
+                    got: vec![b2],
+                });
+            }
+
+            if k1 != k2 {
+                return Err(TensorError::ShapeMismatch {
+                    expected: vec![k1],
+                    got: vec![k2],
+                });
+            }
+
+            */
+
+            match (&lhs, &rhs) {
+                (Storage::Cuda(a), Storage::Cuda(b)) => {
+                    match (lhs_ndim, rhs_ndim) {
+                        (3, 2) => {
+                            // 3D × 2D
+                            //(N,k,l) ×　(l,m) -> (N,k,m)
+                            let (n, k, l1) = (lhs_dims[0], lhs_dims[1], lhs_dims[2]);
+                            let (l2, m) = (rhs_dims[0], rhs_dims[1]);
+
+                            let numel = n * k * m;
+
+                            let stream = self.stream.clone();
+                            let mut result_buf = stream.alloc_zeros::<f32>(numel).map_err(|e| {
+                                TensorError::BackendError(format!(
+                                    "Failed to allocate CUDA result buffer: {}",
+                                    e
+                                ))
+                            })?;
+
+                            let kernel =
+                                self.kernels.get("tensordot_32_kernel").ok_or_else(|| {
+                                    TensorError::BackendError(
+                                        "tensordot_32_kernel not found".to_string(),
+                                    )
+                                })?;
+
+                            let block_size = 16;
+                            let grid_x = (m + block_size - 1) / block_size;
+                            let grid_y = (k + block_size - 1) / block_size;
+                            let grid_z = n;
+
+                            let cfg = LaunchConfig {
+                                grid_dim: (grid_x as u32, grid_y as u32, grid_z as u32),
+                                block_dim: (block_size as u32, block_size as u32, 1),
+                                shared_mem_bytes: 0,
+                            };
+
+                            let (n_i32, k_i32, l_i32, m_i32) =
+                                (n as i32, k as i32, l1 as i32, m as i32);
+
+                            let mut builder = stream.launch_builder(kernel);
+                            builder.arg(a.buffer.as_ref());
+                            builder.arg(b.buffer.as_ref());
+                            builder.arg(&mut result_buf);
+                            builder.arg(&n_i32);
+                            builder.arg(&k_i32);
+                            builder.arg(&l_i32);
+                            builder.arg(&m_i32);
+
+                            unsafe { builder.launch(cfg) }.map_err(|e| {
+                                TensorError::BackendError(format!(
+                                    "Failed to launch tensordot32 kernel: {}",
+                                    e
+                                ))
+                            })?;
+
+                            Ok(Storage::Cuda(CudaStorage {
+                                buffer: std::sync::Arc::new(result_buf),
+                            }))
+                        }
+
+                        (2, 3) => {
+                            // 2D × 3D
+                            //(k,l) ×　(N,l,m) -> (N,k,m)
+
+                            let (k, l1) = (lhs_dims[0], lhs_dims[1]);
+                            let (n, l2, m) = (rhs_dims[0], rhs_dims[1], rhs_dims[2]);
+
+                            let numel = n * k * m;
+
+                            let stream = self.stream.clone();
+
+                            let mut result_buf = stream.alloc_zeros::<f32>(numel).map_err(|e| {
+                                TensorError::BackendError(format!(
+                                    "Failed to allocate CUDA result buffer: {}",
+                                    e
+                                ))
+                            })?;
+
+                            let kernel =
+                                self.kernels.get("tensordot_23_kernel").ok_or_else(|| {
+                                    TensorError::BackendError(
+                                        "sum_axis_kernel not found".to_string(),
+                                    )
+                                })?;
+
+                            let block_size = 16;
+                            let grid_x = (m + block_size - 1) / block_size;
+                            let grid_y = (k + block_size - 1) / block_size;
+                            let grid_z = n;
+
+                            let cfg = LaunchConfig {
+                                grid_dim: (grid_x as u32, grid_y as u32, grid_z as u32),
+                                block_dim: (block_size as u32, block_size as u32, 1),
+                                shared_mem_bytes: 0,
+                            };
+
+                            let (n_i32, k_i32, l_i32, m_i32) =
+                                (n as i32, k as i32, l1 as i32, m as i32);
+
+                            let mut builder = stream.launch_builder(kernel);
+                            builder.arg(a.buffer.as_ref());
+                            builder.arg(b.buffer.as_ref());
+                            builder.arg(&mut result_buf);
+                            builder.arg(&n_i32);
+                            builder.arg(&k_i32);
+                            builder.arg(&l_i32);
+                            builder.arg(&m_i32);
+
+                            unsafe { builder.launch(cfg) }.map_err(|e| {
+                                TensorError::BackendError(format!(
+                                    "Failed to launch tensordot23 kernel: {}",
+                                    e
+                                ))
+                            })?;
+
+                            Ok(Storage::Cuda(CudaStorage {
+                                buffer: std::sync::Arc::new(result_buf),
+                            }))
+                        }
+
+                        (3, 3) => {
+                            // 3D × 3D
+                            //(N,k,l) ×　(N,l,m) -> (N,k,m)
+
+                            let (n1, k, l1) = (lhs_dims[0], lhs_dims[1], lhs_dims[2]);
+                            let (n2, l2, m) = (rhs_dims[0], rhs_dims[1], rhs_dims[2]);
+
+                            let numel = n1 * k * m;
+
+                            let stream = self.stream.clone();
+
+                            let mut result_buf = stream.alloc_zeros::<f32>(numel).map_err(|e| {
+                                TensorError::BackendError(format!(
+                                    "Failed to allocate CUDA result buffer: {}",
+                                    e
+                                ))
+                            })?;
+
+                            let kernel = self.kernels.get("bmm_kernel").ok_or_else(|| {
+                                TensorError::BackendError("bmm_kernel not found".to_string())
+                            })?;
+
+                            let block_size = 16;
+                            let grid_x = (m + block_size - 1) / block_size;
+                            let grid_y = (k + block_size - 1) / block_size;
+                            let grid_z = n1;
+
+                            let cfg = LaunchConfig {
+                                grid_dim: (grid_x as u32, grid_y as u32, grid_z as u32),
+                                block_dim: (block_size as u32, block_size as u32, 1),
+                                shared_mem_bytes: 0,
+                            };
+
+                            let (n_i32, k_i32, l_i32, m_i32) =
+                                (n1 as i32, k as i32, l1 as i32, m as i32);
+
+                            let mut builder = stream.launch_builder(kernel);
+                            builder.arg(a.buffer.as_ref());
+                            builder.arg(b.buffer.as_ref());
+                            builder.arg(&mut result_buf);
+                            builder.arg(&n_i32);
+                            builder.arg(&k_i32);
+                            builder.arg(&l_i32);
+                            builder.arg(&m_i32);
+
+                            unsafe { builder.launch(cfg) }.map_err(|e| {
+                                TensorError::BackendError(format!(
+                                    "Failed to launch sum kernel: {}",
+                                    e
+                                ))
+                            })?;
+
+                            Ok(Storage::Cuda(CudaStorage {
+                                buffer: std::sync::Arc::new(result_buf),
+                            }))
+                        }
+
+                        _ => {
+                            return Err(TensorError::DimensionMismatch {
+                                expected: 3,
+                                got: 4,
+                            });
+                        }
+                    }
+                }
+                _ => Err(TensorError::BackendError(
+                    "Invalid storage types for CUDA bmm".to_string(),
+                )),
+            }
+        }
+        #[cfg(not(feature = "cuda"))]
         Err(TensorError::BackendError(
-            "CUDA has not support tensordot yet".to_string(),
+            "CUDA support not compiled in".to_string(),
         ))
     }
 
@@ -1111,15 +1346,7 @@ impl Backend for CudaBackend {
                 });
             }
 
-            // Convert inputs to CUDA storage if needed
-            let lhs_data = self.to_vec_f32(lhs)?;
-            let rhs_data = self.to_vec_f32(rhs)?;
-            let lhs_shape_single = Shape::new(vec![lhs_data.len()])?;
-            let rhs_shape_single = Shape::new(vec![rhs_data.len()])?;
-            let lhs_storage = self.from_slice(&lhs_data, &lhs_shape_single)?;
-            let rhs_storage = self.from_slice(&rhs_data, &rhs_shape_single)?;
-
-            match (&lhs_storage, &rhs_storage) {
+            match (&lhs, &rhs) {
                 (Storage::Cuda(a), Storage::Cuda(b)) => {
                     let stream = self.stream.clone();
                     let mut result_buf = stream.alloc_zeros::<f32>(b1 * m * n).map_err(|e| {
