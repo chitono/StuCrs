@@ -1437,25 +1437,22 @@ impl TensorOps for Tensor {
     }
 
     fn max(&self, axis: Option<usize>) -> Result<Self> {
-        let result_shape = match axis {
-            None => Shape::new(vec![1; self.shape.ndim()])?,
-
-            Some(axis_idx) => {
-                let dims = self.shape.dims();
-                if axis_idx >= dims.len() {
-                    return Err(TensorError::InvalidShape(format!(
-                        "Axis {} is out of bounds for tensor with {} dimensions",
-                        axis_idx,
-                        dims.len()
-                    )));
-                }
-                // Remove the summed axis from the shape
-                let mut result_dims = dims.to_vec();
-                result_dims.remove(axis_idx);
-
-                Shape::new(result_dims)?
-            }
+        let dims = self.shape.dims();
+        let new_dims = if axis.unwrap() >= self.ndim() {
+            return Err(TensorError::InvalidShape(format!(
+                "Cannot max axis {} with size {}",
+                axis.unwrap(),
+                dims[axis.unwrap()]
+            )));
+        } else {
+            dims.iter()
+                .enumerate()
+                .filter(|(i, _)| *i != axis.unwrap())
+                .map(|(_, &d)| d)
+                .collect()
         };
+
+        let result_shape = Shape::new(new_dims)?;
         for backend in &BACKENDS[0..] {
             match backend.max(&self.storage, &self.shape, &result_shape, axis) {
                 Ok(storage) => {

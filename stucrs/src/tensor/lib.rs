@@ -1281,6 +1281,20 @@ mod tests {
     }
 
     #[test]
+    fn tensor_max_test() -> Result<()> {
+        let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], vec![2, 2, 2])?;
+        let b = Tensor::from_vec(vec![1.0, 0.0, 0.0, 1.0, 2.0, 0.0, 0.0, 2.0], vec![2, 4])?;
+
+        let start = Instant::now();
+        let result = a.max(Some(0))?;
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
+        println!("tensor_cpu_shape = {}", result);
+        Ok(())
+    }
+
+    #[test]
     fn max_mask_test() -> Result<()> {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![3, 2])?;
 
