@@ -399,7 +399,17 @@ impl Backend for CudaBackend {
         ))
     }
 
-    fn reshape(&self, storage: &Storage, new_shape: &Shape) -> Result<Storage> {
+    fn reshape(&self, storage: &Storage, _new_shape: &Shape) -> Result<Storage> {
+        #[cfg(feature = "cuda")]
+        Ok(storage.clone())
+    }
+
+    fn squeeze(&self, storage: &Storage, _axis: usize) -> Result<Storage> {
+        #[cfg(feature = "cuda")]
+        Ok(storage.clone())
+    }
+
+    fn unsqueeze(&self, storage: &Storage, _axis: usize) -> Result<Storage> {
         #[cfg(feature = "cuda")]
         Ok(storage.clone())
     }

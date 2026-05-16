@@ -953,7 +953,7 @@ impl TensorOps for Tensor {
             }
         }
         Err(TensorError::BackendError(
-            "No backend could perform transpose operation".to_string(),
+            "No backend could perform reshape operation".to_string(),
         ))
     }
 
@@ -1006,29 +1006,37 @@ impl TensorOps for Tensor {
         ))
     }
 
-    fn squeeze(&self, axis: Option<usize>) -> Result<Self> {
+    fn squeeze(&self, axis: usize) -> Result<Self> {
         let dims = self.shape.dims();
-        let new_dims = if let Some(axis) = axis {
-            if axis >= self.ndim() || dims[axis] != 1 {
-                return Err(TensorError::InvalidShape(format!(
-                    "Cannot squeeze axis {} with size {}",
-                    axis, dims[axis]
-                )));
-            }
+        let new_dims = if axis >= self.ndim() || dims[axis] != 1 {
+            return Err(TensorError::InvalidShape(format!(
+                "Cannot squeeze axis {} with size {}",
+                axis, dims[axis]
+            )));
+        } else {
             dims.iter()
                 .enumerate()
                 .filter(|(i, _)| *i != axis)
                 .map(|(_, &d)| d)
                 .collect()
-        } else {
-            dims.iter().filter(|&&d| d != 1).copied().collect()
         };
 
         let new_shape = Shape::new(new_dims)?;
-        Ok(Tensor {
-            storage: self.storage.clone(),
-            shape: new_shape,
-        })
+
+        for backend in &BACKENDS[0..] {
+            match backend.squeeze(&self.storage, axis) {
+                Ok(storage) => {
+                    return Ok(Tensor {
+                        storage,
+                        shape: new_shape,
+                    });
+                }
+                Err(_) => continue,
+            }
+        }
+        Err(TensorError::BackendError(
+            "No backend could perform reshape operation".to_string(),
+        ))
     }
 
     fn unsqueeze(&self, axis: usize) -> Result<Self> {
@@ -1042,10 +1050,20 @@ impl TensorOps for Tensor {
         let mut new_dims = self.shape.dims().to_vec();
         new_dims.insert(axis, 1);
         let new_shape = Shape::new(new_dims)?;
-        Ok(Tensor {
-            storage: self.storage.clone(),
-            shape: new_shape,
-        })
+        for backend in &BACKENDS[0..] {
+            match backend.unsqueeze(&self.storage, axis) {
+                Ok(storage) => {
+                    return Ok(Tensor {
+                        storage,
+                        shape: new_shape,
+                    });
+                }
+                Err(_) => continue,
+            }
+        }
+        Err(TensorError::BackendError(
+            "No backend could perform reshape operation".to_string(),
+        ))
     }
 
     fn matmul(&self, other: &Self) -> Result<Self> {
@@ -1707,6 +1725,7 @@ impl TensorOps for Tensor {
         ))
     }
 }
+
 impl fmt::Display for Tensor {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let data = self.to_vec().map_err(|_| fmt::Error)?;

@@ -97,6 +97,24 @@ impl Backend for CpuBackend {
         Ok(Storage::Cpu(result))
     }
 
+    fn squeeze(&self, storage: &Storage, axis: usize) -> Result<Storage> {
+        let data = storage.to_ndarray()?;
+
+        let result = data.remove_axis(Axis(axis)).to_owned();
+        println!("result_shape = {:?}", result.shape());
+        Ok(Storage::Cpu(result))
+    }
+
+    fn unsqueeze(&self, storage: &Storage, axis: usize) -> Result<Storage> {
+        let data = storage.to_ndarray()?;
+
+        let result = data.insert_axis(Axis(axis)).to_owned();
+
+        println!("result_shape = {:?}", result.shape());
+
+        Ok(Storage::Cpu(result))
+    }
+
     fn sum(
         &self,
         storage: &Storage,

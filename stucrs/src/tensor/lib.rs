@@ -662,6 +662,36 @@ mod tests {
         Ok(())
     }
 
+    // Squeeze
+
+    #[test]
+    fn tensor_squeeze_test() -> Result<()> {
+        let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![1, 2, 2])?;
+        let b = Tensor::from_vec(vec![10.0, 20.0, 30.0, 40.0], vec![4, 1])?;
+        let start = Instant::now();
+        let result = a.squeeze(0);
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
+        println!("tensor_cpu = {:?}", result?.shape());
+        Ok(())
+    }
+
+    // Unsqueeze
+
+    #[test]
+    fn tensor_unsqueeze_test() -> Result<()> {
+        let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2])?;
+        let b = Tensor::from_vec(vec![10.0, 20.0, 30.0, 40.0], vec![4, 1])?;
+        let start = Instant::now();
+        let result = a.unsqueeze(1);
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
+        println!("tensor_cpu = {}", result?);
+        Ok(())
+    }
+
     //Transpose
 
     #[test]
@@ -1287,6 +1317,22 @@ mod tests {
 
         let start = Instant::now();
         let result = a.max(Some(0))?;
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
+        println!("tensor_cpu_shape = {}", result);
+        Ok(())
+    }
+
+    #[test]
+    fn tensor_argmax_to_max_backward_test() -> Result<()> {
+        let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], vec![2, 2, 2])?;
+        let b = Tensor::from_vec(vec![1.0, 0.0, 0.0, 1.0, 2.0, 0.0, 0.0, 2.0], vec![2, 4])?;
+        let a_argmax = a.argmax_axis(1)?;
+
+        println!("a_argmax = {}", a_argmax);
+        let start = Instant::now();
+        let result = a_argmax.argmax_to_max_backward(&a.shape(), 1)?;
         let end = Instant::now();
         let duration = end.duration_since(start);
         println!("処理時間 = {:?}", duration);

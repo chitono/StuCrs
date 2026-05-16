@@ -174,7 +174,7 @@ pub trait TensorOps {
     /// let squeezed = tensor.squeeze(Some(1)).unwrap();
     /// assert_eq!(squeezed.shape().dims(), &[2, 3]);
     /// ```
-    fn squeeze(&self, axis: Option<usize>) -> Result<Self>
+    fn squeeze(&self, axis: usize) -> Result<Self>
     where
         Self: Sized;
 

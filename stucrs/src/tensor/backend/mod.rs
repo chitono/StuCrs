@@ -73,6 +73,10 @@ pub trait Backend: Debug + Send + Sync {
 
     fn reshape(&self, storage: &Storage, new_shape: &Shape) -> Result<Storage>;
 
+    fn squeeze(&self, storage: &Storage, axis: usize) -> Result<Storage>;
+
+    fn unsqueeze(&self, storage: &Storage, axis: usize) -> Result<Storage>;
+
     /// Computes the sum of elements along an optional axis.
     fn sum(
         &self,
