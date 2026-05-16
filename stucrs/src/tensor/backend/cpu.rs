@@ -1,11 +1,11 @@
 use super::{Backend, Storage};
-use crate::functions::matrix::argmax_array;
 #[cfg(feature = "cpu")]
 use crate::tensor::error::{Result, TensorError};
 use crate::tensor::ndarray_nn::ndarray_cnn::{col2im_array, im2col_array};
 use crate::tensor::shape::Shape;
+
 use ndarray::{
-    array, s, Array1, Array2, Array3, ArrayD, ArrayViewD, Axis, Ix1, Ix2, Ix3, Ix4, IxDyn,
+    array, s, Array2, Array3, ArrayD, ArrayViewD, Axis, Dimension, Ix1, Ix2, Ix3, Ix4, IxDyn,
 };
 use ndarray_stats::QuantileExt;
 use std::collections::HashSet;
@@ -483,81 +483,29 @@ impl Backend for CpuBackend {
         Ok(Storage::Cpu(y_data))
     }
 
-    fn max_backward(
+    fn argmax_to_max_backward(
         &self,
         storage: &Storage,
-        _shape: &Shape,
-        axis: Option<usize>,
+        _from_shape: &Shape,
+        to_shape: &Shape,
+        axis: usize,
     ) -> Result<Storage> {
         // TODO:処理要改善 map_axis()などを用いる
-        let x_data = storage.to_ndarray()?;
-        let x_shape = x_data.shape();
+        let x_argmax_data = storage.to_ndarray()?;
 
-        let mut mask_array = ArrayD::<f32>::zeros(x_shape);
-        // TODO:axisがNoneの場合の対応は後で
-        let x_argmax_array = argmax_array(x_data.view(), axis.unwrap());
+        let shape = IxDyn(to_shape.dims());
 
-        match x_shape.len() {
-            1 => {
-                mask_array[x_argmax_array[0]] = 1.0;
-            }
-            2 => match axis {
-                None => {
-                    todo!("2次元のmax関数のbackwardでの軸を指定なしは後で対応")
-                }
-                Some(0) => {
-                    for (i, index) in x_argmax_array.iter().enumerate() {
-                        mask_array[[index.clone(), i]] = 1.0;
-                    }
-                }
-                Some(1) => {
-                    for (i, index) in x_argmax_array.iter().enumerate() {
-                        mask_array[[i, index.clone()]] = 1.0;
-                    }
-                }
-                _ => {
-                    unimplemented!("指定した軸は未対応。")
-                }
-            },
-            3 => match axis {
-                None => {
-                    todo!("3次元のmax関数のbackwardでの軸を指定なしは後で対応")
-                }
-                Some(0) => {
-                    todo!("3次元のmax関数のbackwardの軸0はまだ未対応")
-                }
-                Some(1) => {
-                    let n = x_shape[0];
-                    let w = x_shape[2];
+        let mut result = ArrayD::<f32>::zeros(shape);
 
-                    for b in 0..n {
-                        for width in 0..w {
-                            let max_h_index = x_argmax_array[[b, width]];
-                            mask_array[[b, max_h_index, width]] = 1.0;
-                        }
-                    }
-                }
-                Some(2) => {
-                    let n = x_shape[0];
-                    let h = x_shape[1];
+        for (idx, max_idx) in x_argmax_data.indexed_iter() {
+            let mut full_idx = idx.as_array_view().to_vec();
+            let max_usize = *max_idx as usize;
+            full_idx.insert(axis, max_usize);
 
-                    for b in 0..n {
-                        for height in 0..h {
-                            let max_w_index = x_argmax_array[[b, height]];
-                            mask_array[[b, height, max_w_index]] = 1.0;
-                        }
-                    }
-                }
-                _ => {
-                    unimplemented!("指定した軸は未対応。")
-                }
-            },
-            _ => {
-                unimplemented!("1-3次元以外の次元には対応していません.")
-            }
+            result[IxDyn(&full_idx)] = 1.0f32;
         }
 
-        Ok(Storage::Cpu(mask_array))
+        Ok(Storage::Cpu(result))
     }
     fn clamp_max(&self, storage: &Storage, max: f32) -> Result<Storage> {
         let data = storage.to_ndarray()?;
@@ -798,4 +746,18 @@ fn array_tensordot(x_array: &ArrayViewD<f32>, w_array: &ArrayViewD<f32>) -> Arra
     };
 
     y
+}
+
+/// 行列の最大値のインデックスを返す。
+/// 軸指定可能。
+/// 1次元から3次元まで対応。
+/// まだ一部の軸しか対応していない。
+pub fn argmax_array(x_array: ArrayViewD<f32>, axis: usize) -> ArrayD<usize> {
+    x_array.map_axis(Axis(axis), |view| {
+        view.iter()
+            .enumerate()
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+            .map(|(index, _)| index)
+            .unwrap()
+    })
 }

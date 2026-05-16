@@ -527,7 +527,7 @@ pub trait TensorOps {
     /// Maxのバックプロパゲーションで使用するmaskをMax関数のinputの行列から生成する
     ///
     /// Max関数のinputの行列にこのメソッドを用いる
-    fn max_backward(&self, axis: Option<usize>) -> Result<Self>
+    fn argmax_to_max_backward(&self, to_shape: &Shape, axis: usize) -> Result<Self>
     where
         Self: Sized;
 

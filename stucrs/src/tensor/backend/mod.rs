@@ -192,11 +192,12 @@ pub trait Backend: Debug + Send + Sync {
         axis: Option<usize>,
     ) -> Result<Storage>;
 
-    fn max_backward(
+    fn argmax_to_max_backward(
         &self,
         storage: &Storage,
-        shape: &Shape,
-        axis: Option<usize>,
+        from_shape: &Shape,
+        to_shape: &Shape,
+        axis: usize,
     ) -> Result<Storage>;
 
     fn clamp_max(&self, storage: &Storage, max: f32) -> Result<Storage>;

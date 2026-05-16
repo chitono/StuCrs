@@ -418,7 +418,6 @@ __global__ void max_axis_kernel(const float* input, float* output,
 
 
     float max_value = -10000.0;
-    int max_idx = 0;
     for (int k = 0; k < reduction_size; ++k) {
         int in_idx = in_idx_base + k * stride_for_axis;
         if (in_idx >= 0 && in_idx < in_n) {
@@ -430,6 +429,53 @@ __global__ void max_axis_kernel(const float* input, float* output,
     }
 
     output[idx] = max_value;
+}
+
+
+
+// argmax to max-backward kernel
+__global__ void argmax_to_max_backward_kernel(const float* input, float* output,
+                                const int* in_strides, const int* out_strides,
+                                 int in_ndim,int out_ndim, int in_numel,int axis) {
+    int in_idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (in_idx >= in_numel) {return;}
+
+    int in_coords[6] = {0};
+    
+    int tmp = in_idx;
+
+    // in_idx -> in_coords
+    for (int i = 0; i < in_ndim; ++i) {
+        in_coords[i] = tmp / in_strides[i];
+        tmp %= in_strides[i];
+        
+        
+    }
+
+    int out_coords[6] = {0};
+
+    int j = 0;
+
+    for (int i = 0; i< out_ndim; ++i) {
+        if (i == axis) {
+            out_coords[i] = (int)input[in_idx];
+
+        }else {
+            out_coords[i] = (int)in_coords[j];
+            ++j;
+
+        }
+    }
+
+    int out_idx = 0;
+
+    for (int i = 0; i< out_ndim; ++i) {
+        out_idx += out_coords[i] * out_strides[i];
+    }
+
+    output[out_idx] = 1.0f;
+
 }
 
 
