@@ -969,7 +969,12 @@ fn tensordot_backward(
 
         // 3D × 3D
         (3, 3) => {
-            panic!("3次元と3次元の行列積は未実装。今後実装予定。");
+            let w_t = permute_axes(&w, vec![0, 2, 1])?;
+            let gx = tensordot(gy, &w_t)?;
+            let x_t = permute_axes(&x, vec![0, 2, 1])?;
+            let gw = tensordot(&x_t, gy)?;
+
+            (gx, gw)
         }
 
         _ => {
@@ -989,18 +994,4 @@ fn tensordot_f(xs: &[RcVariable]) -> FrameResult<RcVariable> {
 pub fn tensordot(x: &RcVariable, w: &RcVariable) -> FrameResult<RcVariable> {
     let y = tensordot_f(&[x.clone(), w.clone()]);
     y
-}
-
-/// 行列の最大値のインデックスを返す。
-/// 軸指定可能。
-/// 1次元から3次元まで対応。
-/// まだ一部の軸しか対応していない。
-pub fn argmax_array(x_array: ArrayViewD<f32>, axis: usize) -> ArrayD<usize> {
-    x_array.map_axis(Axis(axis), |view| {
-        view.iter()
-            .enumerate()
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-            .map(|(index, _)| index)
-            .unwrap()
-    })
 }
