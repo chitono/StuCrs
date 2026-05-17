@@ -2,6 +2,7 @@ use super::{Backend, CudaStorage, Storage};
 use crate::tensor::error::{Result, TensorError};
 use crate::tensor::shape::Shape;
 
+use crate::functions_cnn::get_conv_outsize;
 use cudarc::driver::{CudaContext, CudaFunction, CudaStream, LaunchConfig, PushKernelArg};
 
 use std::collections::HashMap;
@@ -109,6 +110,11 @@ impl CudaBackend {
                     "max_for_clamp_grad_kernel",
                     "min_for_clamp_grad_kernel",
                 ],
+            ),
+            (
+                "cnn",
+                include_str!("../kernels/cnn.cu"),
+                vec!["im2col_kernel", "col2im_kernel"],
             ),
         ];
 
@@ -2331,13 +2337,102 @@ impl Backend for CudaBackend {
     fn im2col(
         &self,
         storage: &Storage,
-        _shape: &Shape,
+        shape: &Shape,
         kernel_size: (usize, usize),
         stride_size: (usize, usize),
         pad_size: (usize, usize),
     ) -> Result<Storage> {
+        #[cfg(feature = "cuda")]
+        {
+            match storage {
+                Storage::Cuda(cuda_storage) => {
+                    let n = shape.dims()[0]; //バッチ数
+                    let c = shape.dims()[1]; //チャンネル数
+                    let h = shape.dims()[2]; //縦
+                    let w = shape.dims()[3]; //横
+
+                    let (kh, kw) = kernel_size;
+                    let (stride_h, stride_w) = stride_size;
+                    let (pad_h, pad_w) = pad_size;
+
+                    let (oh, ow) =
+                        get_conv_outsize((h, w), (kh, kw), (stride_h, stride_w), (pad_h, pad_w));
+
+                    let numel = n * c * kh * kw * oh * ow;
+
+                    let stream = self.stream.clone();
+                    let mut result_buf = stream.alloc_zeros::<f32>(numel).map_err(|e| {
+                        TensorError::BackendError(format!(
+                            "Failed to allocate CUDA result buffer: {}",
+                            e
+                        ))
+                    })?;
+
+                    let kernel = self.kernels.get("im2col_kernel").ok_or_else(|| {
+                        TensorError::BackendError("im2col_kernel not found".to_string())
+                    })?;
+
+                    let block_size = 16;
+
+                    let grid_x = (oh * ow + block_size - 1) / block_size;
+                    let grid_y = (c * kh * kw + block_size - 1) / block_size;
+                    let grid_z = n;
+
+                    let cfg = LaunchConfig {
+                        grid_dim: (grid_x as u32, grid_y as u32, grid_z as u32),
+                        block_dim: (block_size as u32, block_size as u32, 1),
+                        shared_mem_bytes: 0,
+                    };
+
+                    let (n, c, h, w, kh, kw, oh, ow) = (
+                        n as i32, c as i32, h as i32, w as i32, kh as i32, kw as i32, oh as i32,
+                        ow as i32,
+                    );
+
+                    let (stride_h, stride_w, pad_h, pad_w) =
+                        (stride_h as i32, stride_w as i32, pad_h as i32, pad_w as i32);
+
+                    let mut builder = stream.launch_builder(kernel);
+
+                    builder.arg(cuda_storage.buffer.as_ref());
+                    builder.arg(&mut result_buf);
+                    builder.arg(&n);
+                    builder.arg(&c);
+                    builder.arg(&h);
+                    builder.arg(&w);
+                    builder.arg(&kh);
+                    builder.arg(&kw);
+                    builder.arg(&oh);
+                    builder.arg(&ow);
+                    builder.arg(&stride_h);
+                    builder.arg(&stride_w);
+                    builder.arg(&pad_h);
+                    builder.arg(&pad_w);
+
+                    unsafe { builder.launch(cfg) }.map_err(|e| {
+                        TensorError::BackendError(format!(
+                            "Failed to launch axis_slice kernel: {}",
+                            e
+                        ))
+                    })?;
+
+                    Ok(Storage::Cuda(CudaStorage {
+                        buffer: std::sync::Arc::new(result_buf),
+                    }))
+                }
+                _ => {
+                    // Convert to CUDA and try again
+
+                    let data = self.to_vec_f32(storage)?;
+                    let shape = Shape::new(vec![data.len()])?;
+                    let cuda_storage = self.from_slice(&data, &shape)?;
+                    self.pow(&cuda_storage, 2.0)
+                }
+            }
+        }
+        #[cfg(not(feature = "cuda"))]
         Err(TensorError::BackendError(
-            "CUDA has not support im2col".to_string(),
+            "CUDA support not compiled in".to_string(),
         ))
     }
 

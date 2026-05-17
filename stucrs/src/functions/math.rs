@@ -911,9 +911,6 @@ impl Function for Max {
             .argmax_axis(axis)?
             .argmax_to_max_backward(x_shape, axis)?;
 
-        println!("max_backward_mask_shape = {:?}", max_backward_mask.shape());
-        println!("gy_shape = {:?}", gy.data().shape());
-
         let gy = gy.data().unsqueeze(axis)?.rv();
 
         let gx = max_backward_mask.rv() * gy;

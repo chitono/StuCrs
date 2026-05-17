@@ -1661,6 +1661,12 @@ impl TensorOps for Tensor {
         stride_size: (usize, usize),
         pad_size: (usize, usize),
     ) -> Result<Self> {
+        if self.ndim() != 4 {
+            return Err(TensorError::DimensionMismatch {
+                expected: 4,
+                got: self.ndim(),
+            });
+        }
         let n = self.shape().dims()[0]; //バッチ数
         let c = self.shape().dims()[1]; //チャンネル数
         let h = self.shape().dims()[2]; //縦
@@ -1701,6 +1707,12 @@ impl TensorOps for Tensor {
         stride_size: (usize, usize),
         pad_size: (usize, usize),
     ) -> Result<Self> {
+        if self.ndim() != 3 {
+            return Err(TensorError::DimensionMismatch {
+                expected: 3,
+                got: self.ndim(),
+            });
+        }
         let result_shape = Shape::new(im_shape.to_vec())?;
         for backend in &BACKENDS[0..] {
             match backend.col2im(

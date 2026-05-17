@@ -78,6 +78,8 @@ pub mod tensor;
 #[cfg(test)]
 mod tests {
 
+    use std::time::Instant;
+
     use ndarray::array;
 
     use crate::{
@@ -752,9 +754,10 @@ mod tests {
         let pad_size = (0, 0);
 
         let output_array = im2col_array(input_array.view(), kernel_size, stride_size, pad_size);
+
         let output_tensor = input_tensor.im2col(kernel_size, stride_size, pad_size)?;
         println!("output_array = {:?}", output_array); //shape (1,4,9)
-        println!("output_tensor = {:?}", output_tensor); //shape (1,4,9)
+        println!("output_tensor = {}", output_tensor); //shape (1,4,9)
         Ok(())
     }
 
