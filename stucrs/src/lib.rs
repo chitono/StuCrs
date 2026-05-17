@@ -743,6 +743,8 @@ mod tests {
             vec![1, 1, 4, 4],
         )?;
 
+        let input_tensor2 = Tensor::ones(Shape::new(vec![100, 3, 28, 28])?)?;
+
         let input_array = array![[[
             [1.0f32, 2.0, 3.0, 4.0],
             [5.0, 6.0, 7.0, 8.0],
@@ -754,15 +756,18 @@ mod tests {
         let pad_size = (0, 0);
 
         let output_array = im2col_array(input_array.view(), kernel_size, stride_size, pad_size);
-
-        let output_tensor = input_tensor.im2col(kernel_size, stride_size, pad_size)?;
+        let start = Instant::now();
+        let output_tensor = input_tensor2.im2col(kernel_size, stride_size, pad_size)?;
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        println!("処理時間 = {:?}", duration);
         println!("output_array = {:?}", output_array); //shape (1,4,9)
         println!("output_tensor = {}", output_tensor); //shape (1,4,9)
         Ok(())
-    }
+    } // input_tensor2 ...cpu(78ms) cuda(13µs)
 
     #[test]
-    fn col2im_test() {
+    fn col2im_test() -> FrameResult<()> {
         use crate::functions_cnn::col2im_array;
 
         // im2col_testの出力。(output)
@@ -772,6 +777,15 @@ mod tests {
             [5.0, 6.0, 7.0, 9.0, 10.0, 11.0, 13.0, 14.0, 15.0],
             [6.0, 7.0, 8.0, 10.0, 11.0, 12.0, 14.0, 15.0, 16.0]
         ]];
+
+        let input_tensor = Tensor::from_vec(
+            vec![
+                1.0, 2.0, 3.0, 5.0, 6.0, 7.0, 9.0, 10.0, 11.0, 2.0, 3.0, 4.0, 6.0, 7.0, 8.0, 10.0,
+                11.0, 12.0, 5.0, 6.0, 7.0, 9.0, 10.0, 11.0, 13.0, 14.0, 15.0, 6.0, 7.0, 8.0, 10.0,
+                11.0, 12.0, 14.0, 15.0, 16.0,
+            ],
+            Shape::new(vec![1, 4, 9])?,
+        )?;
 
         let kernel_size = (2, 2);
         let stride_size = (1, 1);
@@ -784,11 +798,17 @@ mod tests {
             stride_size,
             pad_size,
         );
+
+        let output_tensor =
+            input_tensor.col2im([1, 1, 4, 4], kernel_size, stride_size, pad_size)?;
         println!("output = {:?}", output);
+        println!("output_tensor = {:?}", output_tensor);
         /*output = [[[[1.0, 4.0, 6.0, 4.0],
         [10.0, 24.0, 28.0, 16.0],
         [18.0, 40.0, 44.0, 24.0],
         [13.0, 28.0, 30.0, 16.0]]]] */
+
+        Ok(())
     }
 
     #[test]

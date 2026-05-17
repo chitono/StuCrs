@@ -2440,14 +2440,102 @@ impl Backend for CudaBackend {
     fn col2im(
         &self,
         storage: &Storage,
-        _shape: &Shape,
         im_shape: [usize; 4],
         kernel_size: (usize, usize),
         stride_size: (usize, usize),
         pad_size: (usize, usize),
     ) -> Result<Storage> {
+        #[cfg(feature = "cuda")]
+        {
+            match storage {
+                Storage::Cuda(cuda_storage) => {
+                    let n = im_shape[0]; //バッチ数
+                    let c = im_shape[1]; //チャンネル数
+                    let h = im_shape[2]; //縦
+                    let w = im_shape[3]; //横
+
+                    let (kh, kw) = kernel_size;
+                    let (stride_h, stride_w) = stride_size;
+                    let (pad_h, pad_w) = pad_size;
+
+                    let (oh, ow) =
+                        get_conv_outsize((h, w), (kh, kw), (stride_h, stride_w), (pad_h, pad_w));
+
+                    let numel = n * c * h * w;
+
+                    let stream = self.stream.clone();
+                    let mut result_buf = stream.alloc_zeros::<f32>(numel).map_err(|e| {
+                        TensorError::BackendError(format!(
+                            "Failed to allocate CUDA result buffer: {}",
+                            e
+                        ))
+                    })?;
+
+                    let kernel = self.kernels.get("col2im_kernel").ok_or_else(|| {
+                        TensorError::BackendError("col2im_kernel not found".to_string())
+                    })?;
+
+                    let block_size = 16;
+
+                    let grid_x = (w + block_size - 1) / block_size;
+                    let grid_y = (h + block_size - 1) / block_size;
+                    let grid_z = n * c;
+
+                    let cfg = LaunchConfig {
+                        grid_dim: (grid_x as u32, grid_y as u32, grid_z as u32),
+                        block_dim: (block_size as u32, block_size as u32, 1),
+                        shared_mem_bytes: 0,
+                    };
+
+                    let (n, c, h, w, kh, kw, oh, ow) = (
+                        n as i32, c as i32, h as i32, w as i32, kh as i32, kw as i32, oh as i32,
+                        ow as i32,
+                    );
+
+                    let (stride_h, stride_w, pad_h, pad_w) =
+                        (stride_h as i32, stride_w as i32, pad_h as i32, pad_w as i32);
+
+                    let mut builder = stream.launch_builder(kernel);
+
+                    builder.arg(cuda_storage.buffer.as_ref());
+                    builder.arg(&mut result_buf);
+                    builder.arg(&n);
+                    builder.arg(&c);
+                    builder.arg(&h);
+                    builder.arg(&w);
+                    builder.arg(&kh);
+                    builder.arg(&kw);
+                    builder.arg(&oh);
+                    builder.arg(&ow);
+                    builder.arg(&stride_h);
+                    builder.arg(&stride_w);
+                    builder.arg(&pad_h);
+                    builder.arg(&pad_w);
+
+                    unsafe { builder.launch(cfg) }.map_err(|e| {
+                        TensorError::BackendError(format!(
+                            "Failed to launch axis_slice kernel: {}",
+                            e
+                        ))
+                    })?;
+
+                    Ok(Storage::Cuda(CudaStorage {
+                        buffer: std::sync::Arc::new(result_buf),
+                    }))
+                }
+                _ => {
+                    // Convert to CUDA and try again
+
+                    let data = self.to_vec_f32(storage)?;
+                    let shape = Shape::new(vec![data.len()])?;
+                    let cuda_storage = self.from_slice(&data, &shape)?;
+                    self.pow(&cuda_storage, 2.0)
+                }
+            }
+        }
+        #[cfg(not(feature = "cuda"))]
         Err(TensorError::BackendError(
-            "CUDA has not support col2im".to_string(),
+            "CUDA support not compiled in".to_string(),
         ))
     }
 }

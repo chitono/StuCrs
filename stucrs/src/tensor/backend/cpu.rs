@@ -623,7 +623,6 @@ impl Backend for CpuBackend {
     fn col2im(
         &self,
         storage: &Storage,
-        _shape: &Shape,
         im_shape: [usize; 4],
         kernel_size: (usize, usize),
         stride_size: (usize, usize),

@@ -37,32 +37,44 @@ __global__ void im2col_kernel(const float* input, float* output,
 }
 
 
-// permute_axes kernel
 __global__ void col2im_kernel(const float* input, float* output,
-                                const int* in_strides, const int* out_strides,
-                                const int* axes, int ndim,int numel) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if (idx >= numel) return;
-
-    int coords[6] = {0};
-    int tmp = idx;
-
-    for (int i = 0; i < ndim; ++i) {
-        coords[i] = tmp / out_strides[i];
-        tmp %= out_strides[i];
-
+                            int n, int c, int h, int w,
+                            int kh, int kw, int oh, int ow,
+                            int stride_h, int stride_w, 
+                            int pad_h, int pad_w) {
+    int ih_idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int iw_idx = blockIdx.y * blockDim.y + threadIdx.y;
+    int batch_c_idx = blockIdx.z;
+    
+    if (ih_idx >= h || iw_idx >= w || batch_c_idx >= n * c) {
+        return;
     }
 
+    int batch_idx = batch_c_idx / c;
+    int c_idx = batck_c_idx % c;
 
-    int in_idx = 0;
+    int output_idx = (batch_idx * c + c_idx) * h * w + ih_idx * w + iw_idx;
+    
+    for (int kh_idx = 0; kh_idx < kh; kh_idx++) {
+        for (int kw_idx = 0; kw_idx < kw; kw_idx++) {
+            int oh_idx = (ih_idx + pad_h - kh_idx) / stride_h;
+            int ow_idx = (iw_idx + pad_w - kw_idx) / stride_w;
 
-    for (int i = 0; i< numel; ++i) {
-        in_idx += coords[i] * in_strides[axes[i]];
+            int oh_mod_idx = (ih_idx + pad_h - kh_idx) % stride_h;
+            int ow_mod_idx = (iw_idx + pad_w - kw_idx) % stride_w;
+
+            if (oh_idx >= 0 && oh_idx < oh && ow_idx >= 0 && ow_idx < ow && oh_mod_idx ==0 && ow_mod_idx ==0) {
+                int kernel_idx = c_idx * kh * kw + kh_idx * kw + kw_idx;
+
+                int ow_linear = oh_idx * ow + ow_idx;
+                int input_idx = batch_idx * (c * kh * kw) * (oh * ow) + kernel_idx * (oh * ow) + ow_linear;
+
+                atomicAdd(&output[output_idx],input[input_idx]);
+            }
+        }
     }
 
-    output[idx] = input[in_idx];
-
+    
 }
 
 } // extern "C"

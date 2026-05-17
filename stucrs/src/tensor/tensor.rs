@@ -1715,14 +1715,7 @@ impl TensorOps for Tensor {
         }
         let result_shape = Shape::new(im_shape.to_vec())?;
         for backend in &BACKENDS[0..] {
-            match backend.col2im(
-                &self.storage,
-                &self.shape,
-                im_shape,
-                kernel_size,
-                stride_size,
-                pad_size,
-            ) {
+            match backend.col2im(&self.storage, im_shape, kernel_size, stride_size, pad_size) {
                 Ok(storage) => {
                     return Ok(Tensor {
                         storage,
