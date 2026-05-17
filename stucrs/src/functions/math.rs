@@ -904,11 +904,19 @@ impl Function for Max {
     fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>> {
         let x_data = &self.inputs[0].data();
         let x_shape = x_data.shape();
-        let mask_array = x_data.max_backward(self.axis)?;
+        // TODO: axis = Noneの対応は後で
+        let axis = self.axis.unwrap();
 
-        let broadcasted_gy = broadcast_to(gy, x_shape)?;
+        let max_backward_mask = x_data
+            .argmax_axis(axis)?
+            .argmax_to_max_backward(x_shape, axis)?;
 
-        let gx = mask_array.rv() * broadcasted_gy;
+        println!("max_backward_mask_shape = {:?}", max_backward_mask.shape());
+        println!("gy_shape = {:?}", gy.data().shape());
+
+        let gy = gy.data().unsqueeze(axis)?.rv();
+
+        let gx = max_backward_mask.rv() * gy;
 
         let gxs = vec![gx];
         Ok(gxs)

@@ -86,7 +86,7 @@ mod tests {
         functions::{
             activation_funcs::relu,
             math::{clamp, cos, exp, log, max, sin, square, tanh},
-            matrix::{argmax_array, matmul, permute_axes, reshape, sum, tensordot, transpose},
+            matrix::{matmul, permute_axes, reshape, sum, tensordot, transpose},
         },
         functions_cnn::{
             col2im_simple, conv2d_array, conv2d_simple, im2col_simple, max_pool2d_simple,
@@ -499,28 +499,21 @@ mod tests {
         )?
         .rv(); // 3次元
 
-        let mut y0 = max(&a, None)?;
-        println!("計算1完了");
         let mut y1 = max(&b, Some(1))?;
         println!("計算2完了");
         let mut y2 = max(&c, Some(2))?;
         println!("計3完了");
 
-        println!("y0 = {}", y0.data()); // [30]
         println!("y1 = {}", y1.data()); // [[5],[6]]
         println!("y2 = {}", y2.data()); //
-
-        y0.backward(false)?;
-        println!("微分1完了");
 
         y1.backward(false)?;
         println!("微分2完了");
         y2.backward(false)?;
         println!("微分3完了");
 
-        println!("a_grad = {:?}", a.grad().unwrap().data()); // [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
-        println!("b_grad = {:?}", b.grad().unwrap().data()); //[[0.0, 1.0, 0.0],[0.0, 0.0, 1.0]]
-        println!("c_grad = {:?}", c.grad().unwrap().data()); //[[[0.0, 1.0, 0.0],[1.0, 0.0, 0.0]],[[0.0, 0.0, 1.0],[1.0, 0.0, 0.0]]]
+        println!("b_grad = {}", b.grad().unwrap().data()); //[[0.0, 1.0, 0.0],[0.0, 0.0, 1.0]]
+        println!("c_grad = {}", c.grad().unwrap().data()); //[[[0.0, 1.0, 0.0],[1.0, 0.0, 0.0]],[[0.0, 0.0, 1.0],[1.0, 0.0, 0.0]]]
 
         Ok(())
     }
@@ -871,24 +864,6 @@ mod tests {
         output.backward(false)?;
         println!("input_grad = {:?}", input.grad().unwrap().data());
         Ok(())
-    }
-
-    #[test]
-    fn array_argmax2d_test() -> FrameResult<()> {
-        let input = array![[1.0f32, 2.0], [4.0, 3.0], [10.0, 20.0], [30.0, 40.0]].into_dyn();
-
-        let output = argmax_array(input.view(), 1);
-        println!("{:?}", output);
-        Ok(())
-    }
-
-    #[test]
-    fn array_argmax3d_test() {
-        let input = array![[[1.0f32, 2.0], [4.0, 3.0]], [[10.0, 20.0], [30.0, 40.0]]].into_dyn();
-
-        let output = argmax_array(input.view(), 2);
-        println!("{:?}", output); //axis = 1 ...[[1, 1],[1, 1]] 返す行列はusize型
-                                  //axis = 2 ...[[1, 0],[1, 1]]
     }
 
     #[test]
