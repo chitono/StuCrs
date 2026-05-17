@@ -802,7 +802,7 @@ mod tests {
         let output_tensor =
             input_tensor.col2im([1, 1, 4, 4], kernel_size, stride_size, pad_size)?;
         println!("output = {:?}", output);
-        println!("output_tensor = {:?}", output_tensor);
+        println!("output_tensor = {}", output_tensor);
         /*output = [[[[1.0, 4.0, 6.0, 4.0],
         [10.0, 24.0, 28.0, 16.0],
         [18.0, 40.0, 44.0, 24.0],

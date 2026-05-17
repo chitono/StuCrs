@@ -51,7 +51,7 @@ __global__ void col2im_kernel(const float* input, float* output,
     }
 
     int batch_idx = batch_c_idx / c;
-    int c_idx = batck_c_idx % c;
+    int c_idx = batch_c_idx % c;
 
     int output_idx = (batch_idx * c + c_idx) * h * w + ih_idx * w + iw_idx;
     
