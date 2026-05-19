@@ -844,7 +844,7 @@ impl Backend for CudaBackend {
                     let out_strides_buffer = stream.memcpy_stod(&out_strides_i32).unwrap();
                     let axes_buffer = stream.memcpy_stod(&axes_i32).unwrap();
 
-                    let block_x = 256;
+                    let block_x = 16;
 
                     let grid_x = (numel + block_x - 1) / block_x;
 
@@ -1752,8 +1752,6 @@ impl Backend for CudaBackend {
                         TensorError::BackendError("max_axis_kernel not found".to_string())
                     })?;
 
-                    println!("sdfsdf");
-
                     //let in_rows = from_shape.dims()[0];
                     //let in_cols = from_shape.dims()[1];
 
@@ -1832,8 +1830,6 @@ impl Backend for CudaBackend {
                 Storage::Cuda(cuda_storage) => {
                     let in_strides = from_shape.strides();
                     let out_strides = to_shape.strides();
-
-                    println!("out_strides = {:?}", out_strides);
 
                     let in_ndim = from_shape.ndim();
                     let out_ndim = to_shape.ndim();
@@ -2513,10 +2509,7 @@ impl Backend for CudaBackend {
                     builder.arg(&pad_w);
 
                     unsafe { builder.launch(cfg) }.map_err(|e| {
-                        TensorError::BackendError(format!(
-                            "Failed to launch axis_slice kernel: {}",
-                            e
-                        ))
+                        TensorError::BackendError(format!("Failed to launch col2im kernel: {}", e))
                     })?;
 
                     Ok(Storage::Cuda(CudaStorage {

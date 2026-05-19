@@ -678,7 +678,7 @@ mod tests {
 
         let mut output = max_pool2d_simple(&input, kernel_size, stride_size, pad_size)?;
 
-        println!("output = {}", output.data()); //shape = (1,8,15,15)
+        println!("output = {}", output.data()); //shape = (1,2,3,3)
 
         output.backward(false)?;
 
@@ -778,6 +778,8 @@ mod tests {
             [6.0, 7.0, 8.0, 10.0, 11.0, 12.0, 14.0, 15.0, 16.0]
         ]];
 
+        println!("input shape = {:?}", input.shape());
+
         let input_tensor = Tensor::from_vec(
             vec![
                 1.0, 2.0, 3.0, 5.0, 6.0, 7.0, 9.0, 10.0, 11.0, 2.0, 3.0, 4.0, 6.0, 7.0, 8.0, 10.0,
@@ -823,6 +825,8 @@ mod tests {
         )?
         .rv();
 
+        let input2 = Tensor::ones(vec![1, 3, 15, 15])?;
+
         /*
         let input = array![[[
             [1.0f32, 2.0, 3.0, 4.0],
@@ -833,16 +837,16 @@ mod tests {
         .rv();
         */
 
-        let kernel_size = (2, 2);
+        let kernel_size = (3, 3);
         let stride_size = (1, 1);
         let pad_size = (0, 0);
 
         let mut output = im2col_simple(&input, kernel_size, stride_size, pad_size)?;
 
-        println!("output = {:?}", output); //shape (1,4,9)
+        println!("output = {}", output.data()); //shape (1,4,9)
 
         output.backward(false)?;
-        println!("input_grad = {:?}", input.grad().unwrap().data());
+        println!("input_grad = {}", input.grad().unwrap().data());
 
         Ok(())
     }
@@ -878,14 +882,14 @@ mod tests {
 
         let mut output = col2im_simple(&input, input_shape, kernel_size, stride_size, pad_size)?;
 
-        println!("output = {:?}", output);
+        println!("output = {}", output.data());
         /*output = [[[[1.0, 4.0, 6.0, 4.0],
         [10.0, 24.0, 28.0, 16.0],
         [18.0, 40.0, 44.0, 24.0],
         [13.0, 28.0, 30.0, 16.0]]]] */
 
         output.backward(false)?;
-        println!("input_grad = {:?}", input.grad().unwrap().data());
+        println!("input_grad = {}", input.grad().unwrap().data());
         Ok(())
     }
 
@@ -904,10 +908,10 @@ mod tests {
 
         let mut y = model.call(&input)?;
 
-        println!("y = {:?}", y.data()); // shape = [1,4,13,13]
+        println!("y = {}", y.data()); // shape = [1,4,13,13]
         y.backward(false)?;
 
-        println!("input_grad = {:?}", input.grad().unwrap().data()); // shape = [1,3,15,15]
+        println!("input_grad = {}", input.grad().unwrap().data()); // shape = [1,3,15,15]
         Ok(())
     }
 

@@ -857,7 +857,7 @@ impl TensorOps for Tensor {
         let mut axes_to_sum = HashSet::new();
 
         // 合計する軸を特定する
-        for i in 0..x_shape.len() {
+        for i in 0..x_shape.len() - 1 {
             if i >= to_shape.ndim() || x_shape[i] != to_shape.dims()[i] {
                 axes_to_sum.insert(i);
             }

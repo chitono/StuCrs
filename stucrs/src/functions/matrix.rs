@@ -881,6 +881,7 @@ impl Function for TensorDot {
 
         // TODO:Tensorにtensordotを実装してから修正
         let (gx, gw) = tensordot_backward(gy, x, w)?;
+
         let gxs = vec![gx, gw];
 
         Ok(gxs)
@@ -931,17 +932,24 @@ fn tensordot_backward(
         // 3D × 2D
         //(N,k,l) ×　(l,m) -> (N,k,m)の場合
         (3, 2) => {
+            let gx = tensordot(gy, &w.t()?)?;
+
+            let gw = tensordot(&x.permute_axes(vec![0, 2, 1])?, gy)?.sum(Some(0))?;
+
+            /*
+
             let n = x.data().shape().dims()[0];
             let k = x.data().shape().dims()[1];
             let l = x.data().shape().dims()[2];
             let m = w.data().shape().dims()[1];
 
-            let gx = tensordot(gy, &w.t()?)?;
 
             let gw = matmul(
                 &x.reshape(&Shape::new(vec![n * k, l])?)?.t()?,
                 &gy.reshape(&Shape::new(vec![n * k, m])?)?,
             )?;
+
+            */
 
             (gx, gw)
         }
@@ -949,20 +957,37 @@ fn tensordot_backward(
         // 2D × 3D
         //(k,l) ×　(N,l,m) -> (N,k,m)
         (2, 3) => {
+            /*
             let k = x.data().shape().dims()[0];
             let l = x.data().shape().dims()[1];
             let n = w.data().shape().dims()[0];
             let m = w.data().shape().dims()[2];
 
+
+
             //(n,k,m) -> (k,n,m) -> (k,n*m)
             let gy1 = permute_axes(&gy, vec![1, 0, 2])?.reshape(&Shape::new(vec![k, n * m])?)?;
+
             //(n,l,m) -> (l,n,m) -> (l,n*m) -> (n*m,l)
+
             let w1 = permute_axes(&w, vec![1, 0, 2])?
-                .reshape(&Shape::new(vec![n * k, l])?)?
+                .reshape(&Shape::new(vec![l, n * m])?)?
                 .t()?;
             let gx = matmul(&gy1, &w1)?; //(k,n*m) @ (n*m,l) -> (k,l)
 
+            */
+
+            let tmp = tensordot(gy, &w.permute_axes(vec![0, 2, 1])?)?;
+
+            println!("tmp shape = {:?}", tmp.data().shape());
+
+            let gx = tensordot(gy, &w.permute_axes(vec![0, 2, 1])?)?.sum(Some(0))?;
+
+            println!("gx shape = {:?}", gx.data().shape());
+
             let gw = tensordot(&x.t()?, gy)?; //(l,k) @' (n,k,m) -> (n,l,m)
+
+            println!("gw shape = {:?}", gw.data().shape());
 
             (gx, gw)
         }

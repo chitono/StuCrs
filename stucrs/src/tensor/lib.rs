@@ -748,8 +748,9 @@ mod tests {
     fn tensor_permute_test() -> Result<()> {
         let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2])?;
         let b = Tensor::from_vec(vec![10.0, 20.0, 30.0, 40.0], vec![4, 1])?;
+        let c = Tensor::ones(vec![1, 4, 169])?;
         let start = Instant::now();
-        let result = a.permute(&vec![1, 0]);
+        let result = c.permute(&vec![1, 0, 2]); // 102
         let end = Instant::now();
         let duration = end.duration_since(start);
         println!("処理時間 = {:?}", duration);
@@ -967,12 +968,13 @@ mod tests {
     fn tensor_sum_to_test() -> Result<()> {
         let _a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2])?;
         let b = Tensor::from_vec(vec![10.0, 20.0, 30.0, 40.0], vec![2, 2])?;
+        let c = Tensor::ones(vec![1, 8, 45])?;
         let start = Instant::now();
-        let result = b.sum_to(&Shape { dims: vec![1, 2] })?;
+        let result = c.sum_to(&Shape { dims: vec![8, 45] })?;
         let end = Instant::now();
         let duration = end.duration_since(start);
         println!("処理時間 = {:?}", duration);
-        println!("tensor_cpu_shape = {:?}", result);
+        println!("tensor_cpu_shape = {}", result);
         Ok(())
     }
 

@@ -101,7 +101,6 @@ impl Backend for CpuBackend {
         let data = storage.to_ndarray()?;
 
         let result = data.remove_axis(Axis(axis)).to_owned();
-        println!("result_shape = {:?}", result.shape());
         Ok(Storage::Cpu(result))
     }
 
@@ -109,8 +108,6 @@ impl Backend for CpuBackend {
         let data = storage.to_ndarray()?;
 
         let result = data.insert_axis(Axis(axis)).to_owned();
-
-        println!("result_shape = {:?}", result.shape());
 
         Ok(Storage::Cpu(result))
     }
