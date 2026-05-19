@@ -940,32 +940,14 @@ impl Layer for Flatten {
 
 impl Flatten {
     fn forward(&mut self, x: &RcVariable) -> FrameResult<RcVariable> {
-        let n = x.data().shape().dims()[0];
-        let y = match x.data().ndim() {
-            3 => {
-                let h = x.data().shape().dims()[1];
-                let w = x.data().shape().dims()[2];
-                //let y = reshape(&x, IxDyn(&[n, h * w]));
-                let y = reshape(&x, &Shape::new(vec![n, h * w])?)?;
+        let x_data = x.data();
+        let x_shape = x_data.shape();
+        let n = x_shape.dims()[0];
+        let numel = x_shape.numel();
 
-                y
-            }
-            4 => {
-                let h = x.data().shape().dims()[1];
-                let w = x.data().shape().dims()[2];
-                let c = x.data().shape().dims()[3];
-                //let y = reshape(&x, IxDyn(&[n, h * w * c]));
-                let y = reshape(&x, &Shape::new(vec![n, h * w * c])?)?;
+        let new_shape = Shape::new(vec![n, numel / n])?;
 
-                y
-            }
-            _ => {
-                return Err(FrameError::Unimplemented {
-                    context: "Flattenは現在3,4次元の行列のみ対応。".to_string(),
-                    source: None,
-                });
-            }
-        };
+        let y = reshape(&x, &new_shape)?;
 
         Ok(y)
     }

@@ -955,10 +955,10 @@ mod tests {
 
         let mut y = model.call(&input)?;
 
-        println!("y = {:?}", y.data()); // shape = [1,4,13,13]
+        println!("y = {}", y.data()); // shape = [1,4,13,13]
         y.backward(false)?;
 
-        println!("input_grad = {:?}", input.grad().unwrap().data()); // shape = [1,3,15,15]
+        println!("input_grad = {}", input.grad().unwrap().data()); // shape = [1,3,15,15]
 
         Ok(())
     }
@@ -983,10 +983,10 @@ mod tests {
 
         let mut y = model.call(&input)?;
 
-        println!("y = {:?}", y.data());
+        println!("y = {}", y.data());
         y.backward(false)?;
 
-        println!("input_grad = {:?}", input.grad().unwrap().data());
+        println!("input_grad = {}", input.grad().unwrap().data());
 
         Ok(())
     }
@@ -1030,10 +1030,10 @@ mod tests {
 
         let mut y = model.call(&input)?;
 
-        println!("y = {:?}", y.data()); // shape = [1,32]
+        println!("y = {}", y.data()); // shape = [1,32]
         y.backward(false)?;
 
-        println!("input_grad = {:?}", input.grad().unwrap().data()); // shape = [1,2,4,4]
+        println!("input_grad = {}", input.grad().unwrap().data()); // shape = [1,2,4,4]
 
         Ok(())
     }
