@@ -34,7 +34,7 @@ __global__ void permute_kernel(const float* input, float* output,
 
     int in_idx = 0;
 
-    for (int i = 0; i< numel; ++i) {
+    for (int i = 0; i< ndim; ++i) {
         in_idx += coords[i] * in_strides[axes[i]];
     }
 
