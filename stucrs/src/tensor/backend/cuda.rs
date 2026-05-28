@@ -1,9 +1,11 @@
 use super::{Backend, CudaStorage, Storage};
+use crate::functions_cnn::get_conv_outsize;
 use crate::tensor::error::{Result, TensorError};
 use crate::tensor::shape::Shape;
 
-use crate::functions_cnn::get_conv_outsize;
+use cudarc::curand::CudaRng;
 use cudarc::driver::{CudaContext, CudaFunction, CudaStream, LaunchConfig, PushKernelArg};
+use std::cell::RefCell;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -298,6 +300,28 @@ impl Backend for CudaBackend {
             unsafe { builder.launch(cfg) }.map_err(|e| {
                 TensorError::BackendError(format!("Failed to launch fill_ones kernel: {}", e))
             })?;
+
+            Ok(Storage::Cuda(CudaStorage {
+                buffer: std::sync::Arc::new(buf),
+            }))
+        }
+        #[cfg(not(feature = "cuda"))]
+        Err(TensorError::BackendError(
+            "CUDA support not compiled in".to_string(),
+        ))
+    }
+
+    fn rand_uniform(&self, shape: &Shape) -> Result<Storage> {
+        {
+            let size = shape.numel();
+            let stream = self.stream.clone();
+            let mut buf = stream.alloc_zeros::<f32>(size).map_err(|e| {
+                TensorError::BackendError(format!("Failed to allocate CUDA memory: {}", e))
+            })?;
+
+            let rng = CudaRng::new(0, stream.clone()).unwrap();
+
+            rng.fill_with_uniform(&mut buf).unwrap();
 
             Ok(Storage::Cuda(CudaStorage {
                 buffer: std::sync::Arc::new(buf),

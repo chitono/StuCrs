@@ -11,7 +11,8 @@ use crate::tensor::ops::TensorOps;
 use crate::tensor::shape::Shape;
 
 use rand::thread_rng;
-use rand_distr::{Distribution, StandardNormal};
+
+use rand_distr::{Distribution, StandardNormal, Uniform};
 use std::collections::HashSet;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
@@ -151,6 +152,7 @@ impl Tensor {
 
     pub fn standard_normal(shape: impl Into<Shape>) -> Result<Self> {
         let mut rng = thread_rng();
+        //let mut rng = StdRng::seed_from_u64(42);
         let shape: Shape = shape.into();
         let numel = shape.numel();
 
@@ -160,6 +162,22 @@ impl Tensor {
 
         let tensor = Tensor::from_vec(vec, shape)?;
         Ok(tensor)
+    }
+
+    /// TODO: CudaRng最適化したい
+    pub fn rand_uniform(shape: impl Into<Shape>) -> Result<Self> {
+        //let mut rng = StdRng::seed_from_u64(42);
+        let shape: Shape = shape.into();
+
+        for backend in &BACKENDS[0..] {
+            match backend.rand_uniform(&shape) {
+                Ok(storage) => return Ok(Tensor { storage, shape }),
+                Err(_) => continue,
+            }
+        }
+        Err(TensorError::BackendError(
+            "No backend could create ones tensor".to_string(),
+        ))
     }
 
     /// Returns a reference to the tensor's shape.

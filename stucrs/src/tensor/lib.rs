@@ -1374,6 +1374,14 @@ mod tests {
     }
 
     #[test]
+    fn rand_uniform_test() -> Result<()> {
+        let tensor = Tensor::rand_uniform(Shape::new(vec![5, 5])?)?;
+
+        println!("result = {}", tensor);
+        Ok(())
+    }
+
+    #[test]
     fn one_hot_encode_test() {
         use crate::tensor::ops::TensorOps;
         use std::time::Instant;

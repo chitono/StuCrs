@@ -55,6 +55,8 @@ pub trait Backend: Debug + Send + Sync {
     /// Creates a tensor filled with ones.
     fn ones(&self, shape: &Shape) -> Result<Storage>;
 
+    fn rand_uniform(&self, new_shape: &Shape) -> Result<Storage>;
+
     /// Creates a tensor from a slice of f32 values.
     #[allow(clippy::wrong_self_convention)]
     fn from_slice(&self, data: &[f32], shape: &Shape) -> Result<Storage>;

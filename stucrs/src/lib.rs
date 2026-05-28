@@ -191,6 +191,30 @@ mod tests {
     }
 
     #[test]
+    fn back_clear_test() -> FrameResult<()> {
+        let mut a = Tensor::from_vec(vec![3.0, 3.0, 3.0], vec![3])?.rv();
+        let b = Tensor::from_vec(vec![2.0, 2.0, 2.0], vec![3])?.rv();
+
+        let mut c = a.clone() + a.clone();
+
+        println!("c = {}", c.data());
+
+        c.backward(false)?;
+
+        println!("a_grad = {:?}", a.grad().unwrap().data());
+
+        a.cleargrad();
+
+        let mut d = a.clone() + a.clone() + a.clone();
+
+        d.backward(false)?;
+
+        println!("a_grad2 = {}", a.grad().unwrap().data());
+        //println!("b_grad = {:?}", b.grad().unwrap().data());
+        Ok(())
+    }
+
+    #[test]
     fn pow_test() -> FrameResult<()> {
         use crate::core::TensorToRcVariable;
 
@@ -582,14 +606,14 @@ mod tests {
     fn conv2d_test() -> FrameResult<()> {
         use crate::core::TensorToRcVariable;
 
-        let input_tensor = Tensor::ones(vec![1, 5, 15, 15])?;
+        let input_tensor = Tensor::ones(vec![2, 5, 15, 15])?;
         let weight_tensor = Tensor::ones(vec![8, 5, 3, 3])?;
 
         let input = input_tensor.rv();
         let weight = weight_tensor.rv();
 
         let stride_size = (1, 1);
-        let pad_size = (1, 1);
+        let pad_size = (0, 0);
 
         let mut output = conv2d_simple(&input, &weight, None, stride_size, pad_size)?;
 
@@ -599,7 +623,7 @@ mod tests {
 
         println!(
             "input_grad_shape = {:?}",
-            input.grad().unwrap().data().shape()
+            input.grad().unwrap().data().to_vec()?
         ); //shape = (1,5,15,15)
 
         Ok(())
@@ -650,7 +674,7 @@ mod tests {
                 4.0f32, 1.0, 5.0, 3.0, 7.0, 3.0, 2.0, 3.0, 7.0, 2.0, 3.0, 4.0, 1.0, 5.0, 3.0, 9.0,
                 4.0, 1.0, 5.0, 3.0, 7.0, 3.0, 2.0, 3.0, 7.0, 2.0, 3.0, 4.0, 1.0, 5.0, 3.0, 9.0,
             ],
-            vec![1, 2, 4, 4],
+            vec![2, 1, 4, 4],
         )?;
 
         /*
@@ -673,7 +697,7 @@ mod tests {
 
         let input = input_tensor.rv();
         let kernel_size = (2, 2);
-        let stride_size = (1, 1);
+        let stride_size = (2, 2);
         let pad_size = (0, 0);
 
         let mut output = max_pool2d_simple(&input, kernel_size, stride_size, pad_size)?;
@@ -902,7 +926,7 @@ mod tests {
         let mut model = BaseModel::new();
         model.stack(L::Conv2d::new(4, (3, 3), (1, 1), (0, 0), false)?);
 
-        let input_tensor = Tensor::ones(vec![1, 3, 15, 15])?;
+        let input_tensor = Tensor::ones(vec![2, 3, 15, 15])?;
 
         let input = input_tensor.rv();
 
@@ -923,29 +947,29 @@ mod tests {
 
         let input_tensor = Tensor::from_vec(
             vec![
-                4.0f32, 1.0, 5.0, 3.0, 7.0, 3.0, 2.0, 3.0, 7.0, 2.0, 3.0, 4.0, 1.0, 5.0, 3.0, 9.0,
-                4.0, 1.0, 5.0, 3.0, 7.0, 3.0, 2.0, 3.0, 7.0, 2.0, 3.0, 4.0, 1.0, 5.0, 3.0, 9.0,
+                4.0f32, 1.0, 5.0, 3.0, 8.0, 3.0, 2.0, 3.0, 7.0, 2.0, 3.0, 4.0, 1.0, 5.0, 3.0, 9.0,
+                4.0, 1.0, 5.0, 3.0, 7.0, 3.0, 2.0, 3.0, 8.0, 2.0, 3.0, 4.0, 1.0, 5.0, 3.0, 9.0,
             ],
-            vec![1, 2, 4, 4],
+            vec![2, 1, 4, 4],
         )?;
 
         /*
         let input_array = array![[
             [
                 [4.0f32, 1.0, 5.0, 3.0],
-                [7.0, 3.0, 2.0, 3.0],
+                [8.0, 3.0, 2.0, 3.0],
                 [7.0, 2.0, 3.0, 4.0],
                 [1.0, 5.0, 3.0, 9.0]
             ],
             [
                 [4.0f32, 1.0, 5.0, 3.0],
                 [7.0, 3.0, 2.0, 3.0],
-                [7.0, 2.0, 3.0, 4.0],
+                [8.0, 2.0, 3.0, 4.0],
                 [1.0, 5.0, 3.0, 9.0]
             ]
         ]]; */
         let kernel_size = (2, 2);
-        let stride_size = (1, 1);
+        let stride_size = (2, 2);
         let pad_size = (0, 0);
 
         let mut model = BaseModel::new();
@@ -965,12 +989,14 @@ mod tests {
 
     #[test]
     fn dropout_layer_test() -> FrameResult<()> {
+        use crate::config::set_test_flag_true;
         use crate::core::TensorToRcVariable;
         use crate::layers as L;
         use crate::models::BaseModel;
 
-        let input_tensor =
-            Tensor::from_vec(vec![4.0f32, 1.0, 5.0, 3.0, 1.0, 5.0, 3.0, 9.0], vec![2, 4])?;
+        //set_test_flag_true();
+
+        let input_tensor = Tensor::from_vec(vec![1.0f32, 1.0, 1.0, 1.0, 1.0], vec![1, 5])?;
 
         //let input_array = array![[4.0f32, 1.0, 5.0, 3.0], [1.0, 5.0, 3.0, 9.0]];
 

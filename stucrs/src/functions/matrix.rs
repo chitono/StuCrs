@@ -977,17 +977,9 @@ fn tensordot_backward(
 
             */
 
-            let tmp = tensordot(gy, &w.permute_axes(vec![0, 2, 1])?)?;
-
-            println!("tmp shape = {:?}", tmp.data().shape());
-
             let gx = tensordot(gy, &w.permute_axes(vec![0, 2, 1])?)?.sum(Some(0))?;
 
-            println!("gx shape = {:?}", gx.data().shape());
-
             let gw = tensordot(&x.t()?, gy)?; //(l,k) @' (n,k,m) -> (n,l,m)
-
-            println!("gw shape = {:?}", gw.data().shape());
 
             (gx, gw)
         }

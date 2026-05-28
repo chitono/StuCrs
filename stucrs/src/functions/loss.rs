@@ -149,7 +149,7 @@ pub fn softmax_cross_entropy_simple(x: &RcVariable, t: &RcVariable) -> FrameResu
 
     let p = softmax_simple(&x)?;
 
-    let clamped_p = clamp(&p, 1.0e-4, 1.0)?;
+    let clamped_p = clamp(&p, 1.0e-7, 1.0)?;
 
     let log_p = log(&clamped_p, None)?;
 

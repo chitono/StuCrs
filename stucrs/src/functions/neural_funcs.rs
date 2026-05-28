@@ -40,7 +40,7 @@ pub fn linear_simple(
 
 pub fn dropout(x: &RcVariable, ratio: f32) -> FrameResult<RcVariable> {
     if get_test_flag_status() == false {
-        let random_tensor = Tensor::standard_normal(x.data().shape().dims.clone())?;
+        let random_tensor = Tensor::rand_uniform(x.data().shape().dims())?;
         //let random_array: Array<f32, IxDyn> = Array::random(x.data().shape(), Standard);
         /*
         let mask = random_tensor

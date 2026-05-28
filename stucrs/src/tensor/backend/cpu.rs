@@ -7,7 +7,9 @@ use crate::tensor::shape::Shape;
 use ndarray::{
     array, s, Array2, Array3, ArrayD, ArrayViewD, Axis, Dimension, Ix1, Ix2, Ix3, Ix4, IxDyn,
 };
+use ndarray_rand::RandomExt;
 use ndarray_stats::QuantileExt;
+use rand_distr::Uniform;
 use std::collections::HashSet;
 
 #[derive(Debug)]
@@ -39,6 +41,11 @@ impl Backend for CpuBackend {
 
     fn ones(&self, shape: &Shape) -> Result<Storage> {
         Ok(Storage::Cpu(ArrayD::<f32>::ones(IxDyn::from(shape))))
+    }
+
+    fn rand_uniform(&self, shape: &Shape) -> Result<Storage> {
+        let result = ArrayD::random(IxDyn::from(shape), Uniform::new(0.0f32, 1.0));
+        Ok(Storage::Cpu(result))
     }
 
     fn from_slice(&self, data: &[f32], shape: &Shape) -> Result<Storage> {
