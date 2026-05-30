@@ -94,11 +94,17 @@ pub fn max_pool2d_simple(
 
     let cols = im2col_simple(input, kernel_size, stride_size, pad_size)?;
 
+    let cols = cols.reshape(&Shape::new(vec![n, kh * kw, c * oh * ow])?)?;
+
+    /*
+
     let cols = permute_axes(&cols, vec![0, 2, 1])?;
 
     let cols = cols.reshape(&Shape::new(vec![n, c * oh * ow, kh * kw])?)?;
 
-    let y = max(&cols, Some(2))?;
+    */
+
+    let y = max(&cols, Some(1))?;
 
     let output = y
         .reshape(&Shape::new(vec![n, oh, ow, c])?)?
@@ -254,6 +260,7 @@ impl Function for Im2col {
 
     fn forward(&self, xs: &[RcVariable]) -> FrameResult<RcVariable> {
         let x = &xs[0];
+
         let y_data = x
             .data()
             .im2col(self.kernel_size, self.stride_size, self.pad_size)
