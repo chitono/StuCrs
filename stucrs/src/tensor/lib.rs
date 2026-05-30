@@ -838,14 +838,19 @@ mod tests {
 
     #[test]
     fn tensor_matmul_cuda_test() -> Result<()> {
-        let a = Tensor::ones(Shape::new(vec![100, 784])?)?.to_backend("CUDA")?;
-        let b = Tensor::ones(Shape::new(vec![784, 500])?)?.to_backend("CUDA")?;
+        let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])?;
+        let b = Tensor::from_vec(
+            vec![
+                11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0,
+            ],
+            vec![3, 4],
+        )?;
         let start = Instant::now();
         let result = a.matmul(&b);
         let end = Instant::now();
         let duration = end.duration_since(start);
         println!("処理時間gpu = {:?}", duration); //1.604526ms
-        println!("tensor_gpu_shape = {:?}", result?.shape()); //[100, 500]
+        println!("tensor_gpu_shape = {}", result?); //[100, 500]
         Ok(())
     }
 

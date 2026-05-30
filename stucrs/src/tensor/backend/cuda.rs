@@ -3,10 +3,12 @@ use crate::functions_cnn::get_conv_outsize;
 use crate::tensor::error::{Result, TensorError};
 use crate::tensor::shape::Shape;
 
+use cudarc::cublas::sys::cublasOperation_t;
+use cudarc::cublas::{CudaBlas, GemmConfig};
 use cudarc::curand::CudaRng;
 use cudarc::driver::{CudaContext, CudaFunction, CudaStream, LaunchConfig, PushKernelArg};
 
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -18,6 +20,7 @@ pub struct CudaBackend {
 }
 
 thread_local! {static THREAD_RNG: RefCell<Option<CudaRng>> = RefCell::new(None);}
+thread_local! {static THREAD_CUBLAS: RefCell<Option<CudaBlas>> = RefCell::new(None);}
 
 impl CudaBackend {
     pub fn new() -> Result<Self> {
@@ -1067,35 +1070,44 @@ impl Backend for CudaBackend {
                         ))
                     })?;
 
-                    // Use tiled kernel for better performance
-                    let kernel = self.kernels.get("matmul_tiled_kernel").ok_or_else(|| {
-                        TensorError::BackendError("matmul_tiled_kernel not found".to_string())
-                    })?;
-
-                    let block_size = 16;
-                    let grid_x = (n + block_size - 1) / block_size;
-                    let grid_y = (m + block_size - 1) / block_size;
-
-                    let cfg = LaunchConfig {
-                        grid_dim: (grid_x as u32, grid_y as u32, 1),
-                        block_dim: (block_size as u32, block_size as u32, 1),
-                        shared_mem_bytes: 0,
-                    };
-
-                    let mut builder = stream.launch_builder(kernel);
-                    builder.arg(a.buffer.as_ref());
-                    builder.arg(b.buffer.as_ref());
-                    builder.arg(&mut result_buf);
                     let m_arg = m as i32;
                     let k_arg = k1 as i32;
                     let n_arg = n as i32;
-                    builder.arg(&m_arg);
-                    builder.arg(&k_arg);
-                    builder.arg(&n_arg);
 
-                    unsafe { builder.launch(cfg) }.map_err(|e| {
-                        TensorError::BackendError(format!("Failed to launch matmul kernel: {}", e))
-                    })?;
+                    THREAD_CUBLAS.with(|cublas_ref| {
+                        use cudarc::cublas::Gemm;
+
+                        let mut opt_cublas = cublas_ref.borrow_mut();
+                        let cublas = opt_cublas
+                            .get_or_insert_with(|| CudaBlas::new(stream.clone()).unwrap());
+
+                        unsafe {
+                            cublas.gemm(
+                                GemmConfig {
+                                    transa: cublasOperation_t::CUBLAS_OP_N,
+                                    transb: cublasOperation_t::CUBLAS_OP_N,
+                                    m: n_arg,
+                                    n: m_arg,
+                                    k: k_arg,
+                                    alpha: 1.0f32,
+                                    lda: n_arg,
+                                    ldb: k_arg,
+                                    beta: 0.0f32,
+                                    ldc: n_arg,
+                                },
+                                b.buffer.as_ref(),
+                                a.buffer.as_ref(),
+                                &mut result_buf,
+                            )
+                        }
+                        .map_err(|e| {
+                            TensorError::BackendError(format!(
+                                "Failed to launch matmul kernel: {}",
+                                e
+                            ))
+                        })
+                        .unwrap();
+                    });
 
                     Ok(Storage::Cuda(CudaStorage {
                         buffer: std::sync::Arc::new(result_buf),
