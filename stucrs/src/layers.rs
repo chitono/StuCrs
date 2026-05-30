@@ -196,7 +196,7 @@ impl Linear {
         }
 
         if biased == true {
-            let b = Tensor::zeros(vec![out_size as usize])?.rv();
+            let b = Tensor::zeros(vec![1, out_size as usize])?.rv();
             linear.b_id = Some(b.id());
             linear.set_params(&b.clone())?;
         }
@@ -370,7 +370,7 @@ impl Dense {
         }
 
         if biased == true {
-            let b = Tensor::zeros(vec![out_size as usize])?.rv();
+            let b = Tensor::zeros(vec![1, out_size as usize])?.rv();
             dense.b_id = Some(b.id());
             dense.set_params(&b.clone())?;
         }
@@ -508,9 +508,9 @@ impl Conv2d {
             b = None;
         }
 
-        let y = conv2d_simple(x, w, b, self.stride_size, self.pad_size);
+        let y = conv2d_simple(x, w, b, self.stride_size, self.pad_size)?;
 
-        y
+        Ok(y)
     }
 
     pub fn new(
