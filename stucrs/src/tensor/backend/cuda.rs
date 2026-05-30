@@ -5,8 +5,8 @@ use crate::tensor::shape::Shape;
 
 use cudarc::curand::CudaRng;
 use cudarc::driver::{CudaContext, CudaFunction, CudaStream, LaunchConfig, PushKernelArg};
-use std::cell::RefCell;
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -16,6 +16,8 @@ pub struct CudaBackend {
     stream: Arc<CudaStream>,
     kernels: HashMap<String, CudaFunction>,
 }
+
+thread_local! {static THREAD_RNG: RefCell<Option<CudaRng>> = RefCell::new(None);}
 
 impl CudaBackend {
     pub fn new() -> Result<Self> {
@@ -319,9 +321,13 @@ impl Backend for CudaBackend {
                 TensorError::BackendError(format!("Failed to allocate CUDA memory: {}", e))
             })?;
 
-            let rng = CudaRng::new(0, stream.clone()).unwrap();
+            THREAD_RNG.with(|rng_ref| {
+                let mut opt_rng = rng_ref.borrow_mut();
 
-            rng.fill_with_uniform(&mut buf).unwrap();
+                let rng = opt_rng.get_or_insert_with(|| CudaRng::new(0, stream.clone()).unwrap());
+
+                rng.fill_with_uniform(&mut buf).unwrap();
+            });
 
             Ok(Storage::Cuda(CudaStorage {
                 buffer: std::sync::Arc::new(buf),
