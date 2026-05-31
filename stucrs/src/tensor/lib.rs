@@ -878,7 +878,7 @@ mod tests {
         let end = Instant::now();
         let duration = end.duration_since(start);
         println!("処理時間 = {:?}", duration);
-        println!("tensor_cpu_shape = {}", result);
+        println!("tensor = {:?}", result.to_vec()?); // [5.0, 0.0, 0.0, 5.0, 11.0, 0.0, 0.0, 11.0, 17.0, 0.0, 0.0, 17.0, 23.0, 0.0, 0.0, 23.0]
         Ok(())
     }
 
@@ -892,7 +892,7 @@ mod tests {
         let end = Instant::now();
         let duration = end.duration_since(start);
         println!("処理時間 = {:?}", duration);
-        println!("tensor_cpu_shape = {}", result);
+        println!("tensor = {:?}", result.to_vec()?); // [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0]
         Ok(())
     }
 
@@ -906,7 +906,7 @@ mod tests {
         let end = Instant::now();
         let duration = end.duration_since(start);
         println!("処理時間 = {:?}", duration);
-        println!("tensor_cpu_shape = {}", result);
+        println!("tensor = {:?}", result.to_vec()?); // [1.0, 2.0, 3.0, 4.0, 10.0, 12.0, 14.0, 16.0]
         Ok(())
     }
 

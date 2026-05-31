@@ -4,7 +4,7 @@ use crate::tensor::error::{Result, TensorError};
 use crate::tensor::shape::Shape;
 
 use cudarc::cublas::sys::cublasOperation_t;
-use cudarc::cublas::{CudaBlas, GemmConfig};
+use cudarc::cublas::{CudaBlas, Gemm, GemmConfig, StridedBatchedConfig};
 use cudarc::curand::CudaRng;
 use cudarc::driver::{CudaContext, CudaFunction, CudaStream, LaunchConfig, PushKernelArg};
 
@@ -1075,8 +1075,6 @@ impl Backend for CudaBackend {
                     let n_arg = n as i32;
 
                     THREAD_CUBLAS.with(|cublas_ref| {
-                        use cudarc::cublas::Gemm;
-
                         let mut opt_cublas = cublas_ref.borrow_mut();
                         let cublas = opt_cublas
                             .get_or_insert_with(|| CudaBlas::new(stream.clone()).unwrap());
@@ -1179,7 +1177,7 @@ impl Backend for CudaBackend {
                             // 3D × 2D
                             //(N,k,l) ×　(l,m) -> (N,k,m)
                             let (n, k, l1) = (lhs_dims[0], lhs_dims[1], lhs_dims[2]);
-                            let (l2, m) = (rhs_dims[0], rhs_dims[1]);
+                            let m = rhs_dims[1];
 
                             let numel = n * k * m;
 
@@ -1191,42 +1189,49 @@ impl Backend for CudaBackend {
                                 ))
                             })?;
 
-                            let kernel =
-                                self.kernels.get("tensordot_32_kernel").ok_or_else(|| {
-                                    TensorError::BackendError(
-                                        "tensordot_32_kernel not found".to_string(),
-                                    )
-                                })?;
-
-                            let block_size = 16;
-                            let grid_x = (m + block_size - 1) / block_size;
-                            let grid_y = (k + block_size - 1) / block_size;
-                            let grid_z = n;
-
-                            let cfg = LaunchConfig {
-                                grid_dim: (grid_x as u32, grid_y as u32, grid_z as u32),
-                                block_dim: (block_size as u32, block_size as u32, 1),
-                                shared_mem_bytes: 0,
-                            };
-
                             let (n_i32, k_i32, l_i32, m_i32) =
                                 (n as i32, k as i32, l1 as i32, m as i32);
 
-                            let mut builder = stream.launch_builder(kernel);
-                            builder.arg(a.buffer.as_ref());
-                            builder.arg(b.buffer.as_ref());
-                            builder.arg(&mut result_buf);
-                            builder.arg(&n_i32);
-                            builder.arg(&k_i32);
-                            builder.arg(&l_i32);
-                            builder.arg(&m_i32);
+                            THREAD_CUBLAS.with(|cublas_ref| {
+                                use cudarc::cublas::Gemm;
 
-                            unsafe { builder.launch(cfg) }.map_err(|e| {
-                                TensorError::BackendError(format!(
-                                    "Failed to launch tensordot32 kernel: {}",
-                                    e
-                                ))
-                            })?;
+                                let mut opt_cublas = cublas_ref.borrow_mut();
+                                let cublas = opt_cublas
+                                    .get_or_insert_with(|| CudaBlas::new(stream.clone()).unwrap());
+
+                                unsafe {
+                                    cublas.gemm_strided_batched(
+                                        StridedBatchedConfig {
+                                            gemm: GemmConfig {
+                                                transa: cublasOperation_t::CUBLAS_OP_N,
+                                                transb: cublasOperation_t::CUBLAS_OP_N,
+                                                m: m_i32,
+                                                n: k_i32,
+                                                k: l_i32,
+                                                alpha: 1.0f32,
+                                                lda: m_i32,
+                                                ldb: l_i32,
+                                                beta: 0.0f32,
+                                                ldc: m_i32,
+                                            },
+                                            batch_size: n_i32,
+                                            stride_a: 0,
+                                            stride_b: (k_i32 * l_i32) as i64,
+                                            stride_c: (k_i32 * m_i32) as i64,
+                                        },
+                                        b.buffer.as_ref(),
+                                        a.buffer.as_ref(),
+                                        &mut result_buf,
+                                    )
+                                }
+                                .map_err(|e| {
+                                    TensorError::BackendError(format!(
+                                        "Failed to launch tensordot3-3 kernel: {}",
+                                        e
+                                    ))
+                                })
+                                .unwrap();
+                            });
 
                             Ok(Storage::Cuda(CudaStorage {
                                 buffer: std::sync::Arc::new(result_buf),
@@ -1237,8 +1242,8 @@ impl Backend for CudaBackend {
                             // 2D × 3D
                             //(k,l) ×　(N,l,m) -> (N,k,m)
 
-                            let (k, l1) = (lhs_dims[0], lhs_dims[1]);
-                            let (n, l2, m) = (rhs_dims[0], rhs_dims[1], rhs_dims[2]);
+                            let (k, l) = (lhs_dims[0], lhs_dims[1]);
+                            let (n, m) = (rhs_dims[0], rhs_dims[2]);
 
                             let numel = n * k * m;
 
@@ -1251,42 +1256,49 @@ impl Backend for CudaBackend {
                                 ))
                             })?;
 
-                            let kernel =
-                                self.kernels.get("tensordot_23_kernel").ok_or_else(|| {
-                                    TensorError::BackendError(
-                                        "sum_axis_kernel not found".to_string(),
-                                    )
-                                })?;
-
-                            let block_size = 16;
-                            let grid_x = (m + block_size - 1) / block_size;
-                            let grid_y = (k + block_size - 1) / block_size;
-                            let grid_z = n;
-
-                            let cfg = LaunchConfig {
-                                grid_dim: (grid_x as u32, grid_y as u32, grid_z as u32),
-                                block_dim: (block_size as u32, block_size as u32, 1),
-                                shared_mem_bytes: 0,
-                            };
-
                             let (n_i32, k_i32, l_i32, m_i32) =
-                                (n as i32, k as i32, l1 as i32, m as i32);
+                                (n as i32, k as i32, l as i32, m as i32);
 
-                            let mut builder = stream.launch_builder(kernel);
-                            builder.arg(a.buffer.as_ref());
-                            builder.arg(b.buffer.as_ref());
-                            builder.arg(&mut result_buf);
-                            builder.arg(&n_i32);
-                            builder.arg(&k_i32);
-                            builder.arg(&l_i32);
-                            builder.arg(&m_i32);
+                            THREAD_CUBLAS.with(|cublas_ref| {
+                                use cudarc::cublas::Gemm;
 
-                            unsafe { builder.launch(cfg) }.map_err(|e| {
-                                TensorError::BackendError(format!(
-                                    "Failed to launch tensordot23 kernel: {}",
-                                    e
-                                ))
-                            })?;
+                                let mut opt_cublas = cublas_ref.borrow_mut();
+                                let cublas = opt_cublas
+                                    .get_or_insert_with(|| CudaBlas::new(stream.clone()).unwrap());
+
+                                unsafe {
+                                    cublas.gemm_strided_batched(
+                                        StridedBatchedConfig {
+                                            gemm: GemmConfig {
+                                                transa: cublasOperation_t::CUBLAS_OP_N,
+                                                transb: cublasOperation_t::CUBLAS_OP_N,
+                                                m: m_i32,
+                                                n: k_i32,
+                                                k: l_i32,
+                                                alpha: 1.0f32,
+                                                lda: m_i32,
+                                                ldb: l_i32,
+                                                beta: 0.0f32,
+                                                ldc: m_i32,
+                                            },
+                                            batch_size: n_i32,
+                                            stride_a: (l_i32 * m_i32) as i64,
+                                            stride_b: 0,
+                                            stride_c: (k_i32 * m_i32) as i64,
+                                        },
+                                        b.buffer.as_ref(),
+                                        a.buffer.as_ref(),
+                                        &mut result_buf,
+                                    )
+                                }
+                                .map_err(|e| {
+                                    TensorError::BackendError(format!(
+                                        "Failed to launch tensordot3-3 kernel: {}",
+                                        e
+                                    ))
+                                })
+                                .unwrap();
+                            });
 
                             Ok(Storage::Cuda(CudaStorage {
                                 buffer: std::sync::Arc::new(result_buf),
@@ -1311,39 +1323,49 @@ impl Backend for CudaBackend {
                                 ))
                             })?;
 
-                            let kernel = self.kernels.get("bmm_kernel").ok_or_else(|| {
-                                TensorError::BackendError("bmm_kernel not found".to_string())
-                            })?;
-
-                            let block_size = 16;
-                            let grid_x = (m + block_size - 1) / block_size;
-                            let grid_y = (k + block_size - 1) / block_size;
-                            let grid_z = n1;
-
-                            let cfg = LaunchConfig {
-                                grid_dim: (grid_x as u32, grid_y as u32, grid_z as u32),
-                                block_dim: (block_size as u32, block_size as u32, 1),
-                                shared_mem_bytes: 0,
-                            };
-
                             let (n_i32, k_i32, l_i32, m_i32) =
                                 (n1 as i32, k as i32, l1 as i32, m as i32);
 
-                            let mut builder = stream.launch_builder(kernel);
-                            builder.arg(a.buffer.as_ref());
-                            builder.arg(b.buffer.as_ref());
-                            builder.arg(&mut result_buf);
-                            builder.arg(&n_i32);
-                            builder.arg(&k_i32);
-                            builder.arg(&l_i32);
-                            builder.arg(&m_i32);
+                            THREAD_CUBLAS.with(|cublas_ref| {
+                                use cudarc::cublas::Gemm;
 
-                            unsafe { builder.launch(cfg) }.map_err(|e| {
-                                TensorError::BackendError(format!(
-                                    "Failed to launch sum kernel: {}",
-                                    e
-                                ))
-                            })?;
+                                let mut opt_cublas = cublas_ref.borrow_mut();
+                                let cublas = opt_cublas
+                                    .get_or_insert_with(|| CudaBlas::new(stream.clone()).unwrap());
+
+                                unsafe {
+                                    cublas.gemm_strided_batched(
+                                        StridedBatchedConfig {
+                                            gemm: GemmConfig {
+                                                transa: cublasOperation_t::CUBLAS_OP_N,
+                                                transb: cublasOperation_t::CUBLAS_OP_N,
+                                                m: m_i32,
+                                                n: k_i32,
+                                                k: l_i32,
+                                                alpha: 1.0f32,
+                                                lda: m_i32,
+                                                ldb: l_i32,
+                                                beta: 0.0f32,
+                                                ldc: m_i32,
+                                            },
+                                            batch_size: n_i32,
+                                            stride_a: (l_i32 * m_i32) as i64,
+                                            stride_b: (k_i32 * l_i32) as i64,
+                                            stride_c: (k_i32 * m_i32) as i64,
+                                        },
+                                        b.buffer.as_ref(),
+                                        a.buffer.as_ref(),
+                                        &mut result_buf,
+                                    )
+                                }
+                                .map_err(|e| {
+                                    TensorError::BackendError(format!(
+                                        "Failed to launch tensordot3-3 kernel: {}",
+                                        e
+                                    ))
+                                })
+                                .unwrap();
+                            });
 
                             Ok(Storage::Cuda(CudaStorage {
                                 buffer: std::sync::Arc::new(result_buf),

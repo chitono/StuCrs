@@ -31,7 +31,7 @@ fn main() -> FrameResult<()> {
     let y_test = tensor2d_to_one_hot(y_test, 10)?;
 
     let max_epoch = 10;
-    let lr = 0.01;
+    let lr = 0.1;
     let batch_size = 128;
 
     let data_size = x_train.shape().dims()[0];
