@@ -73,14 +73,12 @@
 - [fxhash-0.2.1](https://docs.rs/fxhash/latest/fxhash/index.html)
 
 
-NVIDIAのGPUで実行できる機能も提供しています。その場合はstucrs-gpuをダウンロードし、また下記のtensor_frameクレートを使用します。
-
-- [tensor_frame](https://docs.rs/tensor_frame/latest/tensor_frame/index.html) （オプション）
+NVIDIAのGPUで実行できる機能も提供しています。その場合はfeaturesをcudaに指定して実行してください。
 
 
 ## 実行方法
 はじめにDockerfileとcompose.yamlファイルを用いてdockerでコンテナを立ち上げてください。
-フォルダーのstucrsをダウンロードしていただき、外部クレートとしてご利用ください。また、こちらのクレートはバグといった不具合の対応が不十分だと判断し、ライブラリクレートとしては公開しておりません。またオプションとして、NVIDIAのGPUで実行できる機能も提供しています。その場合はstucrs-gpuをダウンロードしてください。(現在GPU版は一部不具合が発生しており、完全に対応している状態ではないため、使用は今しばらくお待ちください。)  
+フォルダーのstucrsをダウンロードしていただき、外部クレートとしてご利用ください。また、こちらのクレートはバグといった不具合の対応が不十分だと判断し、ライブラリクレートとしては公開しておりません。またオプションとして、NVIDIAのGPUで実行できる機能も提供しています。
 詳しくは[研究の解説ドキュメント](https://chitono.github.io/StuCrs/book-basic/)をご参照ください。
 
 ## MNISTの学習の実装例
