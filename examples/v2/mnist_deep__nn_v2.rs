@@ -48,9 +48,8 @@ fn main() -> FrameResult<()> {
     println!("data_size={}", data_size);
 
     let mut model = BaseModel::new();
-    model.stack(Dense::new(1000, false, None, Activation::Relu)?);
-    //model.stack(Dense::new(1000, true, None, Activation::Relu)?);
-    //model.stack(Dense::new(1000, true, None, Activation::Relu)?);
+    model.stack(Dense::new(1000, true, None, Activation::Relu)?);
+    model.stack(Dense::new(1000, true, None, Activation::Relu)?);
     model.stack(Linear::new(10, false, None)?);
 
     let mut optimizer = SGD::new(lr);

@@ -27,6 +27,9 @@ fn main() -> FrameResult<()> {
 
     //println!("{:?}", x_train.shape());
 
+    //let x_train = x_train.reshape(vec![50000, 28 * 28])?;
+    //let x_test = x_test.reshape(vec![10000, 28 * 28])?;
+
     let y_train = tensor2d_to_one_hot(y_train, 10)?;
     let y_test = tensor2d_to_one_hot(y_test, 10)?;
 
@@ -59,11 +62,9 @@ fn main() -> FrameResult<()> {
     */
 
     model.stack(Flatten::new());
-
+    //model.stack(Dense::new(1000, true, None, Activation::Relu)?);
     model.stack(Dense::new(128, true, None, Activation::Relu)?);
     model.stack(Linear::new(10, true, None)?);
-
-    let mut batch = 0;
 
     let mut optimizer = SGD::new(lr);
     optimizer.setup(&model);
