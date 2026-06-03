@@ -1,3 +1,7 @@
+// Derived from Tensor-Frame
+// <https://github.com/TrainPioneers/Tensor-Frame>
+// Original project licensed under MIT license option.
+
 //! The main tensor module containing the core tensor type and its implementations.
 //!
 //! This module provides the [`Tensor`] struct which is the central data structure
@@ -31,7 +35,6 @@ use std::{fmt, vec};
 /// # Examples
 ///
 /// ```
-/// use tensor_frame::Tensor;
 ///
 /// // Create a 2x3 tensor of ones
 /// let tensor = Tensor::ones(vec![2, 3]).unwrap();

@@ -1,3 +1,7 @@
+// Derived from Tensor-Frame
+// <https://github.com/TrainPioneers/Tensor-Frame>
+// Original project licensed under MIT license option.
+
 //! Tensor operations trait defining common tensor operations.
 //!
 //! This module provides the [`TensorOps`] trait which defines the interface

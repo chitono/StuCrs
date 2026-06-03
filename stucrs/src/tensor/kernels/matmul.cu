@@ -1,3 +1,8 @@
+// Derived from Tensor-Frame
+// <https://github.com/TrainPioneers/Tensor-Frame>
+// Original project licensed under MIT license option.
+
+
 // Matrix multiplication kernels
 extern "C" {
 

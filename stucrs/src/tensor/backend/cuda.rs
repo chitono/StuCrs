@@ -1,3 +1,7 @@
+// Derived from Tensor-Frame
+// <https://github.com/TrainPioneers/Tensor-Frame>
+// Original project licensed under MIT license option.
+
 use super::{Backend, CudaStorage, Storage};
 use crate::functions_cnn::get_conv_outsize;
 use crate::tensor::error::{Result, TensorError};
@@ -8,7 +12,7 @@ use cudarc::cublas::{CudaBlas, Gemm, GemmConfig, StridedBatchedConfig};
 use cudarc::curand::CudaRng;
 use cudarc::driver::{CudaContext, CudaFunction, CudaStream, LaunchConfig, PushKernelArg};
 
-use std::cell::{Ref, RefCell};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::Arc;
 

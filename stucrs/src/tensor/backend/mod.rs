@@ -1,3 +1,7 @@
+// Derived from Tensor-Frame
+// <https://github.com/TrainPioneers/Tensor-Frame>
+// Original project licensed under MIT license option.
+
 //! Backend abstraction for tensor operations.
 //!
 //! This module provides the backend trait and storage types that allow the tensor

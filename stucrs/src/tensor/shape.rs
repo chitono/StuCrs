@@ -1,3 +1,7 @@
+// Derived from Tensor-Frame
+// <https://github.com/TrainPioneers/Tensor-Frame>
+// Original project licensed under MIT license option.
+
 //! Shape representation and broadcasting functionality for tensors.
 //!
 //! This module provides the [`Shape`] struct which represents the dimensions

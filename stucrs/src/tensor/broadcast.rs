@@ -1,3 +1,7 @@
+// Derived from Tensor-Frame
+// <https://github.com/TrainPioneers/Tensor-Frame>
+// Original project licensed under MIT license option.
+
 //! Broadcasting functionality for tensor operations.
 //!
 //! This module implements NumPy-style broadcasting rules for tensors, allowing

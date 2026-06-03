@@ -1,3 +1,7 @@
+// Derived from Tensor-Frame
+// <https://github.com/TrainPioneers/Tensor-Frame>
+// Original project licensed under MIT license option.
+
 //! Error types for tensor operations.
 //!
 //! This module defines the error types that can occur during tensor operations,

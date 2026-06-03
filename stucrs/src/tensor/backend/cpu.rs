@@ -1,3 +1,7 @@
+// Derived from Tensor-Frame
+// <https://github.com/TrainPioneers/Tensor-Frame>
+// Original project licensed under MIT license option.
+
 use super::{Backend, Storage};
 #[cfg(feature = "cpu")]
 use crate::tensor::error::{Result, TensorError};

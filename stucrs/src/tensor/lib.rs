@@ -1,3 +1,7 @@
+// Derived from Tensor-Frame
+// <https://github.com/TrainPioneers/Tensor-Frame>
+// Original project licensed under MIT license option.
+
 //! # Tensor Frame
 //!
 //! A PyTorch-like tensor library for Rust with support for multiple backends including CPU, WGPU, and CUDA.
