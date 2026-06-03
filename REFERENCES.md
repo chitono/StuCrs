@@ -4,6 +4,22 @@
 - 「ゼロから作るDeep Learning３　フレームワーク編」 斎藤康毅　（2020）オライリージャパン
 - 「実践Rust入門［言語仕様から開発仕様まで］」keen、河野達也、小松礼人　（2019）技術評論社
 - 「pythonで動かして学ぶ！あたらしい深層学習の教科書：　機械学習の基本から深層学習まで」石川聡彦（2018）翔泳社
+
+## リポジトリ
+### Tensor-Frame
+- URL: <https://github.com/TrainPioneers/Tensor-Frame>  
+- ライセンス: MIT / Apache-2.0 
+- 参考にした部分  
+    - `cudarc`を用いた Rust における CUDA による行列計算の実装手法。
+    - Backendで管理する行列計算ライブラリの構造、システム。
+    - テンソル、行列演算向けのCUDAカーネル。
+
+
+### RustTensor   
+- URL: <https://github.com/ramsyana/RustTensor>
+- ライセンス: MIT
+- 参考にした部分   
+    - テンソル、行列演算向けのCUDAカーネル。
   
 ## webサイト
 - Rust における継承と合成　@shigunodo　<https://qiita.com/shigunodo/items/c235b43aa25d064daaf8>
