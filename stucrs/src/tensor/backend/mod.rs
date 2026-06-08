@@ -16,7 +16,7 @@
 //! - [`BACKENDS`]: A global list of available backends, initialized lazily
 //!
 //! Backends are selected automatically based on availability, with preference
-//! given to GPU backends (CUDA, then WGPU) before falling back to CPU.
+//! given to GPU backends CUDA before falling back to CPU.
 
 use crate::tensor::error::Result;
 use crate::tensor::shape::Shape;
@@ -59,6 +59,7 @@ pub trait Backend: Debug + Send + Sync {
     /// Creates a tensor filled with ones.
     fn ones(&self, shape: &Shape) -> Result<Storage>;
 
+    /// Creates a random tensor.
     fn rand_uniform(&self, new_shape: &Shape) -> Result<Storage>;
 
     /// Creates a tensor from a slice of f32 values.
@@ -77,10 +78,13 @@ pub trait Backend: Debug + Send + Sync {
     /// Performs element-wise division.
     fn div(&self, lhs: &Storage, rhs: &Storage) -> Result<Storage>;
 
+    /// Reshapes a tensor to the specified shape.
     fn reshape(&self, storage: &Storage, new_shape: &Shape) -> Result<Storage>;
 
+    /// Squeezes the specified axis.
     fn squeeze(&self, storage: &Storage, axis: usize) -> Result<Storage>;
 
+    /// Unsqueezes the specified axis.
     fn unsqueeze(&self, storage: &Storage, axis: usize) -> Result<Storage>;
 
     /// Computes the sum of elements along an optional axis.
@@ -93,8 +97,10 @@ pub trait Backend: Debug + Send + Sync {
         keepdims: bool,
     ) -> Result<Storage>;
 
+    /// Sums to the specified shape.
     fn sum_to(&self, storage: &Storage, from_shape: &Shape, to_shape: &Shape) -> Result<Storage>;
 
+    /// Broadcasts to the specified shape.
     fn broadcast_to(
         &self,
         storage: &Storage,
@@ -117,6 +123,7 @@ pub trait Backend: Debug + Send + Sync {
     /// Transposes a 2D tensor.
     fn transpose(&self, storage: &Storage, shape: &Shape) -> Result<Storage>;
 
+    /// Permute the axes.
     fn permute(
         &self,
         storage: &Storage,
@@ -155,6 +162,7 @@ pub trait Backend: Debug + Send + Sync {
         rhs_shape: &Shape,
     ) -> Result<Storage>;
 
+    /// Perform an element-wise negation.
     fn neg(&self, storage: &Storage) -> Result<Storage>;
 
     /// Element-wise exponential function.
@@ -178,10 +186,13 @@ pub trait Backend: Debug + Send + Sync {
     /// Element-wise ReLU activation function.
     fn relu(&self, storage: &Storage) -> Result<Storage>;
 
+    /// Element-wise comparison against `max`.
     fn max_mask(&self, storage: &Storage, max: f32) -> Result<Storage>;
 
+    /// Element-wise comparison against `min`.
     fn min_mask(&self, storage: &Storage, min: f32) -> Result<Storage>;
 
+    /// Element-wise ReLU gradient mask.
     fn mask_for_grad_relu(&self, storage: &Storage) -> Result<Storage>;
 
     /// Element-wise sigmoid activation function.
@@ -189,11 +200,12 @@ pub trait Backend: Debug + Send + Sync {
 
     /// Element-wise tanh activation function.
     fn tanh(&self, storage: &Storage) -> Result<Storage>;
-
+    /// Element-wise sinh function.
     fn sinh(&self, storage: &Storage) -> Result<Storage>;
-
+    /// Element-wise cosh function.
     fn cosh(&self, storage: &Storage) -> Result<Storage>;
 
+    /// Compute the maximum along the specified axis.
     fn max(
         &self,
         storage: &Storage,
@@ -202,6 +214,7 @@ pub trait Backend: Debug + Send + Sync {
         axis: Option<usize>,
     ) -> Result<Storage>;
 
+    /// Converts argmax indices to a gradient mask for max function.
     fn argmax_to_max_backward(
         &self,
         storage: &Storage,
@@ -210,14 +223,19 @@ pub trait Backend: Debug + Send + Sync {
         axis: usize,
     ) -> Result<Storage>;
 
+    /// Element-wise upper-bound mask for clamp.
     fn clamp_max(&self, storage: &Storage, max: f32) -> Result<Storage>;
 
+    /// Element-wise lower-bound mask for clamp.
     fn clamp_min(&self, storage: &Storage, min: f32) -> Result<Storage>;
 
+    /// Gradient mask for clamp upper bound.
     fn max_for_clamp_grad(&self, storage: &Storage) -> Result<Storage>;
 
+    /// Gradient mask for clamp lower bound.
     fn min_for_clamp_grad(&self, storage: &Storage) -> Result<Storage>;
 
+    /// Argmax along the specified axis.
     fn argmax_axis(
         &self,
         storage: &Storage,
@@ -226,11 +244,14 @@ pub trait Backend: Debug + Send + Sync {
         axis: usize,
     ) -> Result<Storage>;
 
+    /// Argmax along the specified axis of a 2D tensor.
     fn argmax_axis_2d(&self, storage: &Storage, shape: &Shape, axis: usize) -> Result<Storage>;
 
+    /// One-hot encoding.
     fn one_hot_encode(&self, storage: &Storage, shape: &Shape, num_class: usize)
         -> Result<Storage>;
 
+    /// Compute Im2col function.
     fn im2col(
         &self,
         storage: &Storage,
@@ -240,6 +261,7 @@ pub trait Backend: Debug + Send + Sync {
         pad_size: (usize, usize),
     ) -> Result<Storage>;
 
+    /// Compute Col2im function.
     fn col2im(
         &self,
         storage: &Storage,

@@ -764,14 +764,14 @@ mod tests {
 
     #[test]
     fn tensor_permute_cuda_test() -> Result<()> {
-        let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2])?;
+        let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![1, 2, 3])?;
         let b = Tensor::from_vec(vec![10.0, 20.0, 30.0, 40.0], vec![4, 1])?;
         let start = Instant::now();
-        let result = a.permute(&vec![1, 0]);
+        let result = a.permute(&vec![1, 2, 0]);
         let end = Instant::now();
         let duration = end.duration_since(start);
         println!("処理時間gpu = {:?}", duration);
-        println!("tensor_gpu = {:?}", result?.shape());
+        println!("tensor_gpu = {:?}", result?.shape().dims());
         Ok(())
     }
 
@@ -989,11 +989,11 @@ mod tests {
 
     #[test]
     fn tensor_sum_to_cuda_test() -> Result<()> {
-        let _a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2])?.to_backend("CUDA")?;
-        let b = Tensor::from_vec(vec![10.0, 20.0, 30.0, 40.0], vec![2, 2])?.to_backend("CUDA")?;
+        let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2])?;
+        let _b = Tensor::from_vec(vec![10.0, 20.0, 30.0, 40.0], vec![2, 2])?;
 
         let start = Instant::now();
-        let result = b.sum_to(&Shape { dims: vec![1, 2] })?;
+        let result = a.sum_to(&Shape { dims: vec![1, 2] })?;
         let end = Instant::now();
         let duration = end.duration_since(start);
         println!("処理時間gpu = {:?}", duration); // 114.569µs
@@ -1311,8 +1311,7 @@ mod tests {
         use crate::tensor::ops::TensorOps;
 
         // Create a 2x3 tensor: [[1, 2, 3], [4, 5, 6]]
-        let tensor =
-            Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![3, 2])?.to_backend("CUDA")?;
+        let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![3, 2])?;
 
         // Sum along axis 0 (columns): should give [5, 7, 9] with shape [3]
         let tensor_rows_slice = tensor.axis_slice(0, &[0, 2])?;

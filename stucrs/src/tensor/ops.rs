@@ -43,16 +43,13 @@ pub trait TensorOps {
     ///
     /// A tensor containing the sum. If summing all elements, returns a scalar tensor.
     ///
-    /// # Attention!
-    ///
-    /// keepdimsは現在falseのみで使用してください。
     ///
     /// # Examples
     ///
     /// ```
     /// use tensor_frame::{Tensor, TensorOps};
     ///
-    /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
+    /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2])?;
     /// let sum = tensor.sum(None).unwrap();
     /// assert_eq!(sum.to_vec().unwrap(), vec![10.0]);
     /// ```
@@ -60,24 +57,29 @@ pub trait TensorOps {
     where
         Self: Sized;
 
-    /// Computes the mean of tensor elements.
+    /// Broadcasts a tensor to the specified shape.
     ///
     /// # Arguments
     ///
-    /// * `axis` - Optional axis along which to compute mean. If `None`, computes mean of all elements.
+    /// * `to_shape` - The desired shape
     ///
     /// # Returns
     ///
-    /// A tensor containing the mean. If computing mean of all elements, returns a scalar tensor.
+    /// A tensor broadcasted.
+    ///
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the desired shape is not compatible with broadcasting.
     ///
     /// # Examples
     ///
     /// ```
     /// use tensor_frame::{Tensor, TensorOps};
     ///
-    /// let tensor = Tensor::from_vec(vec![2.0, 4.0, 6.0, 8.0], vec![2, 2]).unwrap();
-    /// let mean = tensor.mean(None).unwrap();
-    /// assert_eq!(mean.to_vec().unwrap(), vec![5.0]);
+    /// let tensor = Tensor::from_vec(vec![10.0, 20.0, 30.0, 40.0], vec![4, 1])?;
+    /// let result = tensor.broadcast_to(Shape { dims: vec![4, 20] })?;
+    /// assert_eq!(result.shape().dims(), vec![4,20]);
     /// ```
     ///
     ///
@@ -85,10 +87,50 @@ pub trait TensorOps {
     where
         Self: Sized;
 
+    /// Reduces the tensor to the specified shape by summation.
+    ///
+    /// # Arguments
+    ///
+    /// * `to_shape` - The desired shape
+    ///
+    /// # Returns
+    ///
+    ///
+    /// A tensor with shape `to_shape`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tensor_frame::{Tensor, TensorOps,Shape};
+    ///
+    /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2])?;
+    /// let sum = tensor.sum_to(&Shape { dims: vec![1, 2] }).unwrap();
+    /// assert_eq!(sum.to_vec()?, vec![4.0,6.0]);
+    /// ```
+
     fn sum_to(&self, to_shape: &Shape) -> Result<Self>
     where
         Self: Sized;
-
+    /// Selects elements along the specified axis.
+    ///
+    /// # Arguments
+    ///
+    /// * `axis` - The axis to slice.
+    /// * `indices` - The indices to select along the axis.
+    ///
+    /// # Returns
+    ///
+    /// A tensor containing the selected elements.
+    /// # Examples
+    ///
+    /// ```
+    /// use tensor_frame::{Tensor, TensorOps,Shape};
+    ///
+    /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![3, 2])?;
+    /// let result = tensor.axis_slice(0, &[0, 2])?;
+    /// assert_eq!(result.to_vec()?, vec![1.0, 2.0, 5.0, 6.0]);
+    /// ```
+    ///
     fn axis_slice(&self, axis: usize, indices: &[usize]) -> Result<Self>
     where
         Self: Sized;
@@ -128,7 +170,6 @@ pub trait TensorOps {
 
     /// Transposes the tensor.
     ///
-    /// Currently only supports 2D tensors. For a 2D tensor, swaps rows and columns.
     ///
     /// # Returns
     ///
@@ -151,6 +192,32 @@ pub trait TensorOps {
     where
         Self: Sized;
 
+    /// Permute the axes.
+    ///
+    /// # Arguments
+    ///
+    /// * `axes` The axes indices
+    ///
+    /// # Returns
+    ///
+    /// A tensor permuted axes, which is containing the same data.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - any of the axes are out of bounds
+    /// - an axis is missing
+    /// - an axis is repeated more than once
+    ///
+    /// # Examples
+    ///
+    /// ```
+    ///     
+    /// use tensor_frame::{Tensor, TensorOps};
+    ///
+    /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![1,2, 3]).unwrap();
+    /// let result = tensor.permute(&vec![1, 2, 0])?;
+    /// assert_eq!(result.shape().dims(), &[2, 3, 1]);
     fn permute(&self, axes: &Vec<usize>) -> Result<Self>
     where
         Self: Sized;
@@ -210,7 +277,6 @@ pub trait TensorOps {
         Self: Sized;
 
     /// Matrix multiplication for 2D tensors.
-    /// 2次元の行列積を求める関数。
     ///
     /// Performs matrix multiplication between two 2D tensors.
     /// The dimensions must be compatible: (M, K) × (K, N) → (M, N).
@@ -276,14 +342,79 @@ pub trait TensorOps {
     fn tensordot(&self, other: &Self) -> Result<Self>
     where
         Self: Sized;
+
+    /// Batched matrix multiplication for 2D tensors.
+    ///
+    /// Performs matrix multiplication on batches of 2D tensors.
+    /// The dimensions must be compatible: (B, M, K) × (B, K, N) → (B, M, N).
+    ///
+    /// # Arguments
+    ///
+    /// * `other` - The right-hand side tensor for multiplication
+    ///
+    /// # Returns
+    ///
+    /// A new tensor containing the batched matrix multiplication result.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Either tensor is not 3D
+    /// - The batch sizes don't match
+    /// - The matrix dimensions don't match
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tensor_frame::{Tensor, TensorOps};
+    ///
+    /// let a = Tensor::ones(vec![2, 3, 4]).unwrap(); // 2 batches of 3x4 matrices
+    /// let b = Tensor::ones(vec![2, 4, 5]).unwrap(); // 2 batches of 4x5 matrices
+    /// let result = a.bmm(&b).unwrap();
+    /// assert_eq!(result.shape().dims(), &[2, 3, 5]); // 2 batches of 3x5 matrices
+    /// ```    
     fn bmm(&self, other: &Self) -> Result<Self>
     where
         Self: Sized;
 
+    /// Element-wise negation.
+    ///
+    /// This method is use by negation operation.
+    ///
+    /// # Returns
+    ///
+    /// A new tensor with the negation element-wise.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tensor_frame::{Tensor, TensorOps};
+    ///
+    /// let tensor = Tensor::from_vec(vec![2.0, 3.0, 4.0], vec![3]).unwrap();
+    /// let result = -tensor?;
+    /// assert_eq!(result.to_vec()/, vec![-2.0, -3.0, -4.0]);
+    /// ```
     fn neg(&self) -> Result<Self>
     where
         Self: Sized;
 
+    /// Element-wise exponential function.
+    ///
+    /// Applies the exponential function (exp(x)) to each element.
+    ///
+    /// # Returns
+    ///
+    /// A new tensor with the exponential applied element-wise.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tensor_frame::{Tensor, TensorOps};
+    ///
+    /// let tensor = Tensor::from_vec(vec![0.0, 1.0, 2.0], vec![3])?;
+    /// let result = tensor.exp()?;
+    /// //result ≈ [1.0, 2.718, 7.389]
+    /// ```
     fn exp(&self) -> Result<Self>
     where
         Self: Sized;
@@ -349,7 +480,7 @@ pub trait TensorOps {
     ///
     /// let tensor = Tensor::from_vec(vec![2.0, 3.0, 4.0], vec![3]).unwrap();
     /// let result = tensor.pow(2.0).unwrap();
-    /// assert_eq!(result.to_vec().unwrap(), vec![4.0, 9.0, 16.0]);
+    /// assert_eq!(result.to_vec()?, vec![4.0, 9.0, 16.0]);
     /// ```
     fn pow(&self, power: f32) -> Result<Self>
     where
@@ -369,8 +500,8 @@ pub trait TensorOps {
     /// use tensor_frame::{Tensor, TensorOps};
     /// use std::f32::consts::PI;
     ///
-    /// let tensor = Tensor::from_vec(vec![0.0, PI/2.0, PI], vec![3]).unwrap();
-    /// let result = tensor.sin().unwrap();
+    /// let tensor = Tensor::from_vec(vec![0.0, PI/2.0, PI], vec![3])?;
+    /// let result = tensor.sin()?;
     /// // result ≈ [0.0, 1.0, 0.0]
     /// ```
     fn sin(&self) -> Result<Self>
@@ -391,8 +522,8 @@ pub trait TensorOps {
     /// use tensor_frame::{Tensor, TensorOps};
     /// use std::f32::consts::PI;
     ///
-    /// let tensor = Tensor::from_vec(vec![0.0, PI/2.0, PI], vec![3]).unwrap();
-    /// let result = tensor.cos().unwrap();
+    /// let tensor = Tensor::from_vec(vec![0.0, PI/2.0, PI], vec![3])?;
+    /// let result = tensor.cos()?;
     /// // result ≈ [1.0, 0.0, -1.0]
     /// ```
     fn cos(&self) -> Result<Self>
@@ -412,9 +543,9 @@ pub trait TensorOps {
     /// ```
     /// use tensor_frame::{Tensor, TensorOps};
     ///
-    /// let tensor = Tensor::from_vec(vec![-2.0, -1.0, 0.0, 1.0, 2.0], vec![5]).unwrap();
-    /// let result = tensor.relu().unwrap();
-    /// assert_eq!(result.to_vec().unwrap(), vec![0.0, 0.0, 0.0, 1.0, 2.0]);
+    /// let tensor = Tensor::from_vec(vec![-2.0, -1.0, 0.0, 1.0, 2.0], vec![5])?;
+    /// let result = tensor.relu()?;
+    /// assert_eq!(result.to_vec()?, vec![0.0, 0.0, 0.0, 1.0, 2.0]);
     /// ```
     fn relu(&self) -> Result<Self>
     where
@@ -467,7 +598,6 @@ pub trait TensorOps {
 
     /// Element-wise hyperbolic tangent activation function.
     ///
-    /// 要素ごとにtanh関数を計算します。
     ///
     /// Applies tanh(x) to each element.
     ///
@@ -488,15 +618,13 @@ pub trait TensorOps {
     where
         Self: Sized;
 
-    /// Element-wise hyperbolic sine activation function.
-    ///
-    /// 要素ごとにsinh関数を計算します。
+    /// Element-wise hyperbolic sine function.
     ///
     /// Applies sinh(x) to each element.
     ///
     /// # Returns
     ///
-    /// A new tensor with tanh applied element-wise.
+    /// A new tensor with sinh applied element-wise.
     ///
     /// # Examples
     ///
@@ -511,6 +639,23 @@ pub trait TensorOps {
     where
         Self: Sized;
 
+    /// Element-wise hyperbolic cosine function.
+    ///
+    /// Applies cosh(x) to each element.
+    ///
+    /// # Returns
+    ///
+    /// A new tensor with cosh applied element-wise.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tensor_frame::{Tensor, TensorOps};
+    ///
+    /// let tensor = Tensor::from_vec(vec![-1.0, 0.0, 1.0], vec![3]).unwrap();
+    /// let result = tensor.tanh().unwrap();
+    /// // result ≈ [-0.762, 0.0, 0.762]
+    /// ```
     fn cosh(&self) -> Result<Self>
     where
         Self: Sized;
