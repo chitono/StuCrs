@@ -15,7 +15,7 @@ use crate::config::{get_grad_status, id_generator};
 use crate::core::{Function, RcVariable, TensorToRcVariable, Variable};
 use crate::error::{FrameError, FrameResult};
 use crate::functions::math::max;
-use crate::functions::matrix::{permute_axes, tensordot};
+use crate::functions::matrix::tensordot;
 use crate::tensor::lib::TensorOps;
 use crate::tensor::shape::Shape;
 
@@ -31,6 +31,37 @@ pub fn get_conv_outsize(
     (oh, ow)
 }
 
+/// Compute simple Conv2d function.
+///
+/// `simple`: This function is made up of `Function` structs only.
+///
+/// # Example
+///
+/// ```
+///
+/// use crate::core::TensorToRcVariable;
+///
+/// let input_tensor = Tensor::ones(vec![2, 5, 15, 15])?;
+/// let weight_tensor = Tensor::ones(vec![8, 5, 3, 3])?;
+///
+/// let input = input_tensor.rv();
+/// let weight = weight_tensor.rv();
+///
+/// let stride_size = (1, 1);
+/// let pad_size = (0, 0);
+///
+/// let mut output = conv2d_simple(&input, &weight, None, stride_size, pad_size)?;
+/// println!("output_shape = {:?}", output.data().shape()); //shape = (1,8,15,15)
+/// output.backward(false)?;
+///
+/// println!(
+///            "input_grad_shape = {:?}",
+///            input.grad().unwrap().data().to_vec()?
+///        ); //shape = (1,5,15,15)
+///
+///
+/// ```
+///
 pub fn conv2d_simple(
     input: &RcVariable,
     weight: &RcVariable,
@@ -73,6 +104,43 @@ pub fn conv2d_simple(
     Ok(out4d)
 }
 
+/// Compute simple Maxpool2d function.
+///
+/// `simple`: This function is made up of `Function` structs only.
+///
+/// # Example
+///
+/// ```
+///
+/// use crate::core::TensorToRcVariable;
+///
+/// let input_tensor = Tensor::from_vec(
+///      vec![
+///                4.0f32, 1.0, 5.0, 3.0, 7.0, 3.0, 2.0, 3.0, 7.0, 2.0, 3.0, 4.0, 1.0, 5.0, 3.0, 9.0,
+///                4.0, 1.0, 5.0, 3.0, 7.0, 3.0, 2.0, 3.0, 7.0, 2.0, 3.0, 4.0, 1.0, 5.0, 3.0, 9.0,
+///            ],
+///            vec![2, 1, 4, 4],
+///        )?;
+/// let weight_tensor = Tensor::ones(vec![8, 5, 3, 3])?;
+///
+/// let input = input_tensor.rv();
+/// let weight = weight_tensor.rv();
+///
+/// let stride_size = (1, 1);
+/// let pad_size = (0, 0);
+///
+/// let mut output = conv2d_simple(&input, &weight, None, stride_size, pad_size)?;
+/// println!("output_shape = {:?}", output.data().shape()); //shape = (1,8,15,15)
+/// output.backward(false)?;
+///
+/// println!(
+///            "input_grad_shape = {:?}",
+///            input.grad().unwrap().data().to_vec()?
+///        ); //shape = (1,5,15,15)
+///
+///
+/// ```
+///
 pub fn max_pool2d_simple(
     input: &RcVariable,
     kernel_size: (usize, usize),
