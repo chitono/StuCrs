@@ -135,6 +135,26 @@ pub trait TensorOps {
     where
         Self: Sized;
 
+
+    /// Computes the mean of tensor elements.
+    ///
+    /// # Arguments
+    ///
+    /// * `axis` - Optional axis along which to compute mean. If `None`, computes mean of all elements.
+    ///
+    /// # Returns
+    ///
+    /// A tensor containing the mean. If computing mean of all elements, returns a scalar tensor.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tensor_frame::{Tensor, TensorOps};
+    ///
+    /// let tensor = Tensor::from_vec(vec![2.0, 4.0, 6.0, 8.0], vec![2, 2]).unwrap();
+    /// let mean = tensor.mean(None).unwrap();
+    /// assert_eq!(mean.to_vec().unwrap(), vec![5.0]);
+    /// ```
     fn mean(&self, axis: Option<usize>) -> Result<Self>
     where
         Self: Sized;
@@ -309,10 +329,27 @@ pub trait TensorOps {
     where
         Self: Sized;
 
-    /// Batched matrix multiplication for 2D tensors.
+    /// Tensor multiplication with automatic rank dispatch.
     ///
     /// Performs matrix multiplication on batches of 2D tensors.
-    /// The dimensions must be compatible: (B, M, K) × (B, K, N) → (B, M, N).
+    /// 
+    /// If one operand is 2D and the other is 3D, the 2D tensor is broadcast 
+    /// across the batch dimension before mulitplication.
+    /// 
+    /// Supported rank combination:
+    /// - 3D × 2D
+    /// 
+    /// The compatible dimensions: (N,k,l) ×　(l,m) -> (N,k,m)
+    /// 
+    /// - 2D × 3D
+    /// 
+    /// The compatible dimensions: (k,l) ×　(N,l,m) -> (N,k,m)
+    /// 
+    /// - 3D × 3D
+    /// 
+    /// The compatible dimensions: (N,k,l) ×　(N,l,m) -> (N,k,m)
+    /// 
+    /// 
     ///
     /// # Arguments
     ///
@@ -332,12 +369,11 @@ pub trait TensorOps {
     /// # Examples
     ///
     /// ```
-    /// use tensor_frame::{Tensor, TensorOps};
-    ///
-    /// let a = Tensor::ones(vec![2, 3, 4]).unwrap(); // 2 batches of 3x4 matrices
-    /// let b = Tensor::ones(vec![2, 4, 5]).unwrap(); // 2 batches of 4x5 matrices
-    /// let result = a.bmm(&b).unwrap();
-    /// assert_eq!(result.shape().dims(), &[2, 3, 5]); // 2 batches of 3x5 matrices
+    /// let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], vec![2, 2, 2])?;
+    /// let b = Tensor::from_vec(vec![1.0, 0.0, 0.0, 1.0, 2.0, 0.0, 0.0, 2.0], vec![2, 2, 2])?;
+    /// 
+    /// let result = a.tensordot(&b)?; // 3D × 3D
+    /// // result ≈ [1.0, 2.0, 3.0, 4.0, 10.0, 12.0, 14.0, 16.0]
     /// ```
     fn tensordot(&self, other: &Self) -> Result<Self>
     where
@@ -551,23 +587,69 @@ pub trait TensorOps {
     where
         Self: Sized;
 
-    /// max関数のバックプロパゲーション用関数
+    /// Element-wise mask for values greater than `max`.
+    /// 
+    /// Elements greater than `max` are set to `1.0`, 
+    /// and all other elements are set to `0.0`.
     ///
     /// 入力値がmaxより大きい場合は1.0を、それ以下は0.0を返す。
+    /// 
+    /// 
+    /// # Arguments
+    /// 
+    /// * `max` - The threshold value
+    /// 
+    /// # Return 
+    /// 
+    /// A new tensor containing the mask.
+    /// 
+    /// # Example
+    /// ```
+    /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![3, 2])?;
+    /// 
+    /// let result = tensor.max_mask(3.0f32)?;
+    /// assert_eq!(result.to_vec()?, vec![0.0, 0.0, 0.0, 1.0, 1.0,1.0]);
+    /// ```
     ///
     fn max_mask(&self, max: f32) -> Result<Self>
     where
         Self: Sized;
 
-    /// min関数のバックプロパゲーション用関数
+
+    /// Element-wise mask for values less than `min`.
+    /// 
+    /// Elements less than `min` are set to `1.0`, 
+    /// and all other elements are set to `0.0`.
     ///
     /// 入力値がminより小さい場合は1.0を、それ以上は0.0を返す。
+    /// 
+    /// 
+    /// # Arguments
+    /// 
+    /// * `min` - The threshold value
+    /// 
+    /// # Return 
+    /// 
+    /// A new tensor containing the mask.
+    /// 
+    /// # Example
+    /// ```
+    /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![3, 2])?;
+    /// 
+    /// let result = tensor.min_mask(3.0f32)?;
+    /// assert_eq!(result.to_vec()?, vec![1.0, 1.0, 0.0, 0.0, 0.0,0.0]);
+    /// ```
     ///
     fn min_mask(&self, min: f32) -> Result<Self>
     where
         Self: Sized;
 
+    /// Element-wise ReLU gradient mask.
+    /// 
     /// relu関数のバックプロパゲーション用関数
+    /// 
+    /// Elements greater than `0.0` are set to `1.0`,
+    /// and all other elements are set to `0.0`.   
     ///
     /// 入力値が0.0より大きい場合は1.0を、それ以下は0.0を返す。
     ///
