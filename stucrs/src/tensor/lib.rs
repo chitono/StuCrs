@@ -1330,7 +1330,7 @@ mod tests {
         let end = Instant::now();
         let duration = end.duration_since(start);
         println!("処理時間 = {:?}", duration);
-        println!("tensor_cpu_shape = {}", result);
+        assert_eq!(result.to_vec()?, vec![5.0, 6.0, 7.0, 8.0]);
         Ok(())
     }
 
@@ -1347,6 +1347,10 @@ mod tests {
         let duration = end.duration_since(start);
         println!("処理時間 = {:?}", duration);
         println!("tensor_cpu_shape = {}", result);
+        assert_eq!(
+            result.to_vec()?,
+            vec![0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0]
+        );
         Ok(())
     }
 
@@ -1373,11 +1377,11 @@ mod tests {
 
     #[test]
     fn argmax_axis_test() -> Result<()> {
-        let tensor =
-            Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 1.0, 1.0], vec![2, 3])?.to_backend("CUDA")?;
+        let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 1.0, 1.0], vec![2, 3])?;
 
         let result = tensor.argmax_axis(1)?;
-        println!("result = {}", result);
+        assert_eq!(result.to_vec()?, vec![2.0, 0.0]);
+        println!("result = {:?}", result);
         Ok(())
     }
 

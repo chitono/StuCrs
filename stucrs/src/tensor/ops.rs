@@ -73,7 +73,6 @@ pub trait TensorOps {
     /// Returns an error if the desired shape is not compatible with broadcasting.
     ///
     /// # Examples
-    ///
     /// ```
     /// use tensor_frame::{Tensor, TensorOps};
     ///
@@ -134,7 +133,6 @@ pub trait TensorOps {
     fn axis_slice(&self, axis: usize, indices: &[usize]) -> Result<Self>
     where
         Self: Sized;
-
 
     /// Computes the mean of tensor elements.
     ///
@@ -332,24 +330,24 @@ pub trait TensorOps {
     /// Tensor multiplication with automatic rank dispatch.
     ///
     /// Performs matrix multiplication on batches of 2D tensors.
-    /// 
-    /// If one operand is 2D and the other is 3D, the 2D tensor is broadcast 
+    ///
+    /// If one operand is 2D and the other is 3D, the 2D tensor is broadcast
     /// across the batch dimension before mulitplication.
-    /// 
+    ///
     /// Supported rank combination:
     /// - 3D × 2D
-    /// 
+    ///
     /// The compatible dimensions: (N,k,l) ×　(l,m) -> (N,k,m)
-    /// 
+    ///
     /// - 2D × 3D
-    /// 
+    ///
     /// The compatible dimensions: (k,l) ×　(N,l,m) -> (N,k,m)
-    /// 
+    ///
     /// - 3D × 3D
-    /// 
+    ///
     /// The compatible dimensions: (N,k,l) ×　(N,l,m) -> (N,k,m)
-    /// 
-    /// 
+    ///
+    ///
     ///
     /// # Arguments
     ///
@@ -371,7 +369,7 @@ pub trait TensorOps {
     /// ```
     /// let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], vec![2, 2, 2])?;
     /// let b = Tensor::from_vec(vec![1.0, 0.0, 0.0, 1.0, 2.0, 0.0, 0.0, 2.0], vec![2, 2, 2])?;
-    /// 
+    ///
     /// let result = a.tensordot(&b)?; // 3D × 3D
     /// // result ≈ [1.0, 2.0, 3.0, 4.0, 10.0, 12.0, 14.0, 16.0]
     /// ```
@@ -588,25 +586,25 @@ pub trait TensorOps {
         Self: Sized;
 
     /// Element-wise mask for values greater than `max`.
-    /// 
-    /// Elements greater than `max` are set to `1.0`, 
-    /// and all other elements are set to `0.0`.
+    ///
+    /// Elements greater than `max` are set to `1.0`,
+    /// while all other elements are set to `0.0`.
     ///
     /// 入力値がmaxより大きい場合は1.0を、それ以下は0.0を返す。
-    /// 
-    /// 
+    ///
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `max` - The threshold value
-    /// 
-    /// # Return 
-    /// 
+    ///
+    /// # Return
+    ///
     /// A new tensor containing the mask.
-    /// 
+    ///
     /// # Example
     /// ```
     /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![3, 2])?;
-    /// 
+    ///
     /// let result = tensor.max_mask(3.0f32)?;
     /// assert_eq!(result.to_vec()?, vec![0.0, 0.0, 0.0, 1.0, 1.0,1.0]);
     /// ```
@@ -615,27 +613,26 @@ pub trait TensorOps {
     where
         Self: Sized;
 
-
     /// Element-wise mask for values less than `min`.
-    /// 
-    /// Elements less than `min` are set to `1.0`, 
-    /// and all other elements are set to `0.0`.
+    ///
+    /// Elements less than `min` are set to `1.0`,
+    /// while all other elements are set to `0.0`.
     ///
     /// 入力値がminより小さい場合は1.0を、それ以上は0.0を返す。
-    /// 
-    /// 
+    ///
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `min` - The threshold value
-    /// 
-    /// # Return 
-    /// 
+    ///
+    /// # Return
+    ///
     /// A new tensor containing the mask.
-    /// 
+    ///
     /// # Example
     /// ```
     /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![3, 2])?;
-    /// 
+    ///
     /// let result = tensor.min_mask(3.0f32)?;
     /// assert_eq!(result.to_vec()?, vec![1.0, 1.0, 0.0, 0.0, 0.0,0.0]);
     /// ```
@@ -645,9 +642,9 @@ pub trait TensorOps {
         Self: Sized;
 
     /// Element-wise ReLU gradient mask.
-    /// 
+    ///
     /// relu関数のバックプロパゲーション用関数
-    /// 
+    ///
     /// Elements greater than `0.0` are set to `1.0`,
     /// and all other elements are set to `0.0`.   
     ///
@@ -742,27 +739,38 @@ pub trait TensorOps {
     where
         Self: Sized;
 
-    /// 入力された行列の最大値を返す   
+    /// Computes the maximum of a tensor or maximum along a specified axis.   
     ///
+    ///# Arguments
     ///
-    /// 軸指定にも対応   
+    /// * `axis` - Optional axis along which the maximum is computed.
+    /// If `None`, the maximum of all elements ic computed.
     ///
-    /// 現在3次元までの行列に対応        
+    /// # Returns
+    ///
+    /// A tensor containing the maximum value.
+    ///
+    /// # Examples
+    /// ```
+    /// use tensor_frame::{Tensor, TensorOps};
+    ///
+    /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], vec![2, 2, 2])?;
+    /// let result = tensor.max(Some(0))?;
+    /// assert_eq!(result.to_vec()?, vec![5.0, 6.0, 7.0, 8.0]);
+    /// ```
     ///
     fn max(&self, axis: Option<usize>) -> Result<Self>
     where
         Self: Sized;
 
-    /// Max関数のバックプロパゲーション用関数
+    /// Element-wise upper-bound mask for clamp.
     ///
-    /// Maxのバックプロパゲーションで使用するmaskをMax関数のinputの行列から生成する
+    /// Elements greater than `max` are set to `max`,
+    /// while all other elements remain unchanged.
     ///
-    /// Max関数のinputの行列にこのメソッドを用いる
-    fn argmax_to_max_backward(&self, to_shape: &Shape, axis: usize) -> Result<Self>
-    where
-        Self: Sized;
-
-    /// clamp用関数
+    /// # Arguments
+    ///
+    /// * `max` - The threshold value.
     ///    
     /// 入力された値maxよりも大きい場合はmaxを、それ以下はそのまま値を流す。
     ///
@@ -770,7 +778,14 @@ pub trait TensorOps {
     where
         Self: Sized;
 
-    /// clamp用関数
+    /// Element-wise lower-bound mask for clamp.
+    ///
+    /// Elements less than `min` are set to `min`,
+    /// while all other elements remain unchanged.
+    ///
+    /// # Arguments
+    ///
+    /// * `min` - The threshold value.
     ///
     /// 入力された値minよりも小さい場合はminを、それ以上はそのまま値を流す。
     ///
@@ -778,34 +793,146 @@ pub trait TensorOps {
     where
         Self: Sized;
 
-    /// clamp関数のバックプロパゲーション用関数
+    /// Gradient mask for clamp upper bound.
     ///
-    /// 入力の要素が1.0より大きいときは1.0を、それ以下は0.0を返す。
+    /// Elements less than `1.0` are set to `1.0`,
+    /// while all other elements are set to `0.0`.
+    ///
+    /// 入力の要素が1.0より小さいときは1.0を、それ以外は0.0を返す。
     ///
     fn max_for_clamp_grad(&self) -> Result<Self>
     where
         Self: Sized;
 
-    /// clamp関数のバックプロパゲーション用関数
+    /// Gradient mask for clamp lower bound.
     ///
-    /// 入力の要素が0.0より大きいときは1.0を、それ以下は0.0を返す。
+    /// Elements greater than `0.0` are set to `1.0`,
+    /// while all other elements are set to `0.0`.
+    ///
+    /// 入力の要素が0.0より大きいときは1.0を、それ以外は0.0を返す。
     ///
     fn min_for_clamp_grad(&self) -> Result<Self>
     where
         Self: Sized;
 
+    /// Argmax along the specified axis.
+    ///
+    /// # Arguments
+    ///
+    /// * `axis` - The axis along which to find the indices of the maximum values.
+    ///
+    /// # Returns
+    ///
+    /// A tensor containing the indices of the maximum values.
+    ///
+    /// # Examples
+    /// ```
+    /// use tensor_frame::{Tensor, TensorOps};
+    ///
+    /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 1.0, 1.0], vec![2, 3])?;
+    /// let result =  tensor.argmax_axis(1)?;;
+    /// assert_eq!(result.to_vec()?, vec![2.0, 0.0]);
+    /// ```
+    ///
+    ///
+    ///
     fn argmax_axis(&self, axis: usize) -> Result<Self>
     where
         Self: Sized;
 
+    /// Converts argmax indices to a gradient mask for the `Max`` function.
+    ///
+    /// Elements at the argmax indices are set to `1.0`,
+    /// and all other elements are set to `0.0`.
+    ///
+    /// # Arguments
+    ///
+    /// * `to_shape` - The shape of the input tensor originally passed to the `Max` function.
+    ///
+    /// * `axis` - The axis along which the `Max` function was applied.
+    ///
+    /// # Examples
+    ///
+    ///
+    /// This is the `Max` function gradient sample.
+    /// ```
+    /// use tensor_frame::{Tensor, TensorOps};
+    ///
+    /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], vec![2, 2, 2])?;
+    /// let tensor_argmax = tensor.argmax_axis(1)?;
+    /// let result = tensor_argmax.argmax_to_max_backward(&tensor.shape(), 1)?;
+    /// assert_eq!(result.to_vec()?,vec![0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0]);
+    /// ```
+    ///
+    fn argmax_to_max_backward(&self, to_shape: &Shape, axis: usize) -> Result<Self>
+    where
+        Self: Sized;
+
+    /// Argmax along the specified axis of a 2D tensor.
+    ///
+    /// # Note
+    /// Since `argmax_axis` supports N-dimentional tensors and covers this functionality,
+    ///  It is generally recommend to use `argmax_axis` instead.
     fn argmax_axis_2d(&self, axis: usize) -> Result<Self>
     where
         Self: Sized;
 
+    /// One-hot encoding.
+    ///
+    /// # Arguments
+    ///
+    /// * `num_class` - The total number of classes for the one-hot encoding.
+    ///
+    /// # Performance
+    /// This function is not optimized for performance.
+    /// It is not recommended to call it frequently.
     fn one_hot_encode(&self, num_class: usize) -> Result<Self>
     where
         Self: Sized;
 
+    /// Compute Im2col function.
+    ///
+    /// # Arguments
+    ///
+    /// * `kernel_size` - A tuple `(kernel_height, kernel_width)` representing the dimentions of the convolution filter.
+    ///
+    ///
+    ///
+    /// * `stride_size` - A tuple `(stride_height, stride_width)` specifying the step size of the moving filter.
+    ///
+    ///
+    /// * `pad_size` - A tuple `(pad_height, pad_width)` - indicating the number of the zero-padding pixels to add each side.
+    ///
+    ///
+    /// # Examples
+    /// ```
+    /// use tensor_frame::{Tensor, TensorOps};
+    ///
+    /// let input_tensor = Tensor::from_vec(
+    ///     vec![
+    ///         1.0f32, 2.0, 3.0, 4.0,
+    ///         5.0, 6.0, 7.0, 8.0,
+    ///         9.0, 10.0, 11.0, 12.0,
+    ///         13.0, 14.0, 15.0, 16.0,],
+    ///     vec![1, 1, 4, 4],
+    /// )?;
+    ///
+    ///
+    /// let kernel_size = (2, 2);
+    /// let stride_size = (1, 1);
+    /// let pad_size = (0, 0);
+    ///
+    /// let output_tensor = input_tensor.im2col(kernel_size, stride_size, pad_size)?;
+    ///
+    /// assert_eq!(output_tensor.to_vec()?,
+    /// vec![1.0, 2.0, 3.0, 5.0, 6.0, 7.0, 9.0, 10.0, 11.0,                                      
+    ///     2.0, 3.0, 4.0, 6.0, 7.0, 8.0, 10.0, 11.0, 12.0,                                      
+    ///     5.0, 6.0, 7.0, 9.0, 10.0, 11.0, 13.0, 14.0, 15.0,                                  
+    ///     6.0, 7.0, 8.0, 10.0, 11.0, 12.0, 14.0, 15.0, 16.0]);
+    /// ```
+    ///
+    ///
+    ///
     fn im2col(
         &self,
         kernel_size: (usize, usize),
@@ -815,6 +942,50 @@ pub trait TensorOps {
     where
         Self: Sized;
 
+    /// Compute Col2im function.
+    ///
+    ///
+    /// # Arguments
+    ///
+    /// * `im_shape` - The shape of the input tensor originally passed to the `Im2col` function.
+    ///
+    /// * `kernel_size` - A tuple `(kernel_height, kernel_width)` representing the dimentions of the convolution filter.
+    ///
+    /// * `stride_size` - A tuple `(stride_height, stride_width)` specifying the step size of the moving filter.
+    ///
+    /// * `pad_size` - A tuple `(pad_height, pad_width)` - indicating the number of the zero-padding pixels to add each side.
+    ///
+    ///
+    /// # Examples
+    /// ```
+    /// use tensor_frame::{Tensor, TensorOps};
+    ///
+    /// let input_tensor = Tensor::from_vec(
+    ///    vec![
+    ///         1.0, 2.0, 3.0, 5.0, 6.0, 7.0, 9.0, 10.0, 11.0,
+    ///         2.0, 3.0, 4.0, 6.0, 7.0, 8.0, 10.0, 11.0, 12.0,
+    ///         5.0, 6.0, 7.0, 9.0, 10.0, 11.0, 13.0, 14.0, 15.0,
+    ///         6.0, 7.0, 8.0, 10.0, 11.0, 12.0, 14.0, 15.0, 16.0,
+    ///     ],
+    ///     Shape::new(vec![1, 4, 9])?,
+    /// )?;
+    ///
+    /// let kernel_size = (2, 2);
+    /// let stride_size = (1, 1);
+    /// let pad_size = (0, 0);
+    ///
+    /// let output_tensor = input_tensor.col2im([1, 1, 4, 4], kernel_size, stride_size, pad_size)?;
+    /// assert_eq!(output_tensor.to_vec()?,
+    ///     vec![
+    ///         10.0, 4.0, 6.0, 4.0,
+    ///         10.0, 24.0, 28.0, 16.0,
+    ///         18.0, 40.0, 44.0, 24.0,
+    ///         13.0, 28.0, 30.0, 16.0,]
+    /// );
+    /// ```
+    ///
+    ///
+    ///
     fn col2im(
         &self,
         im_shape: [usize; 4],
