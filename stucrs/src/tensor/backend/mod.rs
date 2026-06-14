@@ -5,7 +5,7 @@
 //! Backend abstraction for tensor operations.
 //!
 //! This module provides the backend trait and storage types that allow the tensor
-//! library to support multiple compute backends (CPU, WGPU, CUDA). The backend
+//! library to support multiple compute backends (CPU, CUDA). The backend
 //! system is designed to be extensible and allows seamless switching between
 //! different hardware accelerators.
 //!

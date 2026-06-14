@@ -209,16 +209,50 @@ impl RcVariable {
     }
 }
 
+/// A trait for functions that support automatic differentiation.
+///
+/// Types implementing this trait can evaluate the output value and compute
+/// gradients  with respect to the input variable.
+///
+/// Using structures that implement this trait, you can easily compute gradients of the inputs variables
+/// based on the theory of backpropagation even though given functions are complex.
+///
+///
+///
+/// # Examples
+/// This example demonstrates how to compute the gradients of the function `y = a × b + c`.
+/// ```
+/// use crate::core::TensorToRcVariable;
+///
+/// let a = Tensor::from_vec(vec![3.0, 3.0, 3.0], vec![3])?.rv();
+/// let b = Tensor::from_vec(vec![2.0, 2.0, 2.0], vec![3])?.rv();
+/// let c = Tensor::from_vec(vec![1.0, 1.0, 1.0], vec![3])?.rv();
+///
+/// let mut y = (a.clone() * b.clone()) + c.clone();
+///
+/// println!("c = {}", y.data()); // 7.0
+/// y.backward(false)?;
+///
+/// // Verify the computed gradients
+/// println!("a_grad = {:?}", a.grad().unwrap().data()); // 2.0
+/// println!("b_grad = {:?}", b.grad().unwrap().data()); // 3.0
+/// ```
 pub trait Function: Debug {
+    /// Create a graph dynamically and call `forward()`.
     fn call(&mut self) -> FrameResult<RcVariable>;
 
-    //  forward,backwardはVariableの数値のみを計算する
+    /// Evaluates the function at the given input or inputs.
     fn forward(&self, x: &[RcVariable]) -> FrameResult<RcVariable>;
+
+    /// Computes the  gradient at teh given input or inputs.
     fn backward(&self, gy: &RcVariable) -> FrameResult<Vec<RcVariable>>;
 
-    //　関数クラス.inputs, .outputではvariableのbackwardの中でアクセスできないので、関数にして取得
+    /// Gets the `Rc` pointer of the given inputs.
     fn get_inputs(&self) -> &[RcVariable];
+
+    /// Gets the `Rc` pointer of the outputs.
     fn get_output(&self) -> RcVariable;
+
     fn get_generation(&self) -> i32;
     fn get_id(&self) -> usize;
 }
