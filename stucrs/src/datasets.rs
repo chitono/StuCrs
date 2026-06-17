@@ -9,6 +9,7 @@ use rand::{thread_rng, Rng};
 use rand_distr::StandardNormal;
 use thiserror::Error;
 
+use cifar_ten::*;
 use mnist::*;
 
 pub trait Dataset {
@@ -191,6 +192,107 @@ fn get_mnist_data() -> FrameResult<(Tensor, Tensor, Tensor, Tensor)> {
                 })
             },
         )?;
+    Ok((train_data, train_labels, test_data, test_labels))
+}
+
+#[derive(Clone)]
+pub struct CifarTen {
+    pub train_img: Tensor,   //4次元
+    pub train_label: Tensor, //2次元
+    pub test_img: Tensor,    //4次元
+    pub test_label: Tensor,  //2次元
+}
+
+impl Dataset for CifarTen {
+    fn data_setup(&mut self) {}
+
+    /*
+    fn get_item(&self, index: i32) -> ArrayViewD<f32> {
+        self.train_img.slice(s![index, .., ..]).into_dyn()
+    }
+    */
+    fn len(&self) -> usize {
+        self.train_img.shape().dims()[0]
+    }
+}
+
+impl CifarTen {
+    pub fn new(one_hot_flag: bool) -> FrameResult<Self> {
+        let (train_img, train_label, test_img, test_label) = get_cifar10_data(one_hot_flag)?;
+        let mnist = Self {
+            train_img: train_img,
+            train_label: train_label,
+            test_img: test_img,
+            test_label: test_label,
+        };
+        Ok(mnist)
+    }
+}
+
+fn get_cifar10_data(one_hot_flag: bool) -> FrameResult<(Tensor, Tensor, Tensor, Tensor)> {
+    // Deconstruct the returned Mnist struct.
+
+    let cifarresult = Cifar10::default()
+        .download_and_extract(true)
+        .base_path("cifar10_data")
+        .download_url("https://cmoran.xyz/data/cifar/cifar-10-binary.tar.gz")
+        .encode_one_hot(one_hot_flag)
+        .build()
+        .unwrap();
+
+    let (trn_img, trn_lbl, tst_img, tst_lbl) =
+        (cifarresult.0, cifarresult.1, cifarresult.2, cifarresult.3);
+
+    let classes = if one_hot_flag { 10 } else { 1 };
+
+    // Can use an Array2 or Array3 here (Array3 for visualization)
+    let train_data = Tensor::from_vec(
+        trn_img.iter().map(|x| *x as f32 / 256.0).collect(),
+        vec![50_000, 3, 32, 32],
+    )
+    .map_err(|e| {
+        FrameError::DatasetError(DatasetError::ConvertError {
+            dataset: "CifarTen",
+            source: e,
+        })
+    })?;
+
+    //println!("{:#.1?}\n",train_data.slice(s![image_num, .., ..]));
+
+    // Convert the returned Mnist struct to Array2 format
+    let train_labels = Tensor::from_vec(
+        trn_lbl.iter().map(|x| *x as f32).collect(),
+        vec![50_000, classes],
+    )
+    .map_err(|e| {
+        FrameError::DatasetError(DatasetError::ConvertError {
+            dataset: "CifarTen",
+            source: e,
+        })
+    })?;
+    //println!("The first digit is a {:?}",train_labels.slice(s![image_num, ..]) );
+
+    let test_data = Tensor::from_vec(
+        tst_img.iter().map(|x| *x as f32 / 256.0).collect(),
+        vec![10_000, 3, 32, 32],
+    )
+    .map_err(|e| {
+        FrameError::DatasetError(DatasetError::ConvertError {
+            dataset: "CifarTen",
+            source: e,
+        })
+    })?;
+
+    let test_labels = Tensor::from_vec(
+        tst_lbl.iter().map(|x| *x as f32).collect(),
+        vec![10_000, classes],
+    )
+    .map_err(|e| {
+        FrameError::DatasetError(DatasetError::ConvertError {
+            dataset: "CifarTen",
+            source: e,
+        })
+    })?;
     Ok((train_data, train_labels, test_data, test_labels))
 }
 
