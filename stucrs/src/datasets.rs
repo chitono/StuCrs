@@ -1,11 +1,13 @@
 use crate::error::{FrameError, FrameResult};
 use crate::tensor::error::TensorError;
 
+use crate::tensor::lib::TensorOps;
 use crate::tensor::tensor::Tensor;
 use ndarray::{array, Array1, Array2, ArrayView1, ArrayView2, Axis};
 use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
 
+use image::{GrayImage, Luma, Pixel};
 use rand_distr::StandardNormal;
 use thiserror::Error;
 
@@ -128,6 +130,22 @@ impl MNIST {
             test_label: test_label,
         };
         Ok(mnist)
+    }
+
+    pub fn save_png(&self, index: usize) {
+        let img_data = self
+            .train_img
+            .axis_slice(0, &[index])
+            .unwrap()
+            .to_vec()
+            .unwrap();
+        let flat_data_u8: Vec<u8> = img_data
+            .iter()
+            .copied()
+            .map(|pixel| (pixel * 256.0) as u8)
+            .collect();
+        let img = GrayImage::from_raw(28, 28, flat_data_u8).expect("画像を出力できませんでした。");
+        img.save("mnist_img.png").unwrap();
     }
 }
 
