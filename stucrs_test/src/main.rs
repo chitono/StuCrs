@@ -3,7 +3,7 @@ use rand::*;
 use std::time::Instant;
 use stucrs::config;
 use stucrs::core::TensorToRcVariable;
-use stucrs::datasets::{tensor2d_to_one_hot, CifarTen, MNIST};
+use stucrs::datasets::CifarTen;
 use stucrs::error::FrameResult;
 use stucrs::functions::loss::softmax_cross_entropy_simple;
 use stucrs::functions::neural_funcs::tensor_accuracy;
@@ -15,8 +15,128 @@ use stucrs::optimizers::{Optimizer, SGD};
 use stucrs::tensor::ops::TensorOps;
 
 fn main() -> FrameResult<()> {
-    let cifar10 = CifarTen::new(false).unwrap();
-    cifar10.save_png(1)?;
+    let cifar10 = CifarTen::new(true).unwrap();
+    let x_train = cifar10.train_img;
+    let y_train = cifar10.train_label;
+    let x_test = cifar10.test_img;
+    let y_test = cifar10.test_label;
+
+    println!("x_tain_shape = {:?}", x_train.shape());
+    println!("y_tain_shape = {:?}", y_train.shape());
+
+    let max_epoch = 20;
+    let lr = 0.1;
+    let batch_size = 128;
+
+    let data_size = x_train.shape().dims()[0];
+    println!("data_size={}", data_size);
+
+    let mut model = BaseModel::new();
+
+    model.stack(Conv2d::new(32, (5, 5), (1, 1), (0, 0), true)?);
+    model.stack(ActivationLayer::new(Activation::Relu));
+    model.stack(Maxpool2d::new((2, 2), (2, 2), (0, 0)));
+    model.stack(Dropout::new(0.2f32));
+
+    model.stack(Conv2d::new(64, (5, 5), (1, 1), (0, 0), true)?);
+    model.stack(ActivationLayer::new(Activation::Relu));
+    model.stack(Maxpool2d::new((2, 2), (2, 2), (0, 0)));
+    model.stack(Dropout::new(0.2f32));
+
+    model.stack(Flatten::new());
+    model.stack(Dense::new(64, true, None, Activation::Relu)?);
+    model.stack(Dropout::new(0.2f32));
+    model.stack(Dense::new(32, true, None, Activation::Relu)?);
+    model.stack(Linear::new(10, true, None)?);
+
+    let mut optimizer = SGD::new(lr);
+    optimizer.setup(&model);
+    let start = Instant::now();
+
+    for epoch in 0..max_epoch {
+        let mut indices: Vec<usize> = (0..data_size).collect();
+        let mut rng = thread_rng();
+        indices.shuffle(&mut rng);
+
+        let mut sum_loss = 0.0f32;
+        let mut sum_acc = 0.0f32;
+
+        for chunk_indices in indices.chunks(batch_size) {
+            let x_batch = x_train.axis_slice(0, chunk_indices)?.rv();
+            let y_batch = y_train.axis_slice(0, chunk_indices)?.rv();
+
+            let y = model.call(&x_batch)?;
+
+            let mut loss = softmax_cross_entropy_simple(&y, &y_batch)?;
+
+            //println!("loss = {}", loss.data());
+
+            let acc = tensor_accuracy(&y.data(), &y_batch.data())?;
+            model.cleargrad();
+            loss.backward(false)?;
+
+            optimizer.update()?;
+
+            let epoch_loss = loss.data().to_vec()?[0] * (y_batch.len() as f32);
+
+            sum_loss = sum_loss + epoch_loss;
+            sum_acc = sum_acc + acc * (y_batch.len() as f32);
+        }
+
+        let average_loss = sum_loss / (data_size as f32);
+        let average_acc = sum_acc / (data_size as f32);
+
+        println!(
+            "epoch = {:?}, train_loss = {:?}, accuracy = {}",
+            epoch + 1,
+            average_loss,
+            average_acc
+        );
+
+        //推論
+        config::set_grad_false();
+        config::set_test_flag_true();
+        let test_data_size = x_test.shape().dims()[0];
+        let mut indices: Vec<usize> = (0..test_data_size).collect();
+        let mut rng = thread_rng();
+        indices.shuffle(&mut rng);
+
+        let mut sum_loss = 0.0f32;
+        let mut sum_acc = 0.0f32;
+
+        for chunk_indices in indices.chunks(batch_size) {
+            let x_batch = x_test.axis_slice(0, chunk_indices)?.rv();
+            let y_batch = y_test.axis_slice(0, chunk_indices)?.rv();
+
+            //println!("x_batch = {:?}, t_batch = {:?}", x_batch, t_batch);
+
+            let y = model.call(&x_batch)?;
+            let loss = softmax_cross_entropy_simple(&y, &y_batch)?;
+            let acc = tensor_accuracy(&y.data(), &y_batch.data())?;
+
+            let epoch_loss = loss.data().to_vec()?[0] * (x_batch.len() as f32);
+
+            sum_loss = &sum_loss + &epoch_loss;
+            sum_acc = sum_acc + acc * (y_batch.len() as f32);
+        }
+
+        let average_loss = sum_loss / (test_data_size as f32);
+        let average_acc = sum_acc / (test_data_size as f32);
+
+        println!(
+            "epoch = {:?}, test_loss = {:?}, test_accuracy = {}",
+            epoch + 1,
+            average_loss,
+            average_acc
+        );
+
+        config::set_grad_true();
+        config::set_test_flag_false();
+    }
+    let end = Instant::now();
+    let duration = end.duration_since(start);
+    println!("処理時間{:?}", duration);
+
     Ok(())
 }
 
