@@ -7,7 +7,7 @@ use ndarray::{array, Array1, Array2, ArrayView1, ArrayView2, Axis};
 use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
 
-use image::{GrayImage, Luma, Pixel};
+use image::{GrayImage, RgbImage};
 use rand_distr::StandardNormal;
 use thiserror::Error;
 
@@ -245,15 +245,29 @@ impl CifarTen {
         };
         Ok(mnist)
     }
+
+    pub fn save_png(&self, index: usize) -> FrameResult<()> {
+        let img_data = self
+            .train_img
+            .axis_slice(0, &[index])?
+            .squeeze(0)?
+            .permute(&vec![1, 2, 0])?
+            .to_vec()?;
+        let flat_data: Vec<u8> = img_data
+            .iter()
+            .copied()
+            .map(|pixel| (pixel * 256.0) as u8)
+            .collect();
+        let img = RgbImage::from_raw(32, 32, flat_data).expect("画像を出力できませんでした。");
+        img.save("cifar10_img.png").unwrap();
+        Ok(())
+    }
 }
 
 fn get_cifar10_data(one_hot_flag: bool) -> FrameResult<(Tensor, Tensor, Tensor, Tensor)> {
-    // Deconstruct the returned Mnist struct.
-
     let cifarresult = Cifar10::default()
-        .download_and_extract(true)
-        .base_path("cifar10_data")
-        .download_url("https://cmoran.xyz/data/cifar/cifar-10-binary.tar.gz")
+        .download_and_extract(false)
+        .base_path("./data/cifar-10-binary")
         .encode_one_hot(one_hot_flag)
         .build()
         .unwrap();

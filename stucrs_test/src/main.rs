@@ -3,7 +3,7 @@ use rand::*;
 use std::time::Instant;
 use stucrs::config;
 use stucrs::core::TensorToRcVariable;
-use stucrs::datasets::{tensor2d_to_one_hot, MNIST};
+use stucrs::datasets::{tensor2d_to_one_hot, CifarTen, MNIST};
 use stucrs::error::FrameResult;
 use stucrs::functions::loss::softmax_cross_entropy_simple;
 use stucrs::functions::neural_funcs::tensor_accuracy;
@@ -14,9 +14,10 @@ use stucrs::models::{BaseModel, Model};
 use stucrs::optimizers::{Optimizer, SGD};
 use stucrs::tensor::ops::TensorOps;
 
-fn main() {
-    let mnist = MNIST::new().unwrap();
-    mnist.save_png(1);
+fn main() -> FrameResult<()> {
+    let cifar10 = CifarTen::new(false).unwrap();
+    cifar10.save_png(1)?;
+    Ok(())
 }
 
 /*
