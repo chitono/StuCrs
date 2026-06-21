@@ -65,7 +65,7 @@ pub fn get_conv_outsize(
 pub fn conv2d_simple(
     input: &RcVariable,
     weight: &RcVariable,
-    _bias: Option<RcVariable>,
+    bias: Option<RcVariable>,
     stride_size: (usize, usize),
     pad_size: (usize, usize),
 ) -> FrameResult<RcVariable> {
@@ -99,7 +99,11 @@ pub fn conv2d_simple(
 
     let out = tensordot(&weights_2d, &cols)?;
 
-    let out4d = out.reshape(&Shape::new(vec![n, oc, oh, ow])?)?;
+    let mut out4d = out.reshape(&Shape::new(vec![n, oc, oh, ow])?)?;
+
+    if let Some(b) = bias {
+        out4d = out4d + b;
+    }
 
     Ok(out4d)
 }
