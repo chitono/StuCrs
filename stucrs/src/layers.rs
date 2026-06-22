@@ -535,7 +535,7 @@ impl Conv2d {
         };
 
         if biased == true {
-            let b = Tensor::zeros(vec![out_channels as usize, 1, 1])?.rv();
+            let b = Tensor::zeros(vec![1, out_channels as usize, 1, 1])?.rv();
             conv2d.b_id = Some(b.id());
             conv2d.set_params(&b.clone())?;
         }
