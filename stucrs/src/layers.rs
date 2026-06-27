@@ -38,7 +38,8 @@ pub trait Layer: Debug {
     fn call(&mut self, input: &RcVariable) -> FrameResult<RcVariable>;
     fn get_generation(&self) -> i32;
     fn get_id(&self) -> usize;
-    fn params(&mut self) -> FrameResult<&mut FxHashMap<usize, RcVariable>>;
+    fn params(&self) -> FrameResult<&FxHashMap<usize, RcVariable>>;
+    fn params_mut(&mut self) -> FrameResult<&mut FxHashMap<usize, RcVariable>>;
     fn cleargrad(&mut self);
     fn has_params(&self) -> bool;
 }
@@ -117,7 +118,11 @@ impl Layer for Linear {
     fn get_id(&self) -> usize {
         self.id
     }
-    fn params(&mut self) -> FrameResult<&mut FxHashMap<usize, RcVariable>> {
+
+    fn params(&self) -> FrameResult<&FxHashMap<usize, RcVariable>> {
+        Ok(&self.params)
+    }
+    fn params_mut(&mut self) -> FrameResult<&mut FxHashMap<usize, RcVariable>> {
         Ok(&mut self.params)
     }
 
@@ -282,7 +287,12 @@ impl Layer for Dense {
     fn get_id(&self) -> usize {
         self.id
     }
-    fn params(&mut self) -> FrameResult<&mut FxHashMap<usize, RcVariable>> {
+
+    fn params(&self) -> FrameResult<&FxHashMap<usize, RcVariable>> {
+        Ok(&self.params)
+    }
+
+    fn params_mut(&mut self) -> FrameResult<&mut FxHashMap<usize, RcVariable>> {
         Ok(&mut self.params)
     }
 
@@ -461,7 +471,11 @@ impl Layer for Conv2d {
     fn get_id(&self) -> usize {
         self.id
     }
-    fn params(&mut self) -> FrameResult<&mut FxHashMap<usize, RcVariable>> {
+
+    fn params(&self) -> FrameResult<&FxHashMap<usize, RcVariable>> {
+        Ok(&self.params)
+    }
+    fn params_mut(&mut self) -> FrameResult<&mut FxHashMap<usize, RcVariable>> {
         Ok(&mut self.params)
     }
 
@@ -619,7 +633,13 @@ impl Layer for Maxpool2d {
     fn get_id(&self) -> usize {
         self.id
     }
-    fn params(&mut self) -> FrameResult<&mut FxHashMap<usize, RcVariable>> {
+
+    fn params(&self) -> FrameResult<&FxHashMap<usize, RcVariable>> {
+        Err(FrameError::LayerError(LayerError::NoParameterError {
+            layer: ("Maxpool2d"),
+        }))
+    }
+    fn params_mut(&mut self) -> FrameResult<&mut FxHashMap<usize, RcVariable>> {
         Err(FrameError::LayerError(LayerError::NoParameterError {
             layer: ("Maxpool2d"),
         }))
@@ -730,7 +750,12 @@ impl Layer for Dropout {
     fn get_id(&self) -> usize {
         self.id
     }
-    fn params(&mut self) -> FrameResult<&mut FxHashMap<usize, RcVariable>> {
+    fn params(&self) -> FrameResult<&FxHashMap<usize, RcVariable>> {
+        Err(FrameError::LayerError(LayerError::NoParameterError {
+            layer: ("Dropout"),
+        }))
+    }
+    fn params_mut(&mut self) -> FrameResult<&mut FxHashMap<usize, RcVariable>> {
         Err(FrameError::LayerError(LayerError::NoParameterError {
             layer: ("Dropout"),
         }))
@@ -826,7 +851,13 @@ impl Layer for ActivationLayer {
     fn get_id(&self) -> usize {
         self.id
     }
-    fn params(&mut self) -> FrameResult<&mut FxHashMap<usize, RcVariable>> {
+
+    fn params(&self) -> FrameResult<&FxHashMap<usize, RcVariable>> {
+        Err(FrameError::LayerError(LayerError::NoParameterError {
+            layer: ("ActivationLayer"),
+        }))
+    }
+    fn params_mut(&mut self) -> FrameResult<&mut FxHashMap<usize, RcVariable>> {
         Err(FrameError::LayerError(LayerError::NoParameterError {
             layer: ("ActivationLayer"),
         }))
@@ -925,7 +956,13 @@ impl Layer for Flatten {
     fn get_id(&self) -> usize {
         self.id
     }
-    fn params(&mut self) -> FrameResult<&mut FxHashMap<usize, RcVariable>> {
+
+    fn params(&self) -> FrameResult<&FxHashMap<usize, RcVariable>> {
+        Err(FrameError::LayerError(LayerError::NoParameterError {
+            layer: ("Flatten"),
+        }))
+    }
+    fn params_mut(&mut self) -> FrameResult<&mut FxHashMap<usize, RcVariable>> {
         Err(FrameError::LayerError(LayerError::NoParameterError {
             layer: ("Flatten"),
         }))
@@ -1035,7 +1072,10 @@ impl Layer for RNN {
     fn get_id(&self) -> usize {
         self.id
     }
-    fn params(&mut self) -> FrameResult<&mut FxHashMap<usize, RcVariable>> {
+    fn params(&self) -> FrameResult<&FxHashMap<usize, RcVariable>> {
+        Ok(&self.params)
+    }
+    fn params_mut(&mut self) -> FrameResult<&mut FxHashMap<usize, RcVariable>> {
         Ok(&mut self.params)
     }
 
