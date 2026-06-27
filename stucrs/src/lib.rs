@@ -150,10 +150,11 @@ impl Add for RcVariable {
     type Output = RcVariable;
     fn add(self, rhs: RcVariable) -> Self::Output {
         // add_op関数はRc<RefCell<Variable>>を扱う
-        if let Ok(add_y) = add(&[self.clone(), rhs.clone()]) {
-            return add_y;
-        } else {
-            panic!("add演算子でエラーが発生しました。")
+        match add(&[self.clone(), rhs.clone()]) {
+            Ok(add_y) => add_y,
+            Err(e) => {
+                panic!("{:?}", e);
+            }
         }
     }
 }
@@ -161,10 +162,11 @@ impl Add for RcVariable {
 impl Mul for RcVariable {
     type Output = RcVariable;
     fn mul(self, rhs: RcVariable) -> Self::Output {
-        if let Ok(mul_y) = mul(&[self.clone(), rhs.clone()]) {
-            return mul_y;
-        } else {
-            panic!("mul演算子でエラーが発生しました。")
+        match mul(&[self.clone(), rhs.clone()]) {
+            Ok(mul_y) => mul_y,
+            Err(e) => {
+                panic!("{:?}", e);
+            }
         }
     }
 }
@@ -172,10 +174,11 @@ impl Mul for RcVariable {
 impl Sub for RcVariable {
     type Output = RcVariable;
     fn sub(self, rhs: RcVariable) -> Self::Output {
-        if let Ok(sub_y) = sub(&[self.clone(), rhs.clone()]) {
-            return sub_y;
-        } else {
-            panic!("sub演算子でエラーが発生しました。")
+        match sub(&[self.clone(), rhs.clone()]) {
+            Ok(sub_y) => sub_y,
+            Err(e) => {
+                panic!("{:?}", e);
+            }
         }
     }
 }
@@ -332,7 +335,7 @@ mod tests {
     #[test]
     fn back_clear_test() -> FrameResult<()> {
         let mut a = Tensor::from_vec(vec![3.0, 3.0, 3.0], vec![3])?.rv();
-        let b = Tensor::from_vec(vec![2.0, 2.0, 2.0], vec![3])?.rv();
+        let _b = Tensor::from_vec(vec![2.0, 2.0, 2.0], vec![3])?.rv();
 
         let mut c = a.clone() + a.clone();
 
@@ -653,7 +656,7 @@ mod tests {
     fn max_test() -> FrameResult<()> {
         use crate::core::TensorToRcVariable;
 
-        let a = Tensor::from_vec(vec![1.0, 2.0, 30.0, 4.0, 5.0, 6.0], vec![6])?.rv();
+        let _a = Tensor::from_vec(vec![1.0, 2.0, 30.0, 4.0, 5.0, 6.0], vec![6])?.rv();
         let b = Tensor::from_vec(vec![1.0, 5.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3])?.rv();
 
         let c = Tensor::from_vec(
@@ -906,7 +909,7 @@ mod tests {
             vec![1, 1, 4, 4],
         )?;
 
-        let input_tensor2 = Tensor::ones(Shape::new(vec![100, 3, 28, 28])?)?;
+        let _input_tensor2 = Tensor::ones(Shape::new(vec![100, 3, 28, 28])?)?;
 
         let input_array = array![[[
             [1.0f32, 2.0, 3.0, 4.0],
@@ -988,7 +991,7 @@ mod tests {
         )?
         .rv();
 
-        let input2 = Tensor::ones(vec![1, 3, 15, 15])?;
+        let _input2 = Tensor::ones(vec![1, 3, 15, 15])?;
 
         /*
         let input = array![[[
@@ -1128,7 +1131,7 @@ mod tests {
 
     #[test]
     fn dropout_layer_test() -> FrameResult<()> {
-        use crate::config::set_test_flag_true;
+        //use crate::config::set_test_flag_true;
         use crate::core::TensorToRcVariable;
         use crate::layers as L;
         use crate::models::BaseModel;
