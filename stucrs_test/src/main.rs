@@ -11,7 +11,7 @@ use stucrs::layers::{
     Activation, ActivationLayer, Conv2d, Dense, Dropout, Flatten, Linear, Maxpool2d,
 };
 use stucrs::models::{BaseModel, Model};
-use stucrs::optimizers::{Optimizer, SGD};
+use stucrs::optimizers::{MomentumSGD, Optimizer};
 use stucrs::tensor::ops::TensorOps;
 
 fn main() -> FrameResult<()> {
@@ -25,7 +25,7 @@ fn main() -> FrameResult<()> {
     println!("y_tain_shape = {:?}", y_train.shape());
 
     let max_epoch = 20;
-    let lr = 0.1;
+    let lr = 0.01;
     let batch_size = 128;
 
     let data_size = x_train.shape().dims()[0];
@@ -49,7 +49,7 @@ fn main() -> FrameResult<()> {
     model.stack(Dense::new(32, true, None, Activation::Relu)?);
     model.stack(Linear::new(10, true, None)?);
 
-    let mut optimizer = SGD::new(lr);
+    let mut optimizer = MomentumSGD::new(lr, 0.9);
     optimizer.setup(&model);
     let start = Instant::now();
 
