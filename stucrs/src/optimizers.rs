@@ -127,10 +127,10 @@ impl Optimizer for MomentumSGD {
             let new_v = Tensor::zeros(current_param_data.shape().dims.clone())?;
             self.vs.insert(param_id, new_v);
         }
-        let mut v = self.vs.get(&param_id).unwrap().clone();
-        v = (v * self.momentum.clone())?;
-        v = (v - (self.lr.clone() * param_grad)?)?;
-        let new_param_data = (current_param_data + v)?;
+        let v = self.vs.get_mut(&param_id).unwrap();
+        *v = (((*v).clone() * self.momentum.clone())? - (self.lr.clone() * param_grad)?)?;
+
+        let new_param_data = (current_param_data + v.clone())?;
 
         Ok(new_param_data)
     }

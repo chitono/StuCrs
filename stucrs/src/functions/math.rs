@@ -18,7 +18,6 @@ use crate::config::{get_grad_status, id_generator};
 use crate::core::*;
 use crate::error::{FrameError, FrameResult};
 
-use crate::functions::matrix::*;
 use crate::tensor::lib::TensorOps;
 
 #[derive(Debug, Clone)]
