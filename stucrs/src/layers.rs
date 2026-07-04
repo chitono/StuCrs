@@ -1008,10 +1008,6 @@ pub struct RNN {
     x2h: Linear,
     h2h: Linear,
     h: Option<RcVariable>,
-    out_size: u32,
-    w_id: Option<usize>,
-    b_id: Option<usize>,
-    activation: Activation,
     params: FxHashMap<usize, RcVariable>,
     generation: i32,
     id: usize,
@@ -1092,87 +1088,46 @@ impl Layer for RNN {
 
 impl RNN {
     fn forward(&mut self, x: &RcVariable) -> FrameResult<RcVariable> {
+        let h_new;
         if let Some(h_rc) = &self.h {
-            let _h_new = tanh(&(self.x2h.call(&x)? + self.h2h.call(h_rc)?))?;
-        }
-        if let None = &self.w_id {
-            let i = x.data().shape().dims()[1];
-            let o = self.out_size as usize;
-            let i_f32 = i as f32;
-
-            let w_data = Tensor::standard_normal(vec![i, o])? * ((1.0f32 / i_f32).sqrt()).ts();
-
-            let w = w_data?.rv();
-
-            self.w_id = Some(w.id());
-            self.set_params(&w.clone())?;
-        }
-
-        // フィールドでパラメータのidを保持しているので、idでパラメータを呼び出す
-        let w_id = self.w_id.unwrap();
-        let w = self.params.get(&w_id).unwrap();
-
-        //bはoption型なので、場合分け
-        let b;
-        if let Some(b_id_data) = self.b_id {
-            b = self.params.get(&b_id_data).cloned();
+            h_new = tanh(&(self.x2h.call(&x)? + self.h2h.call(h_rc)?))?;
         } else {
-            b = None;
+            h_new = tanh(&(self.x2h.call(&x)?))?;
         }
 
-        let t = linear_simple(&x, &w, &b)?;
+        self.h = Some(h_new.clone());
 
-        let y = match self.activation {
-            Activation::Sigmoid => sigmoid_simple(&t)?,
-            Activation::Relu => relu(&t)?,
-            Activation::Tanh => tanh(&t)?,
-        };
+        if self.params.is_empty() {
+            let x2h_params = self.x2h.params()?.clone();
+            let h2h_params = self.h2h.params()?.clone();
 
-        Ok(y)
+            for param in x2h_params.values().cloned() {
+                self.set_params(&param)?;
+            }
+
+            for param in h2h_params.values().cloned() {
+                self.set_params(&param)?;
+            }
+        }
+
+        Ok(h_new)
     }
 
-    pub fn new(
-        out_size: u32,
-        biased: bool,
-        opt_in_size: Option<usize>,
-        activation: Activation,
-    ) -> FrameResult<Self> {
-        let mut rnn = Self {
+    pub fn reset_state(&mut self) {
+        self.h = None;
+    }
+
+    pub fn new(hidden_size: u32, opt_in_size: Option<usize>) -> FrameResult<Self> {
+        let rnn = Self {
             input: None,
             output: None,
-            x2h: Linear::new(out_size, biased, opt_in_size)?,
-            h2h: Linear::new(out_size, false, opt_in_size)?,
+            x2h: Linear::new(hidden_size, true, opt_in_size)?,
+            h2h: Linear::new(hidden_size, false, opt_in_size)?,
             h: None,
-            out_size: out_size,
-            w_id: None,
-            b_id: None,
-            activation: activation,
             params: FxHashMap::default(),
             generation: 0,
             id: id_generator(),
         };
-
-        //in_sizeが設定されていたら、ここでWを作成
-        //されていない場合は後で作成
-        if let Some(in_size) = opt_in_size {
-            let i = in_size as usize;
-            let o = out_size as usize;
-
-            let i_f32 = in_size as f32;
-
-            let w_data = Tensor::standard_normal(vec![i, o])? * ((1.0f32 / i_f32).sqrt()).ts();
-
-            let w = w_data?.rv();
-
-            rnn.w_id = Some(w.id());
-            rnn.set_params(&w.clone())?;
-        }
-
-        if biased == true {
-            let b = Tensor::zeros(vec![out_size as usize])?.rv();
-            rnn.b_id = Some(b.id());
-            rnn.set_params(&b.clone())?;
-        }
 
         Ok(rnn)
     }

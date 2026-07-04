@@ -1205,4 +1205,24 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn rnn_layer_test() -> FrameResult<()> {
+        use crate::core::TensorToRcVariable;
+        use crate::layers as L;
+        use crate::models::BaseModel;
+
+        let mut model = BaseModel::new();
+        model.stack(L::RNN::new(10, None)?);
+
+        let input_tensor = Tensor::ones(vec![1, 1])?;
+
+        let input = input_tensor.rv();
+
+        let y = model.call(&input)?;
+
+        println!("y = {:?}", y.data().shape());
+
+        Ok(())
+    }
 }
