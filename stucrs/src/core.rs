@@ -127,8 +127,32 @@ impl Variable {
         Ok(())
     }
 
+    pub fn unchain_backward(&self) -> FrameResult<()> {
+        let mut funcs: Vec<Rc<RefCell<dyn Function>>> =
+            vec![Rc::clone(self.creator.as_ref().unwrap())];
+
+        while let Some(f_rc) = funcs.pop() {
+            let f_borrowed = f_rc.borrow();
+
+            for x in f_borrowed.get_inputs() {
+                // creatorがあるならその関数をfuncsに追加
+                let creator = { x.0.borrow().creator.clone() };
+                if let Some(func_creator) = creator {
+                    funcs.push(Rc::clone(&func_creator));
+                    x.0.borrow_mut().unchain();
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     fn cleargrad(&mut self) {
         self.grad = None;
+    }
+
+    fn unchain(&mut self) {
+        self.creator = None;
     }
 }
 
@@ -142,6 +166,11 @@ impl RcVariable {
 
     pub fn backward(&mut self, double_grad: bool) -> FrameResult<()> {
         self.0.borrow_mut().backward(double_grad)?;
+        Ok(())
+    }
+
+    pub fn unchain_backward(&self) -> FrameResult<()> {
+        self.0.borrow().unchain_backward()?;
         Ok(())
     }
 
@@ -172,6 +201,10 @@ impl RcVariable {
 
     pub fn generation(&self) -> i32 {
         self.0.borrow().generation
+    }
+
+    pub fn unchain(&mut self) {
+        self.0.borrow_mut().unchain();
     }
 
     pub fn downgrade(&self) -> Weak<RefCell<Variable>> {
