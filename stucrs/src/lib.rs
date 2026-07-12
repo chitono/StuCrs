@@ -1225,4 +1225,26 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn simple_rnn_test() -> FrameResult<()> {
+        use crate::core::TensorToRcVariable;
+        use crate::layers as L;
+        use crate::models::SimpleRNN;
+
+        let mut model = SimpleRNN::new(10, 1)?;
+        model.stack(L::RNN::new(10, None)?);
+
+        let input_tensor = Tensor::ones(vec![1, 1])?;
+
+        let input = input_tensor.rv();
+
+        let y = model.call(&input)?;
+
+        println!("y = {}", y.data());
+
+        model.reset_state();
+
+        Ok(())
+    }
 }

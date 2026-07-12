@@ -2,6 +2,7 @@ use crate::core::RcVariable;
 use crate::core::Variable;
 use crate::error::FrameResult;
 use crate::layers::Layer;
+use crate::layers::{Linear, RNN};
 
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
@@ -119,6 +120,83 @@ impl BaseModel {
             println!("epoch = {:?}, loss = {:?}", epoch + 1, average_loss);
         }
     }*/
+}
+
+#[derive(Debug, Clone)]
+pub struct SimpleRNN {
+    input: Option<Weak<RefCell<Variable>>>,
+    output: Option<Weak<RefCell<Variable>>>,
+    layers: Rc<RefCell<Vec<Box<dyn Layer + 'static>>>>,
+}
+
+impl Model for SimpleRNN {
+    fn stack(&mut self, layer: impl Layer + 'static) {
+        let add_layer = Box::new(layer);
+        self.layers.borrow_mut().push(add_layer);
+    }
+
+    fn cleargrad(&mut self) {
+        for layer in self.layers.borrow_mut().iter_mut() {
+            layer.cleargrad();
+        }
+    }
+    fn layers(&self) -> Rc<RefCell<Vec<Box<dyn Layer + 'static>>>> {
+        self.layers.clone()
+    }
+
+    fn layers_mut(&mut self) -> Rc<RefCell<Vec<Box<dyn Layer + 'static>>>> {
+        self.layers.clone()
+    }
+
+    fn forward(&mut self, x: &RcVariable) -> FrameResult<RcVariable> {
+        let mut y = x.clone();
+
+        for layer in self.layers.borrow_mut().iter_mut() {
+            let t = y;
+            y = layer.call(&t)?;
+        }
+
+        Ok(y)
+    }
+}
+
+impl SimpleRNN {
+    pub fn new(hidden_size: u32, out_size: u32) -> FrameResult<Self> {
+        let mut simplernn = SimpleRNN {
+            input: None,
+            output: None,
+            layers: Rc::new(RefCell::new(Vec::new())),
+        };
+
+        simplernn.stack(RNN::new(hidden_size, None)?);
+        simplernn.stack(Linear::new(out_size, true, None)?);
+
+        Ok(simplernn)
+    }
+
+    pub fn call(&mut self, input: &RcVariable) -> FrameResult<RcVariable> {
+        // inputのvariableからdataを取り出す
+
+        let output = self.forward(input)?;
+
+        //　inputsを覚える
+        self.input = Some(input.downgrade());
+
+        //  outputを弱参照(downgrade)で覚える
+        self.output = Some(output.downgrade());
+
+        Ok(output)
+    }
+
+    /// Resets the hidden state of RNN layers in the model.
+    pub fn reset_state(&mut self) {
+        if let Some(rnn_layer) = self.layers.borrow_mut()[0]
+            .as_any_mut()
+            .downcast_mut::<RNN>()
+        {
+            rnn_layer.reset_state();
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
