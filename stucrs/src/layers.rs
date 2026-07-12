@@ -13,6 +13,8 @@ use fxhash::FxHashMap;
 
 use std::cell::RefCell;
 
+use std::any::Any;
+
 use thiserror::Error;
 
 use std::fmt::Debug;
@@ -42,6 +44,8 @@ pub trait Layer: Debug {
     fn params_mut(&mut self) -> FrameResult<&mut FxHashMap<usize, RcVariable>>;
     fn cleargrad(&mut self);
     fn has_params(&self) -> bool;
+    fn as_any(&self) -> &dyn Any;
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
 ///線形変換(Linear)を処理するLayer構造体
@@ -134,6 +138,14 @@ impl Layer for Linear {
 
     fn has_params(&self) -> bool {
         true
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }
 
@@ -304,6 +316,13 @@ impl Layer for Dense {
 
     fn has_params(&self) -> bool {
         true
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }
 
@@ -488,6 +507,14 @@ impl Layer for Conv2d {
     fn has_params(&self) -> bool {
         true
     }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 }
 
 impl Conv2d {
@@ -650,6 +677,14 @@ impl Layer for Maxpool2d {
     fn has_params(&self) -> bool {
         false
     }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 }
 
 impl Maxpool2d {
@@ -766,6 +801,14 @@ impl Layer for Dropout {
     fn has_params(&self) -> bool {
         false
     }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 }
 
 impl Dropout {
@@ -867,6 +910,14 @@ impl Layer for ActivationLayer {
 
     fn has_params(&self) -> bool {
         false
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }
 
@@ -972,6 +1023,14 @@ impl Layer for Flatten {
 
     fn has_params(&self) -> bool {
         false
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }
 
@@ -1083,6 +1142,14 @@ impl Layer for RNN {
 
     fn has_params(&self) -> bool {
         true
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }
 
