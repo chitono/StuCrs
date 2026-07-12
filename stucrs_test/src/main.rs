@@ -1,31 +1,171 @@
+use ndarray::Array1;
+use rand::seq::SliceRandom;
+use rand::*;
+use std::thread;
+use std::time::Duration;
+use std::time::Instant;
+use stucrs::config;
+use stucrs::core::{F32ToRcVariable, TensorToRcVariable};
 use stucrs::datasets::SinCurve;
+use stucrs::error::FrameResult;
+use stucrs::functions::loss::mean_squared_error;
+use stucrs::functions::neural_funcs::tensor_accuracy;
+use stucrs::layers::{
+    Activation, ActivationLayer, Conv2d, Dense, Dropout, Flatten, Linear, Maxpool2d,
+};
+use stucrs::models::{BaseModel, Model, SimpleRNN};
+use stucrs::optimizers::{Optimizer, SGD};
+use stucrs::tensor::lib::Tensor;
+use stucrs::tensor::ops::TensorOps;
 
-use plotters::prelude::*;
+fn main() -> FrameResult<()> {
+    let train_set = SinCurve::new(true).unwrap();
+    let x_train = train_set.data;
+    let t_train = train_set.label;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 3x4の2次元行列を作成
-    // `mut`キーワードで可変にする
+    println!("x_tain_shape = {:?}", x_train.shape());
+    println!("t_tain_shape = {:?}", t_train.shape());
 
-    let sincurve = SinCurve::new(true).unwrap();
+    let max_epoch = 300;
+    let lr = 0.0005;
+    //let batch_size = 128;
 
-    //let t = sincurve.label.to_vec().unwrap();
-    let y = sincurve.data.to_vec().unwrap();
+    let hidden_size = 100;
+    let bptt_length = 30;
 
-    let root = BitMapBackend::new("sin_plot.png", (640, 480)).into_drawing_area();
-    root.fill(&WHITE)?;
+    let data_size = x_train.shape().dims()[0];
+    println!("data_size={}", data_size);
+
+    let mut model = SimpleRNN::new(hidden_size, 1)?;
+
+    let mut optimizer = SGD::new(lr);
+    optimizer.setup(&model);
+    let start = Instant::now();
+
+    for epoch in 0..max_epoch {
+        model.reset_state();
+        let mut loss = 0.0f32.rv();
+        let mut count = 0;
+
+        for index in 0..data_size {
+            let x_batch = x_train.axis_slice(0, &[index])?.rv();
+            let t_batch = t_train.axis_slice(0, &[index])?.rv();
+
+            //println!("x = {:?}", x_batch.data().shape());
+            //println!("t = {:?}", t_batch.data().shape());
+
+            let y = model.call(&x_batch)?;
+
+            //println!("y = {}", y.data());
+
+            //thread::sleep(Duration::from_secs_f32(0.1));
+
+            loss = loss + mean_squared_error(&y, &t_batch)?;
+
+            count += 1;
+
+            //println!("count  = {}", count);
+
+            if count % bptt_length == 0 || count == data_size {
+                model.cleargrad();
+                loss.backward(false)?;
+                loss.unchain_backward()?;
+                optimizer.update()?;
+            }
+        }
+
+        let average_loss = loss.data().to_vec()?[0] / (count as f32);
+
+        println!("epoch = {:?}, train_loss = {:?}", epoch + 1, average_loss,);
+
+        /*
+
+        //推論
+        config::set_grad_false();
+        config::set_test_flag_true();
+        let test_data_size = x_test.shape().dims()[0];
+        let mut indices: Vec<usize> = (0..test_data_size).collect();
+        let mut rng = thread_rng();
+        indices.shuffle(&mut rng);
+
+        let mut sum_loss = 0.0f32;
+        let mut sum_acc = 0.0f32;
+
+        for chunk_indices in indices.chunks(batch_size) {
+            let x_batch = x_test.axis_slice(0, chunk_indices)?.rv();
+            let y_batch = y_test.axis_slice(0, chunk_indices)?.rv();
+
+            //println!("x_batch = {:?}, t_batch = {:?}", x_batch, t_batch);
+
+            let y = model.call(&x_batch)?;
+            let loss = softmax_cross_entropy_simple(&y, &y_batch)?;
+            let acc = tensor_accuracy(&y.data(), &y_batch.data())?;
+
+            let epoch_loss = loss.data().to_vec()?[0] * (x_batch.len() as f32);
+
+            sum_loss = &sum_loss + &epoch_loss;
+            sum_acc = sum_acc + acc * (y_batch.len() as f32);
+        }
+
+        let average_loss = sum_loss / (test_data_size as f32);
+        let average_acc = sum_acc / (test_data_size as f32);
+
+        println!(
+            "epoch = {:?}, test_loss = {:?}, test_accuracy = {}",
+            epoch + 1,
+            average_loss,
+            average_acc
+        );
+
+        config::set_grad_true();
+        config::set_test_flag_false();
+        */
+    }
+
+    use plotters::prelude::*;
+
+    config::set_grad_false();
+    config::set_test_flag_true();
+
+    let xs_array: Array1<f32> = Array1::linspace(0.0, 4.0 * std::f32::consts::PI, 1000).cos();
+
+    let xs_tensor = Tensor::from_vec(xs_array.iter().copied().collect(), vec![1000, 1])?;
+
+    model.reset_state();
+    let mut pred_list: Vec<f32> = Vec::new();
+
+    for index in 0..1000 {
+        let x = xs_tensor.axis_slice(0, &[index])?.rv();
+        let y = model.call(&x)?;
+        let y_f32 = y.data().to_vec()?[0];
+        pred_list.push(y_f32);
+    }
+
+    println!("pred_list = {:?}", pred_list);
+
+    let root = BitMapBackend::new("cos_pre_plot.png", (640, 480)).into_drawing_area();
+    root.fill(&WHITE).unwrap();
     let mut chart = ChartBuilder::on(&root)
         .margin(20)
-        .caption("sin", ("sans-serif", 40))
-        .build_cartesian_2d(-0.0f32..1000.0, -1.0f32..1.0)?;
+        .caption("cos_pre", ("sans-serif", 40))
+        .build_cartesian_2d(0.0f32..1000.0, -1.0f32..1.0)
+        .unwrap();
 
-    chart.configure_mesh().draw()?;
-    chart.draw_series(LineSeries::new(
-        y.iter().enumerate().map(|(i, &y)| (i as f32, y)),
-        &RED,
-    ))?;
+    chart.configure_mesh().draw().unwrap();
+    chart
+        .draw_series(LineSeries::new(
+            pred_list.iter().enumerate().map(|(i, &y)| (i as f32, y)),
+            &RED,
+        ))
+        .unwrap();
+
+    let end = Instant::now();
+    let duration = end.duration_since(start);
+    println!("処理時間{:?}", duration);
 
     Ok(())
 }
+
 /*
 use rand::seq::SliceRandom;
 use rand::*;
@@ -477,4 +617,35 @@ fn main() -> FrameResult<()> {
     Ok(())
 }
 
+*/
+
+/*
+use stucrs::datasets::SinCurve;
+
+use plotters::prelude::*;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // 3x4の2次元行列を作成
+    // `mut`キーワードで可変にする
+
+    let sincurve = SinCurve::new(true).unwrap();
+
+    //let t = sincurve.label.to_vec().unwrap();
+    let y = sincurve.data.to_vec().unwrap();
+
+    let root = BitMapBackend::new("sin_plot.png", (640, 480)).into_drawing_area();
+    root.fill(&WHITE)?;
+    let mut chart = ChartBuilder::on(&root)
+        .margin(20)
+        .caption("sin", ("sans-serif", 40))
+        .build_cartesian_2d(-0.0f32..1000.0, -1.0f32..1.0)?;
+
+    chart.configure_mesh().draw()?;
+    chart.draw_series(LineSeries::new(
+        y.iter().enumerate().map(|(i, &y)| (i as f32, y)),
+        &RED,
+    ))?;
+
+    Ok(())
+}
 */
