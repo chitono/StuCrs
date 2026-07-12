@@ -1,3 +1,32 @@
+use stucrs::datasets::SinCurve;
+
+use plotters::prelude::*;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // 3x4の2次元行列を作成
+    // `mut`キーワードで可変にする
+
+    let sincurve = SinCurve::new(true).unwrap();
+
+    //let t = sincurve.label.to_vec().unwrap();
+    let y = sincurve.data.to_vec().unwrap();
+
+    let root = BitMapBackend::new("sin_plot.png", (640, 480)).into_drawing_area();
+    root.fill(&WHITE)?;
+    let mut chart = ChartBuilder::on(&root)
+        .margin(20)
+        .caption("sin", ("sans-serif", 40))
+        .build_cartesian_2d(-0.0f32..1000.0, -1.0f32..1.0)?;
+
+    chart.configure_mesh().draw()?;
+    chart.draw_series(LineSeries::new(
+        y.iter().enumerate().map(|(i, &y)| (i as f32, y)),
+        &RED,
+    ))?;
+
+    Ok(())
+}
+/*
 use rand::seq::SliceRandom;
 use rand::*;
 use std::time::Instant;
@@ -139,6 +168,8 @@ fn main() -> FrameResult<()> {
 
     Ok(())
 }
+
+    */
 
 /*
 use rand::seq::SliceRandom;

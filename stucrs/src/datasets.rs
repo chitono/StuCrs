@@ -3,12 +3,13 @@ use crate::tensor::error::TensorError;
 
 use crate::tensor::lib::TensorOps;
 use crate::tensor::tensor::Tensor;
-use ndarray::{array, Array1, Array2, ArrayView1, ArrayView2, Axis};
+use ndarray::{array, s, Array1, Array2, ArrayView1, ArrayView2, Axis};
+use ndarray_rand::RandomExt;
 use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
 
 use image::{GrayImage, RgbImage};
-use rand_distr::StandardNormal;
+use rand_distr::{StandardNormal, Uniform};
 use thiserror::Error;
 
 use cifar_ten::*;
@@ -326,6 +327,66 @@ fn get_cifar10_data(one_hot_flag: bool) -> FrameResult<(Tensor, Tensor, Tensor, 
         })
     })?;
     Ok((train_data, train_labels, test_data, test_labels))
+}
+
+pub struct SinCurve {
+    pub data: Tensor,  //2次元
+    pub label: Tensor, //1次元
+    pub train_flag: bool,
+}
+
+impl Dataset for SinCurve {
+    fn data_setup(&mut self) {}
+
+    /*
+    fn get_item(&self, index: i32) -> ArrayViewD<f32> {
+        self.data.view().into_dyn()
+    }
+    */
+    fn len(&self) -> usize {
+        self.data.shape().dims()[0]
+    }
+}
+
+impl SinCurve {
+    pub fn new(train_flag: bool) -> FrameResult<Self> {
+        let data_label = get_sincurve_data(train_flag)?;
+        let data = data_label.0;
+        let label = data_label.1;
+        let spiral = Self {
+            data: data,
+            label: label,
+            train_flag,
+        };
+        Ok(spiral)
+    }
+}
+/// Array型でデータを生成してから、Tensorに変換
+fn get_sincurve_data(train_flag: bool) -> FrameResult<(Tensor, Tensor)> {
+    let data_size = 1000;
+
+    //let normal_dist = Normal::new(0.0f32, 1.0).unwrap();
+
+    let x: Array1<f32> = Array1::linspace(0.0, 2.0 * std::f32::consts::PI, data_size);
+    let noise_range = (-0.05f32, 0.05f32);
+    let noise = Array1::random(x.dim(), Uniform::new(noise_range.0, noise_range.1));
+    let y_array1;
+    if train_flag {
+        y_array1 = x.sin() + noise;
+    } else {
+        y_array1 = x.cos();
+    }
+
+    let y_data = y_array1.slice(s![..-1]).to_owned().insert_axis(Axis(1));
+    let y_label = y_array1.slice(s![1..]).to_owned().insert_axis(Axis(1));
+
+    let y_data_shape = y_data.shape().to_vec();
+    let y_label_shape = y_label.shape().to_vec();
+
+    let y_data_tensor = Tensor::from_vec(y_data.iter().copied().collect(), y_data_shape)?;
+    let y_label_tensor = Tensor::from_vec(y_label.iter().copied().collect(), y_label_shape)?;
+
+    Ok((y_data_tensor, y_label_tensor))
 }
 
 //一つ2次元の行列と一次元の行列の対となる行が同じ位置に来るようにシャッフルして新しい二つの行列を返す
