@@ -40,8 +40,8 @@
 
 
 開発した深層学習のフレームワーク「StuCrs」の実装までのコードの説明をこちらのドキュメントで見ることができます。これを読んでぜひ一からRustでフレームワークを実装してみましょう！
-- [『StuCrsドキュメント・基礎編』](https://chitono.github.io/StuCrs/book-basic/)
-- [『StuCrsドキュメント・CNN編』](https://chitono.github.io/StuCrs/book-cnn/)
+- [『StuCrsドキュメント・基礎編』](https://chitono.github.io/StuCrs-Book/book-basic/)
+- [『StuCrsドキュメント・CNN編』](https://chitono.github.io/StuCrs-Book/book-cnn/)
 
 
 
@@ -79,7 +79,7 @@ NVIDIAのGPUで実行できる機能も提供しています。その場合はfe
 ## 実行方法
 はじめにDockerfileとcompose.yamlファイルを用いてdockerでコンテナを立ち上げてください。
 フォルダーのstucrsをダウンロードしていただき、外部クレートとしてご利用ください。また、こちらのクレートはバグといった不具合の対応が不十分だと判断し、ライブラリクレートとしては公開しておりません。またオプションとして、NVIDIAのGPUで実行できる機能も提供しています。
-詳しくは[研究の解説ドキュメント](https://chitono.github.io/StuCrs/book-basic/)をご参照ください。
+詳しくは[研究の解説ドキュメント](https://chitono.github.io/StuCrs-Book/book-basic/)をご参照ください。
 
 ## MNISTの学習の実装例
 他の学習コードなどはこちらの[examples](examples)をご覧ください。
