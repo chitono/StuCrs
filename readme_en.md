@@ -1,6 +1,6 @@
 # StuCrs: A Deep Learning Framework fully implemented from Scratch in Rust
 
->*This README is available in both Japanese and English to help bridge the gap between our local community and the global research landscape.*   
+>*To bridge insights from both domestic and global communities, we offer this READ in both Japanese and English.*   
 [日本語](README.md) / [English](readme_en.md)
 
 
@@ -14,9 +14,6 @@ It serves as an educational resource designed for "learning through reimplementa
 
 ## Philosophy
 
-
-*This project does not treat localization as a limitation,
-but as a source of new ideas and perspectives.*
 
 
 - **Learning Through Reimplementation**   
@@ -43,7 +40,7 @@ but as a source of new ideas and perspectives.*
 <br> 
 
 >**Research Vision:**       
->My goal is to foster a strong local research and developer ecosystem in Japan while contributing to the global Rust and ML communities and to introduce new theoretical perspectives in the field. I believe that strengthening local research ecosystems is the first step toward meaningful global collaboration.
+>My goal is to foster a strong local research and developer ecosystem in Japan while contributing to the global Rust and ML communities and to introduce novel theoretical and fundamental perspectives to the field. I believe that strengthening local research environment is the essential first step toward meaningful global collaboration.
 
 
 ## Background
