@@ -32,8 +32,8 @@
 ## Version 2
 
 ニューラルネットワークの種類は**Example** にあるコードです。
-- ① : [mnist_shallow_nn.rs](examples/v2/mnist_shallow_nn.rs)
-- ② : [mnist_deep_nn.rs](examples/v2/mnist_deep_nn.rs)
+- ① : [mnist_shallow_nn.rs](examples/v2/mnist_shallow_nn_v2.rs)
+- ② : [mnist_deep_nn.rs](examples/v2/mnist_deep_nn_v2.rs)
 - ③ : [mnist_shallow_cnn.rs](examples/v2/mnist_shallow_cnn_v2.rs)
 
 
